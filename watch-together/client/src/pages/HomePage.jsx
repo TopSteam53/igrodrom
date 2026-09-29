@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import Wordmark from '../components/Wordmark.jsx';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -21,28 +22,43 @@ export default function HomePage() {
   }
 
   return (
-    <div className="center-screen home">
-      <div className="card">
-        <div className="home__logo" aria-hidden="true">🍿</div>
-        <h1 className="home__title">Смотрим вместе</h1>
-        <p className="muted">
-          Создайте комнату, отправьте ссылку друзьям и смотрите видео синхронно. Без регистрации.
+    <div className="page">
+      <header className="page__top">
+        <Wordmark />
+      </header>
+
+      <main className="home">
+        <h1 className="home__title">Смотрите видео вместе, даже если вы не рядом</h1>
+        <p className="home__lead">
+          Создайте комнату, отправьте ссылку друзьям и включите видео с YouTube. Пауза и перемотка срабатывают у всех
+          одновременно.
         </p>
-        <button
-          type="button"
-          className="btn btn--primary btn--large"
-          onClick={handleCreateRoom}
-          disabled={isCreating}
-        >
-          {isCreating ? 'Создаём…' : 'Создать комнату'}
-        </button>
-        {error && <p className="error-text">{error}</p>}
-        <ul className="home__features">
-          <li>Синхронный плеер</li>
-          <li>Чат</li>
-          <li>Вход по ссылке</li>
-        </ul>
-      </div>
+        <div className="home__actions">
+          <button type="button" className="btn btn--primary btn--lg" onClick={handleCreateRoom} disabled={isCreating}>
+            {isCreating ? 'Создаём…' : 'Создать комнату'}
+          </button>
+          <span className="home__note">Без регистрации</span>
+        </div>
+        {error && <p className="field-error">{error}</p>}
+      </main>
+
+      <ol className="steps">
+        <li className="step">
+          <span className="step__n">01</span>
+          <h2 className="step__title">Комната</h2>
+          <p className="step__text">Получите короткую ссылку и отправьте её в любой мессенджер.</p>
+        </li>
+        <li className="step">
+          <span className="step__n">02</span>
+          <h2 className="step__title">Друзья</h2>
+          <p className="step__text">Заходят по ссылке и вводят ник. Аккаунты не нужны.</p>
+        </li>
+        <li className="step">
+          <span className="step__n">03</span>
+          <h2 className="step__title">Видео</h2>
+          <p className="step__text">Вставьте ссылку на YouTube. Плеер у всех идёт синхронно, рядом чат.</p>
+        </li>
+      </ol>
     </div>
   );
 }

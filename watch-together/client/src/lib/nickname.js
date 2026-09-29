@@ -2,6 +2,9 @@ const STORAGE_KEY = 'watch-together:nickname';
 
 export const MAX_NICKNAME_LENGTH = 24;
 
+// Цвета ников в чате и аватарок — подобраны под тёмный фон.
+const COLORS = ['#f2c14e', '#7fb8f0', '#f08a73', '#8fd19e', '#c9a2f2', '#f5a65b', '#6fcfc4', '#ee9bc0', '#b8cf6a'];
+
 // Приводим ник к единому виду: без лишних пробелов и не длиннее лимита.
 export function normalizeNickname(value) {
   return value.trim().replace(/\s+/g, ' ').slice(0, MAX_NICKNAME_LENGTH);
@@ -29,5 +32,5 @@ export function nicknameColor(nickname) {
   for (const char of nickname) {
     hash = (hash * 31 + char.codePointAt(0)) | 0;
   }
-  return `hsl(${Math.abs(hash) % 360} 70% 68%)`;
+  return COLORS[Math.abs(hash) % COLORS.length];
 }

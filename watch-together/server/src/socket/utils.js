@@ -13,6 +13,12 @@ export function cleanNickname(value) {
   return nickname;
 }
 
+// Позиция видео в секундах (не больше недели — хватит даже для трансляций) или null.
+export function cleanPosition(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return Math.min(Math.max(value, 0), 7 * 24 * 3600);
+}
+
 // Возвращает очищенный текст сообщения или null.
 export function cleanMessageText(value) {
   if (typeof value !== 'string') return null;

@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { formatClock } from '../lib/format.js';
 import { nicknameColor } from '../lib/nickname.js';
 
 const MAX_MESSAGE_LENGTH = 500;
 
-function formatTime(timestamp) {
-  return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-}
-
-export default function Chat({ messages, selfId, onSend, disabled }) {
+export default function Chat({ messages, selfId, onSend, disabled, className = '' }) {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState('');
@@ -15,10 +12,11 @@ export default function Chat({ messages, selfId, onSend, disabled }) {
   // Прокручиваем вниз, только если пользователь и так внизу (не мешаем читать историю).
   const stickToBottomRef = useRef(true);
 
+  // className меняется, когда на телефоне открывают вкладку чата, — тоже прокручиваем вниз.
   useEffect(() => {
     const list = listRef.current;
     if (list && stickToBottomRef.current) list.scrollTop = list.scrollHeight;
-  }, [messages]);
+  }, [messages, className]);
 
   function handleScroll() {
     const list = listRef.current;
@@ -40,51 +38,56 @@ export default function Chat({ messages, selfId, onSend, disabled }) {
     if (!response?.ok) {
       // Не отправилось — возвращаем текст, если пользователь не начал писать новый.
       setText((current) => current || trimmed);
-      setError('Сообщение не отправлено. Проверьте соединение.');
+      setError('Сообщение не отправилось. Проверьте соединение.');
     }
   }
 
   return (
-    <section className="panel chat">
-      <h2 className="panel__title chat__title">Чат</h2>
+    <section className={`chat ${className}`} aria-label="Чат">
+      <h2 className="side-title">Чат</h2>
 
-      <ul className="chat__messages" ref={listRef} onScroll={handleScroll}>
-        {messages.length === 0 && <li className="chat__empty">Сообщений пока нет. Напишите первым!</li>}
+      <ol className="chat__log" ref={listRef} onScroll={handleScroll}>
+        {messages.length === 0 && <li className="chat__empty">Сообщений пока нет.</li>}
 
         {messages.map((message) => {
+          const time = (
+            <time className="line__time" dateTime={new Date(message.createdAt).toISOString()}>
+              {formatClock(message.createdAt)}
+            </time>
+          );
+
           if (message.type === 'system') {
             return (
-              <li key={message.id} className="msg msg--system">
-                {message.text}
+              <li key={message.id} className="line line--system">
+                <p className="line__body">{message.text}</p>
+                {time}
               </li>
             );
           }
 
           const isOwn = message.author.id === selfId;
           return (
-            <li key={message.id} className={isOwn ? 'msg msg--own' : 'msg'}>
-              <div className="msg__meta">
-                {!isOwn && (
-                  <span className="msg__author" style={{ color: nicknameColor(message.author.nickname) }}>
-                    {message.author.nickname}
-                  </span>
-                )}
-                <time dateTime={new Date(message.createdAt).toISOString()}>{formatTime(message.createdAt)}</time>
-              </div>
-              <div className="msg__text">{message.text}</div>
+            <li key={message.id} className={isOwn ? 'line is-own' : 'line'}>
+              <p className="line__body">
+                <span className="line__name" style={{ color: nicknameColor(message.author.nickname) }}>
+                  {message.author.nickname}
+                </span>
+                {message.text}
+              </p>
+              {time}
             </li>
           );
         })}
-      </ul>
+      </ol>
 
-      {error && <p className="error-text chat__error">{error}</p>}
+      {error && <p className="field-error chat__error">{error}</p>}
 
-      <form className="chat__form" onSubmit={handleSubmit}>
+      <form className="composer" onSubmit={handleSubmit}>
         <input
           className="input"
           value={text}
           onChange={(event) => setText(event.target.value)}
-          placeholder={disabled ? 'Нет соединения…' : 'Сообщение'}
+          placeholder={disabled ? 'Нет соединения…' : 'Написать в чат'}
           maxLength={MAX_MESSAGE_LENGTH}
           disabled={disabled}
           enterKeyHint="send"
@@ -92,11 +95,20 @@ export default function Chat({ messages, selfId, onSend, disabled }) {
         />
         <button
           type="submit"
-          className="btn btn--primary"
+          className="btn btn--primary composer__send"
           disabled={disabled || isSending || !text.trim()}
           aria-label="Отправить"
         >
-          ➤
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+            <path
+              d="M3 10h13M11 5l5 5-5 5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
       </form>
     </section>

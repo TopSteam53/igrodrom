@@ -27,20 +27,21 @@ export default function NicknameModal({ title, submitLabel, initialValue = '', o
         <h2 id="nickname-title" className="modal__title">
           {title}
         </h2>
-        <p className="muted small">Ник увидят другие участники комнаты. Регистрация не нужна.</p>
+        <p className="modal__text">Ник увидят остальные в комнате. Регистрация не нужна.</p>
         <input
           className="input"
           value={value}
           onChange={(event) => setValue(event.target.value)}
           maxLength={MAX_NICKNAME_LENGTH}
           placeholder="Ваш ник"
+          aria-label="Ваш ник"
           autoFocus
           autoComplete="nickname"
           enterKeyHint="go"
         />
         <div className="modal__actions">
           {onCancel && (
-            <button type="button" className="btn btn--ghost" onClick={onCancel}>
+            <button type="button" className="btn btn--quiet" onClick={onCancel}>
               Отмена
             </button>
           )}

@@ -3,10 +3,13 @@ import { io } from 'socket.io-client';
 
 const MAX_MESSAGES = 200;
 
+// Отмечаем, когда состояние плеера пришло: от этого момента считаем, сколько видео проиграло.
+const stamp = (playback) => ({ ...playback, receivedAt: performance.now() });
+
 /**
- * Подключение к комнате: участники онлайн, чат и статус соединения.
- * Про видео этот хук ничего не знает. На этапе 2 синхронизация плеера
- * станет отдельным хуком, которому мы передадим тот же `socket`.
+ * Подключение к комнате: участники онлайн, чат, статус соединения.
+ * Общее состояние плеера (playback) хук только получает от сервера и отдаёт дальше —
+ * как применить его к плееру, решает usePlaybackSync.
  *
  * status: 'idle' | 'connecting' | 'joined' | 'reconnecting' | 'not_found' | 'error'
  */
@@ -16,6 +19,7 @@ export function useRoom(roomId, nickname) {
   const [self, setSelf] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [playback, setPlayback] = useState(null);
 
   // Актуальный ник нужен при переподключении, но его смена не должна пересоздавать соединение.
   const nicknameRef = useRef(nickname);
@@ -45,6 +49,7 @@ export function useRoom(roomId, nickname) {
         setSelf(response.self);
         setParticipants(response.participants);
         setMessages(response.messages);
+        setPlayback(stamp(response.playback));
         setStatus('joined');
       });
     });
@@ -58,6 +63,12 @@ export function useRoom(roomId, nickname) {
 
     newSocket.on('chat:message', (message) => {
       setMessages((prev) => [...prev, message].slice(-MAX_MESSAGES));
+    });
+
+    newSocket.on('playback:state', (state) => {
+      const next = stamp(state);
+      // Устаревшее состояние (с меньшим номером версии) пропускаем.
+      setPlayback((prev) => (prev && next.revision < prev.revision ? prev : next));
     });
 
     // Ушли со страницы комнаты — отключаемся, сервер уберёт нас из списка.
@@ -88,5 +99,5 @@ export function useRoom(roomId, nickname) {
     [socket],
   );
 
-  return { socket, status, self, participants, messages, sendMessage, rename };
+  return { socket, status, self, participants, messages, playback, sendMessage, rename };
 }

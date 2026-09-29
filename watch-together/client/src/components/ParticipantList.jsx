@@ -1,19 +1,17 @@
-import { nicknameColor } from '../lib/nickname.js';
+import Avatar from './Avatar.jsx';
 
-export default function ParticipantList({ participants, selfId }) {
+export default function ParticipantList({ participants, selfId, className = '' }) {
   return (
-    <section className="panel participants">
-      <h2 className="panel__title">
-        Онлайн <span className="counter">{participants.length}</span>
+    <section className={`people ${className}`} aria-label="Участники">
+      <h2 className="side-title">
+        В комнате <span className="side-title__count">{participants.length}</span>
       </h2>
-      <ul className="participants__list">
+      <ul className="people__list">
         {participants.map((participant) => (
-          <li key={participant.id} className="participant">
-            <span className="avatar" style={{ background: nicknameColor(participant.nickname) }}>
-              {[...participant.nickname][0].toUpperCase()}
-            </span>
-            <span className="participant__name">{participant.nickname}</span>
-            {participant.id === selfId && <span className="participant__you">вы</span>}
+          <li key={participant.id} className="person">
+            <Avatar name={participant.nickname} />
+            <span className="person__name">{participant.nickname}</span>
+            {participant.id === selfId && <span className="person__me">вы</span>}
           </li>
         ))}
       </ul>

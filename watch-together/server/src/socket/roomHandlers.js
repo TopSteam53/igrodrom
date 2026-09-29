@@ -20,11 +20,13 @@ export function registerRoomHandlers(io, socket, store) {
     const systemMessage = room.addMessage({ type: 'system', text: `${nickname} заходит в комнату` });
 
     // Новичку — всё состояние комнаты сразу, остальным — только изменения.
+    // Позицию видео сервер пересчитывает на текущий момент (см. PlaybackState.snapshot).
     reply(ack, {
       ok: true,
       self: participant,
       participants: room.getParticipants(),
       messages: room.messages,
+      playback: room.playback.snapshot(),
     });
     socket.to(room.id).emit('chat:message', systemMessage);
     socket.to(room.id).emit('room:participants', room.getParticipants());
@@ -75,6 +77,8 @@ function leaveCurrentRoom(io, socket, store) {
   console.log(`[rooms] ${participant.nickname} вышел(ла) из ${roomId} (онлайн: ${room.participants.size})`);
 
   if (room.isEmpty) {
+    // Никто не смотрит — ставим на паузу, чтобы вернувшиеся продолжили с того же места.
+    room.playback.apply('pause', room.playback.getPosition(), null);
     store.scheduleDeletion(roomId);
   }
 }

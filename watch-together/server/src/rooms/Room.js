@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { MAX_MESSAGES_PER_ROOM } from '../config.js';
+import { PlaybackState } from '../playback/PlaybackState.js';
 
-// Одна комната: участники онлайн и история чата.
+// Одна комната: участники онлайн, история чата и общий плеер.
 export class Room {
   constructor(id) {
     this.id = id;
@@ -9,8 +10,7 @@ export class Room {
     // Ключ — id сокета (одна вкладка браузера = один участник).
     this.participants = new Map();
     this.messages = [];
-    // Этап 2: здесь появится состояние воспроизведения (какое видео, играет ли, позиция).
-    // Оно будет общим для всех площадок (YouTube, Rutube, VK) и не будет зависеть от плеера.
+    this.playback = new PlaybackState();
   }
 
   get isEmpty() {

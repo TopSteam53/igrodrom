@@ -1,17 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link } from 'react-router';
+import Avatar from '../components/Avatar.jsx';
 import Chat from '../components/Chat.jsx';
 import NicknameModal from '../components/NicknameModal.jsx';
 import ParticipantList from '../components/ParticipantList.jsx';
+import Screen from '../components/Screen.jsx';
+import Wordmark from '../components/Wordmark.jsx';
 import { useRoom } from '../hooks/useRoom.js';
 import { loadNickname, saveNickname } from '../lib/nickname.js';
+import { usePlaybackSync } from '../sync/usePlaybackSync.js';
 
-export default function RoomPage() {
-  const { roomId } = useParams();
+export default function RoomPage({ roomId }) {
   const [nickname, setNickname] = useState(loadNickname);
   const [isEditingNickname, setIsEditingNickname] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [adapter, setAdapter] = useState(null); // плеер, который создал VideoPlayer
+  const [tab, setTab] = useState('chat'); // вкладка на телефоне: 'chat' | 'people'
+
   const room = useRoom(roomId, nickname);
+  const sync = usePlaybackSync({ socket: room.socket, adapter, playback: room.playback });
 
   // Через 2 секунды после копирования возвращаем кнопке обычный текст.
   useEffect(() => {
@@ -27,8 +34,17 @@ export default function RoomPage() {
     if (room.status === 'joined') room.rename(newNickname);
   }
 
-  async function handleCopyLink() {
+  async function handleInvite() {
     const url = window.location.href;
+    // На телефоне открываем системное меню «Поделиться» — сразу в Telegram, WhatsApp и т. д.
+    if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+      try {
+        await navigator.share({ title: 'Смотрим вместе', url });
+      } catch {
+        // меню просто закрыли
+      }
+      return;
+    }
     try {
       await navigator.clipboard.writeText(url);
       setIsLinkCopied(true);
@@ -45,67 +61,93 @@ export default function RoomPage() {
   if (room.status === 'not_found' || room.status === 'error') {
     const notFound = room.status === 'not_found';
     return (
-      <div className="center-screen">
-        <div className="card">
-          <h1 className="card__title">{notFound ? 'Комната не найдена' : 'Не удалось войти'}</h1>
-          <p className="muted">
+      <div className="page">
+        <header className="page__top">
+          <Wordmark />
+        </header>
+        <main className="home">
+          <h1 className="home__title home__title--small">{notFound ? 'Комната не найдена' : 'Не удалось войти'}</h1>
+          <p className="home__lead">
             {notFound
-              ? 'Ссылка неверная, или комнату удалили, потому что в ней долго никого не было.'
+              ? 'Ссылка неверная, или комнату удалили: в ней долго никого не было.'
               : 'Попробуйте обновить страницу.'}
           </p>
-          <Link to="/" className="btn btn--primary btn--large">
-            На главную
-          </Link>
-        </div>
+          <div className="home__actions">
+            <Link to="/" className="btn btn--primary btn--lg">
+              На главную
+            </Link>
+          </div>
+        </main>
       </div>
     );
   }
 
+  const isJoined = room.status === 'joined';
+
   return (
     <div className="room">
-      <header className="room-header">
-        <Link to="/" className="logo" title="На главную">
-          <span aria-hidden="true">🍿</span>
-          <span className="logo__text">Смотрим вместе</span>
-        </Link>
-        <div className="room-header__actions">
-          <button type="button" className="btn btn--small btn--primary" onClick={handleCopyLink}>
-            {isLinkCopied ? 'Скопировано ✓' : 'Ссылка на комнату'}
+      <header className="topbar">
+        <Wordmark />
+        <div className="topbar__room">
+          <span>комната</span>
+          <code className="room-code">{roomId}</code>
+        </div>
+        <div className="topbar__actions">
+          <button type="button" className="btn btn--primary btn--sm" onClick={handleInvite}>
+            {isLinkCopied ? 'Ссылка скопирована' : 'Пригласить'}
           </button>
-          <button
-            type="button"
-            className="btn btn--small btn--ghost nickname-button"
-            onClick={() => setIsEditingNickname(true)}
-            title="Сменить ник"
-          >
-            {nickname}
+          <button type="button" className="me" onClick={() => setIsEditingNickname(true)} title="Сменить ник">
+            <Avatar name={nickname} />
+            <span className="me__name">{nickname}</span>
           </button>
         </div>
       </header>
 
-      {room.status !== 'joined' && (
+      {!isJoined && (
         <div className="banner" role="status">
           {room.status === 'reconnecting' ? 'Связь потеряна, переподключаемся…' : 'Подключаемся к комнате…'}
         </div>
       )}
 
-      <main className="room-layout">
-        <section className="stage">
-          {/* Этап 2: здесь будет плеер. Он будет получать команды от модуля синхронизации. */}
-          <div className="stage__placeholder">
-            <div className="stage__icon" aria-hidden="true">▶</div>
-            <p>Здесь будет видео</p>
-            <p className="muted small">Комната {roomId}</p>
-          </div>
+      <main className="room__main">
+        <section className="room__stage">
+          <Screen
+            playback={room.playback}
+            adapter={adapter}
+            onAdapter={setAdapter}
+            isOutOfSync={sync.isOutOfSync}
+            onJoin={sync.joinPlayback}
+            onLoadVideo={sync.loadVideo}
+            disabled={!isJoined}
+          />
         </section>
 
-        <aside className="sidebar">
-          <ParticipantList participants={room.participants} selfId={room.self?.id} />
+        <aside className="room__side">
+          <div className="side-tabs" role="tablist">
+            <button type="button" role="tab" className="side-tab" aria-selected={tab === 'chat'} onClick={() => setTab('chat')}>
+              Чат
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className="side-tab"
+              aria-selected={tab === 'people'}
+              onClick={() => setTab('people')}
+            >
+              В комнате · {room.participants.length}
+            </button>
+          </div>
+          <ParticipantList
+            className={tab === 'people' ? 'side-panel is-active' : 'side-panel'}
+            participants={room.participants}
+            selfId={room.self?.id}
+          />
           <Chat
+            className={tab === 'chat' ? 'side-panel is-active' : 'side-panel'}
             messages={room.messages}
             selfId={room.self?.id}
             onSend={room.sendMessage}
-            disabled={room.status !== 'joined'}
+            disabled={!isJoined}
           />
         </aside>
       </main>
