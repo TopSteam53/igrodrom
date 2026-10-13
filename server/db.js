@@ -95,11 +95,30 @@ export function openDb(file) {
       updated_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS developer_applications_by_status ON developer_applications(status, updated_at);
+
+    -- Журнал решений модераторов и изменений команды: кто, что, когда и почему.
+    CREATE TABLE IF NOT EXISTS moderation_log (
+      id           INTEGER PRIMARY KEY,
+      actor_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      actor_name   TEXT NOT NULL,         -- имя на момент решения: журнал не меняется задним числом
+      action       TEXT NOT NULL,         -- game.approve | game.reject | game.delete | developer.approve | developer.reject | team.add | team.remove
+      target_id    TEXT NOT NULL,
+      target_title TEXT NOT NULL,
+      reason       TEXT,
+      created_at   INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS moderation_log_by_time ON moderation_log(created_at);
   `);
 
   // Колонки, добавленные после первых версий: старые базы дополняются при запуске.
-  const columns = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
-  const addColumn = (name, ddl) => { if (!columns.includes(name)) db.exec(`ALTER TABLE games ADD COLUMN ${name} ${ddl}`); };
+  const addColumnTo = (table) => {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+    return (name, ddl) => { if (!columns.includes(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`); };
+  };
+  const addUserColumn = addColumnTo('users');
+  addUserColumn('role', "TEXT NOT NULL DEFAULT 'player'"); // player | moderator; владельцы — из ADMIN_EMAILS
+  addUserColumn('role_since', 'INTEGER');
+  const addColumn = addColumnTo('games');
   addColumn('file_count', 'INTEGER NOT NULL DEFAULT 1');
   addColumn('description', "TEXT NOT NULL DEFAULT ''");
   addColumn('how_to_play', "TEXT NOT NULL DEFAULT ''");

@@ -58,7 +58,10 @@ me().then(async (user) => {
   if (!user) { location.replace('login.html?next=account.html'); return; }
   $('name').textContent = user.name;
   $('email').textContent = user.email;
-  $('dev').innerHTML = DEV[user.canPublish ? 'approved' : user.developer]();
+  $('dev').innerHTML = DEV[user.canPublish ? 'approved' : user.developer]() + (user.canModerate
+    ? `<h3 style="margin-top:20px">Вы ${user.isAdmin ? 'владелец площадки' : 'модератор'}</h3>
+       <p>Заявки разработчиков, проверка игр и журнал решений — в кабинете, раздел «Модерация».</p>
+       <a class="btn" href="cabinet.html">Открыть модерацию</a>` : '');
   const { games } = await (await fetch('/api/me/recent')).json();
   $('recent').innerHTML = games.length ? games.map(fromApi).map(cardHTML).join('')
     : `<div class="empty"><p>Здесь появятся игры, в которых у вас есть сохранённый прогресс.</p>

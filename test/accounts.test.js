@@ -166,3 +166,57 @@ test('«Продолжить играть» на главной: и гостю, 
   await guest('POST', '/api/register', { email: 'recent@test.ru', password: 'secret123', name: 'Недавний' });
   assert.deepEqual((await guest('GET', '/api/recent')).data.games.map((g) => g.id), [alpha.id], 'после входа — из аккаунта');
 });
+
+test('модератор: назначение из админки, права, журнал, снятие', async () => {
+  // Владелец (почта в ADMIN_EMAILS) — admin из первого теста.
+  const mod = browser();
+  await mod('POST', '/api/register', { email: 'mod@test.ru', password: 'secret123', name: 'Модер' });
+  assert.equal((await mod('GET', '/api/admin/games')).status, 403, 'до назначения — обычный игрок');
+
+  assert.equal((await mod('POST', '/api/admin/team', { email: 'mod@test.ru' })).status, 403, 'назначать может только владелец');
+  assert.equal((await admin('POST', '/api/admin/team', { email: 'nobody@test.ru' })).status, 404, 'только зарегистрированных');
+  assert.equal((await admin('POST', '/api/admin/team', { email: 'admin@test.ru' })).status, 409, 'владелец уже со всеми правами');
+  assert.equal((await admin('POST', '/api/admin/team', { email: 'Mod@Test.ru' })).status, 201);
+  assert.equal((await admin('POST', '/api/admin/team', { email: 'mod@test.ru' })).status, 409, 'повторно');
+
+  let me = (await mod('GET', '/api/me')).data.user;
+  assert.equal(me.role, 'moderator');
+  assert.equal(me.canModerate, true);
+  assert.equal(me.canPublish, false, 'публиковать свои игры — только с заявкой разработчика');
+  assert.equal((await mod('GET', '/api/admin/team')).status, 403, 'команду видит только владелец');
+
+  // Разработчик присылает игру, модератор отклоняет без причины — нельзя, с причиной — можно.
+  const dev = browser();
+  await dev('POST', '/api/register', { email: 'dev2@test.ru', password: 'secret123', name: 'Дев2' });
+  await dev('POST', '/api/developer/application', APP);
+  const devId = (await dev('GET', '/api/me')).data.user.id;
+  assert.equal((await mod('POST', `/api/admin/developers/${devId}`, { action: 'approve' })).status, 200, 'модератор одобряет заявки');
+  const game = (await upload(dev)).data.game;
+  assert.equal((await mod('POST', `/api/admin/games/${game.id}`, { action: 'reject' })).status, 400);
+  assert.equal((await mod('POST', `/api/admin/games/${game.id}`, { action: 'reject', reason: 'Чёрный экран' })).status, 200);
+  assert.equal((await mod('POST', `/api/admin/games/${game.id}`, { action: 'approve' })).status, 200);
+  assert.equal((await mod('DELETE', `/api/games/${game.id}`)).status, 404, 'удалять чужие игры может только владелец');
+
+  // Свою заявку и свою игру модератор не проверяет.
+  await mod('POST', '/api/developer/application', APP);
+  assert.equal((await mod('POST', `/api/admin/developers/${me.id}`, { action: 'approve' })).status, 403);
+  await admin('POST', `/api/admin/developers/${me.id}`, { action: 'approve' });
+  const own = (await upload(mod)).data.game;
+  assert.equal((await mod('POST', `/api/admin/games/${own.id}`, { action: 'approve' })).status, 403);
+
+  const log = (await mod('GET', '/api/admin/log')).data.entries;
+  const actions = log.filter((e) => e.actor_name === 'Модер').map((e) => e.action);
+  assert.deepEqual(actions, ['game.approve', 'game.reject', 'developer.approve'], 'новые сверху');
+  assert.equal(log.find((e) => e.action === 'game.reject').reason, 'Чёрный экран');
+  assert.ok(log.some((e) => e.action === 'team.add' && e.target_title.includes('mod@test.ru')));
+
+  const team = (await admin('GET', '/api/admin/team')).data;
+  assert.deepEqual(team.owners.map((o) => o.email), ['admin@test.ru']);
+  const row = team.moderators.find((m) => m.email === 'mod@test.ru');
+  assert.equal(row.decisions, 3);
+
+  assert.equal((await admin('DELETE', `/api/admin/team/${me.id}`)).status, 200);
+  assert.equal((await mod('GET', '/api/admin/games')).status, 403, 'доступ пропадает сразу, без перелогина');
+  me = (await mod('GET', '/api/me')).data.user;
+  assert.equal(me.role, 'player');
+});

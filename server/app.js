@@ -77,8 +77,9 @@ export function createApp({
 
   const q = {
     userByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
+    userById: db.prepare('SELECT * FROM users WHERE id = ?'),
     insertUser: db.prepare('INSERT INTO users (email, name, pass_hash, created_at) VALUES (?, ?, ?, ?)'),
-    sessionUser: db.prepare(`SELECT u.id, u.email, u.name FROM sessions s JOIN users u ON u.id = s.user_id
+    sessionUser: db.prepare(`SELECT u.id, u.email, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id
                              WHERE s.token_hash = ? AND s.expires_at > ?`),
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
@@ -123,8 +124,8 @@ export function createApp({
     grandfatherAuthors: db.prepare(`INSERT OR IGNORE INTO developer_applications (user_id, studio, about, status, created_at, updated_at)
                                     SELECT DISTINCT u.id, u.name, 'Публиковал игры до введения заявок', 'approved', ?, ?
                                     FROM users u JOIN games g ON g.author_id = u.id`),
-    gamesByStatus: db.prepare(`SELECT g.id, g.title, g.genre, g.status, g.size, g.file_count, g.created_at,
-                               u.name AS author, u.email AS author_email
+    gamesByStatus: db.prepare(`SELECT g.id, g.title, g.genre, g.status, g.size, g.file_count, g.created_at, g.reject_reason,
+                               g.author_id, u.name AS author, u.email AS author_email
                                FROM games g JOIN users u ON u.id = g.author_id
                                WHERE g.status = ? ORDER BY g.created_at ASC LIMIT 200`),
     game: db.prepare('SELECT * FROM games WHERE id = ?'),
@@ -132,9 +133,32 @@ export function createApp({
                             VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`),
     setStatus: db.prepare('UPDATE games SET status = ?, reject_reason = ?, updated_at = ? WHERE id = ?'),
     deleteGame: db.prepare('DELETE FROM games WHERE id = ?'),
+    setRole: db.prepare('UPDATE users SET role = ?, role_since = ? WHERE id = ?'),
+    moderators: db.prepare(`SELECT u.id, u.name, u.email, u.role_since,
+                              (SELECT COUNT(*) FROM moderation_log l WHERE l.actor_id = u.id AND l.action NOT LIKE 'team.%') AS decisions
+                            FROM users u WHERE u.role = 'moderator' ORDER BY u.role_since`),
+    logInsert: db.prepare(`INSERT INTO moderation_log (actor_id, actor_name, action, target_id, target_title, reason, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?)`),
+    logRecent: db.prepare('SELECT * FROM moderation_log ORDER BY created_at DESC, id DESC LIMIT ?'),
   };
 
-  const isAdmin = (user) => !!user && admins.has(user.email);
+  // Роли: владелец — почта в ADMIN_EMAILS (может всё, включая команду); модератор — назначает владелец
+  // в кабинете (проверяет заявки и игры); остальные — игроки, а с одобренной заявкой ещё и разработчики.
+  const isAdmin = (user) => !!user && admins.has(user.email); // владелец
+  const isModerator = (user) => !!user && (isAdmin(user) || user.role === 'moderator');
+  const roleOf = (user) => (isAdmin(user) ? 'owner' : user.role === 'moderator' ? 'moderator' : 'player');
+  function requireModerator(req) {
+    const user = requireUser(req);
+    if (!isModerator(user)) throw new HttpError(403, 'Только для модераторов');
+    return user;
+  }
+  function requireOwner(req) {
+    const user = requireUser(req);
+    if (!isAdmin(user)) throw new HttpError(403, 'Только для владельца площадки');
+    return user;
+  }
+  const logAction = (actor, action, targetId, title, reason = null) =>
+    q.logInsert.run(actor.id, actor.name, action, String(targetId), title, reason, Date.now());
   const gameDir = (id) => path.join(gamesDir, id);
   if (seedDemoGames) seedDemo();
   q.grandfatherAuthors.run(Date.now(), Date.now());
@@ -297,7 +321,8 @@ export function createApp({
   const developerStatus = (u) => q.application.get(u.id)?.status || 'none';
   const canPublish = (u) => isAdmin(u) || developerStatus(u) === 'approved';
   const publicUser = (u) => ({
-    id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), developer: developerStatus(u), canPublish: canPublish(u),
+    id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
+    developer: developerStatus(u), canPublish: canPublish(u),
   });
 
   function requireDeveloper(req) {
@@ -436,19 +461,29 @@ export function createApp({
     const user = requireUser(req);
     const game = q.game.get(id);
     if (!game || (game.author_id !== user.id && !isAdmin(user))) throw new HttpError(404, 'Игра не найдена');
+    if (game.author_id !== user.id) logAction(user, 'game.delete', id, game.title);
     q.deleteGame.run(id);
     await fs.promises.rm(gameDir(id), { recursive: true, force: true });
     send(res, 200, { ok: true });
   }
 
   async function moderate(req, res, id) {
-    const user = requireUser(req);
-    if (!isAdmin(user)) throw new HttpError(403, 'Только для модераторов');
+    const user = requireModerator(req);
     const { action, reason } = await readJson(req);
-    if (!q.game.get(id)) throw new HttpError(404, 'Игра не найдена');
-    if (action === 'approve') q.setStatus.run('approved', null, Date.now(), id);
-    else if (action === 'reject') q.setStatus.run('rejected', String(reason || 'Без пояснения').slice(0, 300), Date.now(), id);
-    else throw new HttpError(400, 'action: approve или reject');
+    const game = q.game.get(id);
+    if (!game) throw new HttpError(404, 'Игра не найдена');
+    // Свою игру модератор не проверяет: это делает другой модератор или владелец.
+    if (game.author_id === user.id && !isAdmin(user)) throw new HttpError(403, 'Свою игру проверяет другой модератор');
+    if (action === 'approve') {
+      q.setStatus.run('approved', null, Date.now(), id);
+      logAction(user, 'game.approve', id, game.title);
+    } else if (action === 'reject') {
+      // Отказ и снятие с публикации — всегда с причиной: её увидит разработчик.
+      const why = String(reason || '').trim();
+      if (why.length < 3) throw new HttpError(400, 'Напишите причину — её увидит разработчик');
+      q.setStatus.run('rejected', why.slice(0, 300), Date.now(), id);
+      logAction(user, 'game.reject', id, game.title, why.slice(0, 300));
+    } else throw new HttpError(400, 'action: approve или reject');
     send(res, 200, { ok: true });
   }
 
@@ -518,17 +553,52 @@ export function createApp({
   }
 
   async function reviewDeveloper(req, res, userId) {
-    const admin = requireUser(req);
-    if (!isAdmin(admin)) throw new HttpError(403, 'Только для модераторов');
+    const admin = requireModerator(req);
     const { action, reason } = await readJson(req);
     const app = q.application.get(userId);
     if (!app) throw new HttpError(404, 'Заявка не найдена');
-    if (action === 'approve') q.setApplicationStatus.run('approved', null, now(), userId);
-    else if (action === 'reject') {
+    if (userId === admin.id && !isAdmin(admin)) throw new HttpError(403, 'Свою заявку проверяет другой модератор');
+    if (action === 'approve') {
+      q.setApplicationStatus.run('approved', null, now(), userId);
+      logAction(admin, 'developer.approve', userId, app.studio);
+    } else if (action === 'reject') {
       const why = String(reason || '').trim();
       if (why.length < 3) throw new HttpError(400, 'Напишите причину отказа — её увидит заявитель');
       q.setApplicationStatus.run('rejected', why.slice(0, 500), now(), userId);
+      logAction(admin, 'developer.reject', userId, app.studio, why.slice(0, 500));
     } else throw new HttpError(400, 'action: approve или reject');
+    send(res, 200, { ok: true });
+  }
+
+  // ---------- команда: модераторов назначает владелец ----------
+  function teamList(req, res) {
+    requireOwner(req);
+    const owners = [...admins].map((email) => {
+      const u = q.userByEmail.get(email);
+      return { email, name: u ? u.name : null, registered: !!u };
+    });
+    send(res, 200, { owners, moderators: q.moderators.all() });
+  }
+
+  async function teamAdd(req, res) {
+    const owner = requireOwner(req);
+    const email = String((await readJson(req)).email || '').trim().toLowerCase();
+    const user = q.userByEmail.get(email);
+    // Модератором можно сделать только зарегистрированного: так у него уже есть пароль, а у нас — имя для журнала.
+    if (!user || email === STUDIO_EMAIL) throw new HttpError(404, 'Нет аккаунта с такой почтой: пусть человек сначала зарегистрируется');
+    if (isAdmin(user)) throw new HttpError(409, 'Это владелец площадки, у него и так все права');
+    if (user.role === 'moderator') throw new HttpError(409, 'Уже модератор');
+    q.setRole.run('moderator', Date.now(), user.id);
+    logAction(owner, 'team.add', user.id, `${user.name} (${user.email})`);
+    send(res, 201, { moderator: { id: user.id, name: user.name, email: user.email } });
+  }
+
+  function teamRemove(req, res, userId) {
+    const owner = requireOwner(req);
+    const user = q.userById.get(userId);
+    if (!user || user.role !== 'moderator') throw new HttpError(404, 'Такого модератора нет');
+    q.setRole.run('player', null, user.id);
+    logAction(owner, 'team.remove', user.id, `${user.name} (${user.email})`);
     send(res, 200, { ok: true });
   }
 
@@ -698,8 +768,7 @@ export function createApp({
     }
     if (p === '/api/developer/application' && m === 'POST') return applyDeveloper(req, res);
     if (p === '/api/admin/developers' && m === 'GET') {
-      const admin = requireUser(req);
-      if (!isAdmin(admin)) throw new HttpError(403, 'Только для модераторов');
+      requireModerator(req);
       const status = url.searchParams.get('status') || 'pending';
       if (!['pending', 'approved', 'rejected'].includes(status)) throw new HttpError(400, 'Неизвестный статус');
       return send(res, 200, {
@@ -730,12 +799,19 @@ export function createApp({
     }
     if ((mm = p.match(/^\/api\/admin\/games\/([0-9a-f]{16})$/)) && m === 'POST') return moderate(req, res, mm[1]);
     if (p === '/api/admin/games' && m === 'GET') {
-      const user = requireUser(req);
-      if (!isAdmin(user)) throw new HttpError(403, 'Только для модераторов');
+      requireModerator(req);
       const status = url.searchParams.get('status') || 'pending';
       if (!['pending', 'approved', 'rejected'].includes(status)) throw new HttpError(400, 'Неизвестный статус');
       return send(res, 200, { games: withPreview(q.gamesByStatus.all(status)) });
     }
+    if (p === '/api/admin/log' && m === 'GET') {
+      requireModerator(req);
+      const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit')) || 100));
+      return send(res, 200, { entries: q.logRecent.all(limit) });
+    }
+    if (p === '/api/admin/team' && m === 'GET') return teamList(req, res);
+    if (p === '/api/admin/team' && m === 'POST') return teamAdd(req, res);
+    if ((mm = p.match(/^\/api\/admin\/team\/(\d+)$/)) && m === 'DELETE') return teamRemove(req, res, Number(mm[1]));
     const isRead = m === 'GET' || m === 'HEAD';
     if ((mm = p.match(/^\/(play\/[0-9a-f]{16}|preview\/[0-9a-f]{16}\.\d+\.[0-9a-f]{32})$/)) && isRead) {
       // Relative paths inside the game resolve against the folder, so it needs a trailing slash.

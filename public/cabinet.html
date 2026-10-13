@@ -22,18 +22,54 @@
 <!-- Кабинет -->
 <main id="cabinet" class="w hidden">
   <section id="admin" class="hidden">
-    <h2>Заявки разработчиков</h2>
-    <div class="tabs" id="devTabs">
-      <span class="tab on" data-s="pending">Новые</span><span class="tab" data-s="approved">Одобрены</span><span class="tab" data-s="rejected">Отклонены</span>
+    <div class="mod-head">
+      <h2>Модерация</h2><span class="badge role" id="roleBadge"></span>
     </div>
-    <div class="rows" id="devQueue"></div>
+    <nav class="mod-nav" id="modNav" aria-label="Разделы модерации">
+      <button class="on" data-pane="games">Игры <span class="count" id="cntGames"></span></button>
+      <button data-pane="devs">Заявки разработчиков <span class="count" id="cntDevs"></span></button>
+      <button data-pane="log">Журнал</button>
+      <button data-pane="team" id="teamTab" class="hidden">Команда</button>
+    </nav>
 
-    <h2>Модерация игр</h2>
-    <div class="tabs" id="admTabs">
-      <span class="tab on" data-s="pending">На проверке</span><span class="tab" data-s="approved">Опубликованы</span><span class="tab" data-s="rejected">Отклонены</span>
+    <div class="mod-pane" id="pane-games">
+      <div class="tabs" id="admTabs">
+        <span class="tab on" data-s="pending">На проверке</span><span class="tab" data-s="approved">Опубликованы</span><span class="tab" data-s="rejected">Отклонены</span>
+      </div>
+      <div class="rows" id="queue"></div>
     </div>
-    <div class="rows" id="queue"></div>
+
+    <div class="mod-pane hidden" id="pane-devs">
+      <div class="tabs" id="devTabs">
+        <span class="tab on" data-s="pending">Новые</span><span class="tab" data-s="approved">Одобрены</span><span class="tab" data-s="rejected">Отклонены</span>
+      </div>
+      <div class="rows" id="devQueue"></div>
+    </div>
+
+    <div class="mod-pane hidden" id="pane-log">
+      <p class="mut">Последние 100 решений: кто, что и почему. Журнал видят все модераторы.</p>
+      <div class="rows" id="log"></div>
+    </div>
+
+    <div class="mod-pane hidden" id="pane-team">
+      <p class="mut">Модератор проверяет заявки разработчиков и игры. Удалять игры и менять команду может только владелец.
+        Человек должен сначала зарегистрироваться на сайте — назначайте его по почте аккаунта.</p>
+      <form class="team-add" id="teamForm">
+        <input type="email" id="teamEmail" placeholder="Почта аккаунта" aria-label="Почта аккаунта" required>
+        <button class="btn primary">Назначить модератором</button>
+      </form>
+      <div class="err-text" id="teamErr"></div>
+      <div class="rows" id="team"></div>
+    </div>
   </section>
+
+  <div id="devNote" class="panel hidden" style="margin-top:28px">
+    <h3 style="margin:0 0 6px">Свои игры</h3>
+    <p class="mut" style="margin:0 0 14px">Чтобы публиковать собственные игры, подайте заявку разработчика — её проверит другой модератор.</p>
+    <button class="btn" id="devNoteBtn">Подать заявку</button>
+  </div>
+
+  <div id="devArea">
   <section id="stats">
     <div class="stats-head">
       <h2>Статистика</h2>
@@ -77,6 +113,7 @@
 
   <h2>Мои игры</h2>
   <div class="rows" id="mine"></div>
+  </div>
 
 </main>
 
@@ -160,6 +197,7 @@ const linkify = (text) => String(text || '').split(/(\s+)/).map((t) =>
 let devStatus = 'pending';
 async function loadDevQueue() {
   const { applications } = await api('GET', `/api/admin/developers?status=${devStatus}`);
+  if (devStatus === 'pending') $('cntDevs').textContent = applications.length || '';
   $('devQueue').innerHTML = applications.length ? applications.map((a) => `
     <div class="row"><div class="t"><b>${esc(a.studio)}</b>
       <span class="facts-line"><span>${esc(a.name)}, ${esc(a.email)}</span><span>${esc(a.contact)}</span><span>${date(a.updated_at)}</span></span>
@@ -186,6 +224,7 @@ $('devQueue').onclick = async (e) => {
     await api('POST', `/api/admin/developers/${id}`, { action: dev, reason });
     toast(dev === 'approve' ? 'Разработчик одобрен' : 'Заявка отклонена');
     loadDevQueue();
+    loadLog();
   } catch (err) { toast(err.message, true); }
 };
 
@@ -207,7 +246,7 @@ $('upForm').onsubmit = async (e) => {
     toast(yandexSdk ? 'Игра отправлена на модерацию. Нашли Яндекс SDK и подключили совместимый' : 'Игра отправлена на модерацию');
     loadMine();
     loadStats();
-    if (me && me.isAdmin) loadQueue();
+    if (me && me.canModerate) loadQueue();
   } catch (err) { $('upErr').textContent = err.message; }
   $('upBtn').disabled = false; $('upBtn').textContent = 'Отправить на модерацию';
 };
@@ -261,12 +300,17 @@ $('mine').onsubmit = async (e) => {
 let admStatus = 'pending';
 async function loadQueue() {
   const { games } = await api('GET', `/api/admin/games?status=${admStatus}`);
+  if (admStatus === 'pending') $('cntGames').textContent = games.length || '';
+  // Свою игру модератор не проверяет — кнопок нет, сервер тоже не даст.
+  const own = (g) => g.author_id === me.id && !me.isAdmin;
   $('queue').innerHTML = games.length ? games.map((g) => `
     <div class="row"><div class="t"><b>${esc(g.title)}</b>
-      <span class="facts-line"><span>${esc(g.genre)}</span><span>${esc(g.author)}, ${esc(g.author_email)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${date(g.created_at)}</span></span></div>
+      <span class="facts-line"><span>${esc(g.genre)}</span><span>${esc(g.author)}, ${esc(g.author_email)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${date(g.created_at)}</span></span>
+      ${g.status === 'rejected' && g.reject_reason ? `<p class="reject-reason">Причина: ${esc(g.reject_reason)}</p>` : ''}</div>
       <div class="acts"><a class="btn sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить</a>
-      ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Одобрить</button>` : ''}
-      ${g.status !== 'rejected' ? `<button class="btn bad sm" data-act="reject" data-id="${g.id}">Отклонить</button>` : ''}</div></div>`).join('')
+      ${own(g) ? '<span class="mut">Ваша игра — проверит другой модератор</span>' : `
+      ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Опубликовать</button>` : ''}
+      ${g.status !== 'rejected' ? `<button class="btn bad sm" data-act="reject" data-id="${g.id}">${g.status === 'approved' ? 'Снять с публикации' : 'Отклонить'}</button>` : ''}`}</div></div>`).join('')
     : '<p class="mut">Пусто.</p>';
 }
 $('admTabs').onclick = (e) => {
@@ -279,8 +323,66 @@ $('queue').onclick = async (e) => {
   const { act, id } = e.target.dataset;
   if (!act) return;
   let reason;
-  if (act === 'reject' && (reason = prompt('Причина отклонения (увидит разработчик):')) === null) return;
-  try { await api('POST', `/api/admin/games/${id}`, { action: act, reason }); toast(act === 'approve' ? 'Опубликовано' : 'Отклонено'); loadQueue(); }
+  if (act === 'reject' && (reason = prompt('Причина (её увидит разработчик):')) === null) return;
+  try { await api('POST', `/api/admin/games/${id}`, { action: act, reason }); toast(act === 'approve' ? 'Опубликовано' : 'Отклонено'); loadQueue(); loadLog(); }
+  catch (err) { toast(err.message, true); }
+};
+
+// ---------- разделы модерации ----------
+$('modNav').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  document.querySelectorAll('#modNav button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.mod-pane').forEach((x) => x.classList.toggle('hidden', x.id !== `pane-${b.dataset.pane}`));
+  if (b.dataset.pane === 'log') loadLog();
+  if (b.dataset.pane === 'team') loadTeam();
+};
+
+// ---------- журнал ----------
+const ACTIONS = {
+  // Без глаголов прошедшего времени: пол модератора мы не знаем.
+  'game.approve': 'публикация игры', 'game.reject': 'отклонение игры', 'game.delete': 'удаление игры',
+  'developer.approve': 'одобрение разработчика', 'developer.reject': 'отказ в заявке разработчика',
+  'team.add': 'назначение модератором', 'team.remove': 'снятие с модераторов',
+};
+const when = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+async function loadLog() {
+  if (!me || !me.canModerate) return;
+  const { entries } = await api('GET', '/api/admin/log');
+  $('log').innerHTML = entries.length ? entries.map((e) => `
+    <div class="row log-row"><span class="log-time">${when(e.created_at)}</span>
+      <div class="t"><b>${esc(e.actor_name)}</b>: ${ACTIONS[e.action] || esc(e.action)} «${esc(e.target_title)}»
+      ${e.reason ? `<span class="facts-line">Причина: ${esc(e.reason)}</span>` : ''}</div></div>`).join('')
+    : '<p class="mut">Решений пока не было.</p>';
+}
+
+// ---------- команда (только владелец) ----------
+async function loadTeam() {
+  const { owners, moderators } = await api('GET', '/api/admin/team');
+  $('team').innerHTML = [
+    ...owners.map((o) => `<div class="row"><div class="t"><b>${esc(o.name || o.email)}</b>
+      <span class="facts-line"><span>${esc(o.email)}</span>${o.registered ? '' : '<span>ещё не зарегистрирован</span>'}</span></div>
+      <span class="badge role owner">владелец</span></div>`),
+    ...moderators.map((m) => `<div class="row"><div class="t"><b>${esc(m.name)}</b>
+      <span class="facts-line"><span>${esc(m.email)}</span><span>с ${date(m.role_since)}</span><span>решений: ${m.decisions}</span></span></div>
+      <span class="badge role">модератор</span>
+      <div class="acts"><button class="btn bad sm" data-remove="${m.id}" data-name="${esc(m.name)}">Убрать</button></div></div>`),
+  ].join('') + (moderators.length ? '' : '<p class="mut">Модераторов пока нет.</p>');
+}
+$('teamForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('teamErr').textContent = '';
+  try {
+    const { moderator } = await api('POST', '/api/admin/team', { email: $('teamEmail').value });
+    $('teamForm').reset();
+    toast(`${moderator.name} теперь модератор`);
+    loadTeam();
+  } catch (err) { $('teamErr').textContent = err.message; }
+};
+$('team').onclick = async (e) => {
+  const { remove, name } = e.target.dataset;
+  if (!remove || !confirm(`Убрать ${name} из модераторов? Доступ к модерации пропадёт сразу.`)) return;
+  try { await api('DELETE', `/api/admin/team/${remove}`); toast('Модератор убран'); loadTeam(); }
   catch (err) { toast(err.message, true); }
 };
 
@@ -385,6 +487,7 @@ $('periods').onclick = (e) => {
 };
 
 $('themeSlot').replaceWith(IgrTheme.button());
+$('devNoteBtn').onclick = () => { $('apply').classList.remove('hidden'); showApply(); $('apply').scrollIntoView({ behavior: 'smooth' }); };
 
 // ---------- состояние страницы ----------
 let me = null;
@@ -393,13 +496,23 @@ function show(user) {
   if (!user) { location.replace('login.html?next=cabinet.html'); return; }
   $('who').classList.remove('hidden');
   $('uname').textContent = user.name;
-  $('apply').classList.toggle('hidden', user.canPublish);
-  $('cabinet').classList.toggle('hidden', !user.canPublish);
-  if (!user.canPublish) { showApply(); return; }
-  $('admin').classList.toggle('hidden', !user.isAdmin);
+  // Модератор без своей заявки разработчика видит только модерацию.
+  const inside = user.canPublish || user.canModerate;
+  $('apply').classList.toggle('hidden', inside);
+  $('cabinet').classList.toggle('hidden', !inside);
+  if (!inside) { showApply(); return; }
+  $('admin').classList.toggle('hidden', !user.canModerate);
+  $('devArea').classList.toggle('hidden', !user.canPublish);
+  $('devNote').classList.toggle('hidden', user.canPublish);
+  if (user.canModerate) {
+    $('roleBadge').textContent = user.isAdmin ? 'владелец' : 'модератор';
+    $('roleBadge').classList.toggle('owner', user.isAdmin);
+    $('teamTab').classList.toggle('hidden', !user.isAdmin);
+    loadQueue(); loadDevQueue();
+  }
+  if (!user.canPublish) return;
   loadMine();
   loadStats();
-  if (user.isAdmin) { loadQueue(); loadDevQueue(); }
 }
 
 let categories = [], ages = [];
