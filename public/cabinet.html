@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="w"><a class="logo" href="/">Игро<b>дром</b></a>
+<header><div class="w"><a class="logo" href="index.html">Игро<b>дром</b></a>
 <div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><span class="mut" id="uname"></span><button class="btn g sm" id="logout">Выйти</button></div>
 </div></header>
 
@@ -316,8 +316,12 @@ api('GET', '/api/genres').then(({ genres }) => {
   $('genre').innerHTML = genres.map((g) => `<option>${esc(g)}</option>`).join('');
 }).catch(() => {});
 api('GET', '/api/me').then(({ user }) => show(user)).catch(() => {
+  // Статическая копия (например, GitHub Pages): API нет, форма входа бесполезна.
   $('auth').classList.remove('hidden');
-  $('authErr').textContent = 'Сервер недоступен. Запустите его: npm start в папке igrodrom.';
+  $('auth').querySelector('.panel').innerHTML = `<h3>Кабинет автора недоступен в демо-версии</h3>
+    <p class="mut">Эта копия сайта статическая: здесь работают витрина и демо-игры. Регистрация, загрузка игр,
+    модерация и статистика работают в полной версии на сервере (инструкция по запуску — в README репозитория).</p>
+    <a class="btn" href="index.html">← К каталогу игр</a>`;
 });
 </script>
 </body>

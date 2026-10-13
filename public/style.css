@@ -67,3 +67,4 @@ details summary{cursor:pointer;margin-top:10px}
 .tbl td{padding:8px;border-bottom:1px solid var(--line)}.tbl tr:last-child td{border-bottom:0}
 .tbl .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tbl .badge{margin-left:6px}
+.static-note{background:#2a1f5c;border-bottom:1px solid var(--line);color:#d9d3ff;font-size:14px;padding:10px 0}

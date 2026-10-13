@@ -7,9 +7,11 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="w"><a class="logo" href="/">Игро<b>дром</b></a>
+<header><div class="w"><a class="logo" href="index.html">Игро<b>дром</b></a>
 <nav><a href="#games">Игры</a><a href="#dev">Разработчикам</a><a href="#calc">Доход</a></nav>
 <a class="btn" id="cab" href="cabinet.html">Кабинет автора</a></div></header>
+
+<div class="static-note hidden" id="staticNote"><div class="w">Демо-версия без сервера: витрина и демо-игры работают, а кабинет автора, загрузка игр и статистика — только в полной версии на сервере.</div></div>
 
 <section class="hero"><div class="w">
 <h1>Площадка для игр,<br><span>которая платит вам.</span></h1>
@@ -103,7 +105,7 @@ addEventListener('pagehide', endSession);
 fetch('/api/games').then((r) => r.json()).then(({ games: list }) => {
   games = [...list.map((g) => ({ ...g, src: `/play/${g.id}/` })), ...demo];
   render();
-}).catch(() => {});
+}).catch(() => { $('staticNote').classList.remove('hidden'); });
 fetch('/api/me').then((r) => r.json()).then(({ user }) => {
   if (user) $('cab').textContent = user.name;
 }).catch(() => {});
