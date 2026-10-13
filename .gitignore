@@ -1,8 +1,5 @@
-node_modules
-.next
-out
+data/
+node_modules/
 .env
-.env.local
 *.log
 .DS_Store
-.vercel

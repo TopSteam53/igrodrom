@@ -38,7 +38,7 @@ class HttpError extends Error {
 }
 
 export function createApp({
-  dataDir, publicDir, adminEmails = [], secureCookies = false, previewSecret = randomBytes(32),
+  dataDir, publicDir, adminEmails = [], secureCookies = false, previewSecret = randomBytes(32), trustProxy = false,
 }) {
   const gamesDir = path.join(dataDir, 'games');
   fs.mkdirSync(gamesDir, { recursive: true });
@@ -170,6 +170,16 @@ export function createApp({
     if (host !== req.headers.host) throw new HttpError(403, 'Запрос с чужого сайта');
   }
 
+  // Behind a reverse proxy every request comes from the proxy, so the client IP is in X-Forwarded-For.
+  // Only trust that header when the proxy is ours, otherwise anyone can forge it.
+  function clientIp(req) {
+    if (trustProxy) {
+      const forwarded = String(req.headers['x-forwarded-for'] || '').split(',').pop().trim();
+      if (forwarded) return forwarded;
+    }
+    return req.socket.remoteAddress;
+  }
+
   const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u) });
 
   // ---------- API ----------
@@ -193,7 +203,7 @@ export function createApp({
   async function login(req, res) {
     const { email: rawEmail, password } = await readJson(req);
     const email = String(rawEmail || '').trim().toLowerCase();
-    const key = `${req.socket.remoteAddress}|${email}`;
+    const key = `${clientIp(req)}|${email}`;
     if (loginLimiter.blocked(key)) throw new HttpError(429, 'Слишком много попыток, подождите 15 минут');
 
     const user = q.userByEmail.get(email);
@@ -355,6 +365,10 @@ export function createApp({
     const m = req.method;
     if (m !== 'GET' && m !== 'HEAD') checkOrigin(req);
 
+    if (p === '/healthz' && m === 'GET') {
+      db.prepare('SELECT 1').get();
+      return send(res, 200, { ok: true });
+    }
     if (p === '/api/register' && m === 'POST') return register(req, res);
     if (p === '/api/login' && m === 'POST') return login(req, res);
     if (p === '/api/logout' && m === 'POST') return logout(req, res);

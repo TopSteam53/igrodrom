@@ -1,21 +1,14 @@
 {
-  "name": "woodforma-demo",
-  "version": "1.0.0",
+  "name": "igrodrom",
+  "version": "0.3.0",
   "private": true,
+  "type": "module",
+  "description": "Площадка HTML5-игр: аккаунты авторов, загрузка ZIP/HTML, модерация",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "next": "15.5.20",
-    "react": "19.1.7",
-    "react-dom": "19.1.7"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.0"
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
   }
 }

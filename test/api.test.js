@@ -258,3 +258,37 @@ test('игры старого формата (games/<id>.html) переезжа�
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('healthz для мониторинга и Docker', async () => {
+  const r = await client()('GET', '/healthz');
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.data, { ok: true });
+});
+
+test('X-Forwarded-For учитывается только за своим прокси', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-proxy-'));
+  const proxied = createApp({ dataDir: dir, publicDir: path.join(root, 'public'), trustProxy: true });
+  await new Promise((r) => proxied.listen(0, '127.0.0.1', r));
+  const url = `http://127.0.0.1:${proxied.address().port}/api/login`;
+  const login = (ip) => fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': ip },
+    body: JSON.stringify({ email: 'victim@test.ru', password: 'wrong-pass' }),
+  });
+  try {
+    for (let i = 0; i < 10; i++) await login('203.0.113.1');
+    assert.equal((await login('203.0.113.1')).status, 429, 'перебор с одного IP блокируется');
+    assert.equal((await login('198.51.100.7')).status, 401, 'другой посетитель за тем же прокси не страдает');
+  } finally {
+    await new Promise((r) => proxied.close(r));
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  // Без TRUST_PROXY подделка заголовка не помогает обойти лимит.
+  const c = client();
+  for (let i = 0; i < 10; i++) {
+    await c('POST', '/api/login', { json: { email: 'spoof@test.ru', password: 'nope-nope' }, headers: { 'x-forwarded-for': `10.0.0.${i}` } });
+  }
+  const r = await c('POST', '/api/login', { json: { email: 'spoof@test.ru', password: 'nope-nope' }, headers: { 'x-forwarded-for': '10.0.0.99' } });
+  assert.equal(r.status, 429);
+});
