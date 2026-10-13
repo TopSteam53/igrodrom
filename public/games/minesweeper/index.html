@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Сапёр</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:radial-gradient(ellipse at 50% -10%,#24306b 0%,#151a3a 50%,#0f1226 100%);color:#eef0ff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#top{width:var(--s);height:var(--h);display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.lcd{height:100%;min-width:calc(var(--h)*1.8);padding:0 10px;border-radius:10px;background:#0b0e22;box-shadow:inset 0 0 0 2px #2b3270;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;font-size:calc(var(--h)*.45);font-variant-numeric:tabular-nums;color:#ff5f6d}
+.lcd svg{width:calc(var(--h)*.48);height:calc(var(--h)*.48);flex:none}
+#timer{color:#4fd1ff}
+.mid{display:flex;gap:8px;height:100%}
+button{font:inherit;cursor:pointer;border:0;color:#fff;padding:0}
+.tb{height:100%;aspect-ratio:1;border-radius:10px;background:#2c3576;box-shadow:inset 0 -3px 0 rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
+.tb svg{width:66%;height:66%}
+#flagBtn.on{background:linear-gradient(135deg,#ff7a3d,#ff3d5f);box-shadow:inset 0 -3px 0 rgba(0,0,0,.3),0 0 14px #ff3d5f88}
+#wrap{position:relative;width:var(--s);height:var(--s)}
+#board{width:100%;height:100%;display:grid;grid-template-columns:repeat(9,1fr);grid-template-rows:repeat(9,1fr);gap:var(--g);padding:var(--g);background:#1b2150;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.45),inset 0 0 0 2px #2b3270;touch-action:none}
+.c{border-radius:calc(var(--c)*.16);background:linear-gradient(160deg,#5466e0,#3a47b0);box-shadow:inset 0 2px 0 rgba(255,255,255,.25),inset 0 -3px 0 rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:calc(var(--c)*.6);line-height:1;cursor:pointer;position:relative}
+.c:hover{filter:brightness(1.12)}
+.c.o{background:#12173a;box-shadow:inset 0 0 0 1px #232a5e;cursor:default;filter:none}
+.c.m{background:#c9cff5;box-shadow:inset 0 0 0 1px #e6e9ff}
+.c.boom{background:#e8344e;box-shadow:0 0 16px #ff3d5f}
+.c.wrong::after{content:"";position:absolute;inset:18%;background:linear-gradient(45deg,transparent 44%,#ff3d5f 44%,#ff3d5f 56%,transparent 56%),linear-gradient(-45deg,transparent 44%,#ff3d5f 44%,#ff3d5f 56%,transparent 56%)}
+.c.cur{outline:3px solid #ffd23f;outline-offset:-1px;z-index:1}
+.c svg{width:72%;height:72%;pointer-events:none}
+.c.f svg{animation:pop .18s ease-out}
+@keyframes pop{from{transform:scale(.3)}}
+.n1{color:#4fc3ff}.n2{color:#5be37d}.n3{color:#ff6159}.n4{color:#c08bff}.n5{color:#ffb347}.n6{color:#2ed3d3}.n7{color:#ff4fd8}.n8{color:#e6e8ff}
+#ov{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(14,17,42,.92);border:2px solid #39418f;border-radius:16px;padding:calc(var(--s)*.05) calc(var(--s)*.07);display:none;flex-direction:column;align-items:center;gap:calc(var(--s)*.025);text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.6);animation:fade .3s;min-width:60%}
+#ov.show{display:flex}
+@keyframes fade{from{opacity:0;transform:translate(-50%,-40%)}}
+#ovT{font-size:calc(var(--s)*.09);font-weight:900}
+#ovS{font-size:calc(var(--s)*.045);color:#c4cbff}
+#again{padding:calc(var(--s)*.022) calc(var(--s)*.07);border-radius:999px;font-size:calc(var(--s)*.05);font-weight:800;background:linear-gradient(135deg,#ff7a3d,#ff3d7f);box-shadow:0 4px 0 #a3204f}
+#hint{margin-top:6px;font-size:12px;color:#7d86c4;height:16px;white-space:nowrap}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="flag" viewBox="0 0 24 24"><rect x="6" y="3" width="2.4" height="18" rx="1" fill="#e9ecff"/><path d="M8.4 3.5 L19.5 8 L8.4 12.5Z" fill="#ff3d5f"/><rect x="3.5" y="19" width="9" height="2.6" rx="1.2" fill="#e9ecff"/></symbol>
+    <symbol id="mine" viewBox="0 0 24 24"><g stroke="#11142e" stroke-width="2.2" stroke-linecap="round"><path d="M12 2.5v19M2.5 12h19M5.3 5.3l13.4 13.4M18.7 5.3 5.3 18.7"/></g><circle cx="12" cy="12" r="6.6" fill="#11142e"/><circle cx="9.7" cy="9.7" r="1.9" fill="#fff" opacity=".85"/></symbol>
+  </defs>
+</svg>
+<div id="top">
+  <div class="lcd" title="Осталось мин"><svg viewBox="0 0 24 24"><use href="#flag"/></svg><span id="left">10</span></div>
+  <div class="mid">
+    <button class="tb" id="face" title="Новая игра" aria-label="Новая игра"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffd23f" stroke="#c98a00" stroke-width="1.2"/><g id="eyes" fill="#3a2600"><circle cx="8.6" cy="9.6" r="1.5"/><circle cx="15.4" cy="9.6" r="1.5"/></g><path id="mouth" d="M7.5 14q4.5 4 9 0" stroke="#3a2600" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></button>
+    <button class="tb" id="flagBtn" title="Режим флажков" aria-label="Режим флажков" aria-pressed="false"><svg viewBox="0 0 24 24"><use href="#flag"/></svg></button>
+  </div>
+  <div class="lcd" id="timer" title="Время">0</div>
+</div>
+<div id="wrap">
+  <div id="board"></div>
+  <div id="ov"><div id="ovT"></div><div id="ovS"></div><button id="again">Ещё раз</button></div>
+</div>
+<div id="hint">ПКМ или долгое нажатие — флажок</div>
+<script>
+(function(){
+'use strict';
+var W=9,H=9,M=10,root=document.documentElement;
+var boardEl=document.getElementById('board'),leftEl=document.getElementById('left'),timerEl=document.getElementById('timer');
+var ov=document.getElementById('ov'),ovT=document.getElementById('ovT'),ovS=document.getElementById('ovS');
+var flagBtn=document.getElementById('flagBtn'),mouth=document.getElementById('mouth'),eyes=document.getElementById('eyes');
+var mem={};
+function sget(k){try{var v=window.localStorage.getItem(k);return v==null?(mem[k]||null):v}catch(e){return mem[k]||null}}
+function sset(k,v){mem[k]=v;try{window.localStorage.setItem(k,v)}catch(e){}}
+var cells=[],mine,open,flag,adj,started,ended,flags,opened,t0,timerId,secs,flagMode=false,cur=-1,best=+(sget('ms-best')||0);
+var FLAG='<svg viewBox="0 0 24 24"><use href="#flag"/></svg>',MINE='<svg viewBox="0 0 24 24"><use href="#mine"/></svg>';
+
+for(var i=0;i<W*H;i++){var d=document.createElement('div');d.className='c';d.dataset.i=i;boardEl.appendChild(d);cells.push(d)}
+
+function layout(){
+  var w=window.innerWidth,h=window.innerHeight;
+  var hh=Math.round(Math.max(40,Math.min(60,h*.1)));
+  var s=Math.floor(Math.min(w-16,h-hh-8-22-16,720));s=Math.max(200,s);
+  var g=Math.max(2,Math.round(s*.007));
+  root.style.setProperty('--s',s+'px');root.style.setProperty('--h',hh+'px');root.style.setProperty('--g',g+'px');
+  root.style.setProperty('--c',((s-g*10)/9)+'px');
+}
+function nb(i){var r=i/W|0,c=i%W,out=[];for(var dr=-1;dr<=1;dr++)for(var dc=-1;dc<=1;dc++){if(!dr&&!dc)continue;var rr=r+dr,cc=c+dc;if(rr>=0&&rr<H&&cc>=0&&cc<W)out.push(rr*W+cc)}return out}
+function face(k){
+  if(k==='win'){mouth.setAttribute('d','M7 13.5q5 5.5 10 0');eyes.innerHTML='<rect x="5.5" y="8" width="5.5" height="3" rx="1.2"/><rect x="13" y="8" width="5.5" height="3" rx="1.2"/><rect x="10" y="8.8" width="4" height="1"/>'}
+  else if(k==='lose'){mouth.setAttribute('d','M8 16.5q4-3.5 8 0');eyes.innerHTML='<path d="M7 8l3 3M10 8l-3 3M14 8l3 3M17 8l-3 3" stroke="#3a2600" stroke-width="1.6" stroke-linecap="round"/>'}
+  else{mouth.setAttribute('d','M7.5 14q4.5 4 9 0');eyes.innerHTML='<circle cx="8.6" cy="9.6" r="1.5"/><circle cx="15.4" cy="9.6" r="1.5"/>'}
+}
+function newGame(){
+  mine=new Array(W*H).fill(false);open=new Array(W*H).fill(false);flag=new Array(W*H).fill(false);adj=new Array(W*H).fill(0);
+  started=false;ended=false;flags=0;opened=0;secs=0;clearInterval(timerId);timerEl.textContent='0';
+  cells.forEach(function(c){c.className='c';c.innerHTML=''});
+  if(cur>=0)cells[cur].classList.add('cur');
+  ov.classList.remove('show');face('');updLeft();
+}
+function plant(safe){
+  var ban=nb(safe).concat([safe]),pool=[];
+  for(var i=0;i<W*H;i++)if(ban.indexOf(i)<0)pool.push(i);
+  for(var k=0;k<M;k++){var j=k+(Math.random()*(pool.length-k)|0),t=pool[k];pool[k]=pool[j];pool[j]=t;mine[pool[k]]=true}
+  for(i=0;i<W*H;i++)adj[i]=nb(i).filter(function(n){return mine[n]}).length;
+  started=true;t0=Date.now();
+  timerId=setInterval(function(){secs=Math.min(999,Math.floor((Date.now()-t0)/1000));timerEl.textContent=secs},250);
+}
+function updLeft(){leftEl.textContent=M-flags}
+function draw(i){
+  var c=cells[i],k='c'+(i===cur?' cur':'');
+  if(open[i]){k+=' o';if(mine[i]){k+=' m';c.innerHTML=MINE}else if(adj[i]){k+=' n'+adj[i];c.textContent=adj[i]}else c.innerHTML=''}
+  else if(flag[i]){k+=' f';c.innerHTML=FLAG}else c.innerHTML='';
+  c.className=k;
+}
+function toggleFlag(i){
+  if(ended||open[i])return;
+  flag[i]=!flag[i];flags+=flag[i]?1:-1;draw(i);updLeft();
+  try{if(flag[i]&&navigator.vibrate)navigator.vibrate(25)}catch(e){}
+}
+function reveal(i){
+  if(ended||flag[i])return;
+  if(open[i]){chord(i);return}
+  if(!started)plant(i);
+  if(mine[i]){lose(i);return}
+  var st=[i];
+  while(st.length){
+    var j=st.pop();if(open[j]||flag[j])continue;
+    open[j]=true;opened++;draw(j);
+    if(adj[j]===0)nb(j).forEach(function(n){if(!open[n]&&!flag[n])st.push(n)});
+  }
+  if(opened===W*H-M)win();
+}
+function chord(i){
+  if(!adj[i])return;
+  var ns=nb(i),f=ns.filter(function(n){return flag[n]}).length;
+  if(f!==adj[i])return;
+  ns.forEach(function(n){if(!open[n]&&!flag[n]&&!ended)reveal(n)});
+}
+function lose(i){
+  ended=true;clearInterval(timerId);open[i]=true;
+  for(var j=0;j<W*H;j++){
+    if(mine[j]&&!flag[j]){open[j]=true;draw(j)}
+    else if(flag[j]&&!mine[j])cells[j].classList.add('wrong');
+  }
+  cells[i].classList.add('boom');cells[i].classList.remove('m');face('lose');
+  setTimeout(function(){show('Бум!','Вы наткнулись на мину')},500);
+}
+function win(){
+  ended=true;clearInterval(timerId);secs=Math.max(1,Math.floor((Date.now()-t0)/1000));timerEl.textContent=Math.min(999,secs);
+  for(var j=0;j<W*H;j++)if(mine[j]&&!flag[j]){flag[j]=true;draw(j)}
+  flags=M;updLeft();face('win');
+  var rec=!best||secs<best;if(rec){best=secs;sset('ms-best',String(best))}
+  setTimeout(function(){show('Победа!','Время: '+secs+' с'+(rec?' — новый рекорд!':' · рекорд: '+best+' с'))},300);
+}
+function show(t,s){ovT.textContent=t;ovS.textContent=s;ov.classList.add('show')}
+
+// pointer input
+var down=null,lpTimer=null,lastType='mouse';
+function cellOf(e){var t=e.target.closest&&e.target.closest('.c');return t?+t.dataset.i:-1}
+boardEl.addEventListener('pointerdown',function(e){
+  lastType=e.pointerType;
+  var i=cellOf(e);if(i<0||ended)return;
+  if(e.button!==0){down=null;return}
+  down={i:i,x:e.clientX,y:e.clientY,id:e.pointerId,lp:false};
+  clearTimeout(lpTimer);
+  if(e.pointerType!=='mouse'){
+    lpTimer=setTimeout(function(){if(down&&!open[down.i]){down.lp=true;toggleFlag(down.i)}},380);
+  }
+});
+boardEl.addEventListener('pointermove',function(e){
+  if(down&&e.pointerId===down.id&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>12){clearTimeout(lpTimer)}
+});
+function up(e){
+  clearTimeout(lpTimer);
+  if(!down||e.pointerId!==down.id)return;
+  var d=down;down=null;
+  if(d.lp||e.type==='pointercancel')return;
+  var i=cellOf(e);if(i<0){var el=document.elementFromPoint(e.clientX,e.clientY);i=el&&el.closest&&el.closest('.c')?+el.closest('.c').dataset.i:-1}
+  if(i!==d.i)return;
+  setCur(-1);
+  if(flagMode&&!open[i])toggleFlag(i);else reveal(i);
+}
+boardEl.addEventListener('pointerup',up);
+boardEl.addEventListener('pointercancel',up);
+document.addEventListener('contextmenu',function(e){
+  e.preventDefault();
+  if(lastType!=='mouse')return;
+  var i=cellOf(e);if(i>=0)toggleFlag(i);
+});
+document.addEventListener('touchmove',function(e){e.preventDefault()},{passive:false});
+flagBtn.addEventListener('click',function(){flagMode=!flagMode;flagBtn.classList.toggle('on',flagMode);flagBtn.setAttribute('aria-pressed',flagMode)});
+document.getElementById('face').addEventListener('click',newGame);
+document.getElementById('again').addEventListener('click',newGame);
+
+// keyboard
+function setCur(i){var p=cur;cur=i;if(p>=0)draw(p);if(cur>=0)draw(cur)}
+window.addEventListener('keydown',function(e){
+  var k=e.code,mv={ArrowUp:[-1,0],KeyW:[-1,0],ArrowDown:[1,0],KeyS:[1,0],ArrowLeft:[0,-1],KeyA:[0,-1],ArrowRight:[0,1],KeyD:[0,1]}[k];
+  if(mv){e.preventDefault();if(cur<0){setCur(40);return}var r=Math.min(H-1,Math.max(0,(cur/W|0)+mv[0])),c=Math.min(W-1,Math.max(0,cur%W+mv[1]));setCur(r*W+c);return}
+  if(k==='Space'||k==='Enter'){e.preventDefault();if(ov.classList.contains('show')){newGame();return}if(cur<0){setCur(40);return}reveal(cur)}
+  else if(k==='KeyF'){if(cur>=0)toggleFlag(cur)}
+  else if(k==='KeyR'||k==='KeyN')newGame();
+});
+
+window.addEventListener('resize',layout);
+layout();newGame();
+try{window.focus()}catch(e){}
+window.__game={get opened(){return opened},get flags(){return flags},get ended(){return ended},get mines(){return mine.slice()}};
+})();
+</script>
+</body>
+</html>
