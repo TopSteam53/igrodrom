@@ -47,7 +47,8 @@
     const total = (g.likes || 0) + (g.dislikes || 0);
     return total >= 3 ? Math.round((g.likes / total) * 100) : null;
   }
-  const isNew = (g) => g.live && Date.now() - g.created_at < NEW_DAYS * 864e5;
+  // Демо-игры заводятся при каждом развёртывании — «новинками» они не считаются.
+  const isNew = (g) => g.live && !g.demo && Date.now() - g.created_at < NEW_DAYS * 864e5;
 
   function coverHTML(g, i = 0) {
     const icon = CATEGORY_ICONS[g.genre] || '🎮';
@@ -99,5 +100,5 @@
   const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${g.description || ''}`).includes(norm(q));
 
-  window.Igr = { $, esc, fmt, loadCatalog, rating, cardHTML, coverHTML, initHeader, toast, matches, CATEGORY_ICONS };
+  window.Igr = { $, esc, fmt, loadCatalog, rating, isNew, cardHTML, coverHTML, initHeader, toast, matches, CATEGORY_ICONS };
 })();

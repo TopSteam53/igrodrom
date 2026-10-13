@@ -20,9 +20,10 @@
 <main class="w">
   <nav class="chips" id="chips" aria-label="Категории"></nav>
 
+  <!-- Подборки появляются, когда для них есть данные; пока игр мало, главная — одна сетка, как у Яндекс Игр. -->
   <div id="home">
-    <section class="sec"><div class="sec-head"><h2>Популярные</h2></div><div class="row-scroll" id="popular"></div></section>
-    <section class="sec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
+    <section class="sec hidden" id="popularSec"><div class="sec-head"><h2>Популярные</h2></div><div class="row-scroll" id="popular"></div></section>
+    <section class="sec hidden" id="freshSec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
   </div>
 
   <section class="sec" id="all">
@@ -46,7 +47,7 @@
 
 <script src="app.js"></script>
 <script>
-const { $, esc, loadCatalog, rating, cardHTML, initHeader, matches, CATEGORY_ICONS } = Igr;
+const { $, esc, loadCatalog, rating, isNew, cardHTML, initHeader, matches, CATEGORY_ICONS } = Igr;
 const params = new URLSearchParams(location.search);
 let state = { q: params.get('q') || '', cat: params.get('category') || '', sort: 'popular' };
 let games = [];
@@ -67,12 +68,18 @@ function render() {
   const filtering = state.q || state.cat;
   $('home').classList.toggle('hidden', !!filtering);
   if (!filtering) {
-    $('popular').innerHTML = games.slice().sort(SORTS.popular).slice(0, 10).map(cardHTML).join('');
-    $('fresh').innerHTML = games.slice().sort(SORTS.new).slice(0, 10).map(cardHTML).join('');
+    const played = games.filter((g) => g.plays > 0);
+    const showPopular = games.length >= 8 && played.length >= 4;
+    $('popularSec').classList.toggle('hidden', !showPopular);
+    if (showPopular) $('popular').innerHTML = played.sort(SORTS.popular).slice(0, 10).map(cardHTML).join('');
+    const fresh = games.filter(isNew);
+    $('freshSec').classList.toggle('hidden', fresh.length < 3);
+    if (fresh.length >= 3) $('fresh').innerHTML = fresh.sort(SORTS.new).slice(0, 10).map(cardHTML).join('');
   }
 
   const list = games.filter((g) => (!state.cat || g.genre === state.cat) && matches(g, state.q)).sort(SORTS[state.sort]);
   $('allTitle').textContent = state.q ? `Поиск: «${state.q}»` : state.cat || 'Все игры';
+  document.title = state.q || state.cat ? `${state.q ? `«${state.q}»` : state.cat} — Игродром` : 'Игродром — бесплатные игры онлайн';
   $('grid').innerHTML = list.length ? list.map(cardHTML).join('')
     : `<p class="empty">Ничего не нашлось. Попробуйте другое название или <a href="index.html">посмотрите все игры</a>.</p>`;
 }

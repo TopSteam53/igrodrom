@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Крестики-нолики</title>
+<style>
+:root{--bg:#0f1226;--panel:#1b1a3d;--line:#34306b;--tx:#eef0ff;--mut:#a9a6d8;--x:#ff4d6d;--o:#4cc9f0;--ac:#9b5de5;--b:260px}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,#221a4f 0%,#0f1226 70%);background-color:#0f1226;color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px 12px}
+#side{display:flex;flex-direction:column;gap:8px;align-items:stretch;width:100%;max-width:max(340px,calc(var(--b) + 40px))}
+#app.wide{flex-direction:row;gap:28px}
+#app.wide #side{width:300px;max-width:300px;order:2}
+#app.wide #side .bar{flex-direction:column}
+#ttl{display:none;margin:0 0 6px;font-size:26px;font-weight:900;letter-spacing:-.5px;background:linear-gradient(90deg,#ff4d6d,#9b5de5,#4cc9f0);-webkit-background-clip:text;background-clip:text;color:transparent}
+#app.wide #ttl{display:block}
+#app.wide #side .seg{width:100%}
+#app.wide #side .seg button{flex:1}
+.bar{display:flex;gap:8px;justify-content:center;flex-wrap:nowrap}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+.seg button{font:600 13px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--mut);background:transparent;border:0;border-radius:7px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--ac);color:#fff}
+.seg button:focus-visible,.cell:focus-visible,#new:focus-visible{outline:2px solid #ffd166;outline-offset:2px}
+.seg.off{opacity:.35;pointer-events:none}
+#score{display:flex;gap:6px;justify-content:center}
+.sc{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px 6px;text-align:center;min-width:0}
+.sc span{display:block;font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc b{font-size:19px;line-height:1.2}
+.sc.x b{color:var(--x)}.sc.o b{color:var(--o)}
+.sc.turn{border-color:currentColor}.sc.x.turn{color:var(--x)}.sc.o.turn{color:var(--o)}
+.sc.turn span{color:inherit}
+#line2{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#status{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#status.win{color:#ffd166}
+#new{font:700 13px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;background:#2b2760;border:1px solid var(--line);border-radius:9px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+#new:hover{background:#38337a}
+#board{position:relative;width:var(--b);height:var(--b);display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:calc(var(--b) * .03);touch-action:none;flex:none}
+.cell{position:relative;border:0;padding:0;margin:0;border-radius:calc(var(--b) * .05);background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.cell:hover:not([disabled]){background:#25235a}
+.cell[disabled]{cursor:default}
+.cell svg{width:70%;height:70%;overflow:visible}
+.cell .mk{fill:none;stroke-width:14;stroke-linecap:round;stroke-dasharray:150;stroke-dashoffset:150;animation:draw .28s ease-out forwards}
+.cell .mk.x2{animation-delay:.12s}
+.cell.x .mk{stroke:var(--x);filter:drop-shadow(0 0 6px rgba(255,77,109,.6))}
+.cell.o .mk{stroke:var(--o);stroke-dasharray:260;stroke-dashoffset:260;filter:drop-shadow(0 0 6px rgba(76,201,240,.6))}
+.cell.hit{background:#3a2f12;box-shadow:inset 0 0 0 2px #ffd166}
+@media (max-width:350px){.bar{gap:4px}.seg button{padding:6px 7px;font-size:12px}#new{padding:7px 9px}#status{font-size:14px}}
+@keyframes draw{to{stroke-dashoffset:0}}
+#strike{position:absolute;inset:0;pointer-events:none;width:100%;height:100%;z-index:2}
+#strike line{stroke:#ffd166;stroke-width:3;stroke-linecap:round;stroke-dasharray:140;stroke-dashoffset:140;transition:stroke-dashoffset .35s ease-out}
+#strike.on line{stroke-dashoffset:0}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <h1 id="ttl">Крестики-нолики</h1>
+    <div class="bar">
+      <div class="seg" role="group" aria-label="Режим">
+        <button type="button" data-mode="ai" aria-pressed="true">С компьютером</button>
+        <button type="button" data-mode="pvp" aria-pressed="false">Вдвоём</button>
+      </div>
+      <div class="seg" id="diff" role="group" aria-label="Сложность">
+        <button type="button" data-diff="easy" aria-pressed="true">Легко</button>
+        <button type="button" data-diff="hard" aria-pressed="false">Сложно</button>
+      </div>
+    </div>
+    <div id="score">
+      <div class="sc x"><span id="lx">Вы ✕</span><b id="sx">0</b></div>
+      <div class="sc d"><span>Ничьи</span><b id="sd">0</b></div>
+      <div class="sc o"><span id="lo">Компьютер ○</span><b id="so">0</b></div>
+    </div>
+    <div id="line2"><div id="status" aria-live="polite">Ваш ход</div><button id="new" type="button">Новая партия</button></div>
+  </div>
+  <div id="board" role="grid" aria-label="Игровое поле 3 на 3">
+    <svg id="strike" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="0" x2="0" y2="0"/></svg>
+  </div>
+</div>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const app = $('app'), boardEl = $('board'), statusEl = $('status');
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const SVG_X = '<svg viewBox="0 0 100 100"><path class="mk" d="M18 18L82 82"/><path class="mk x2" d="M82 18L18 82"/></svg>';
+const SVG_O = '<svg viewBox="0 0 100 100"><circle class="mk" cx="50" cy="50" r="36"/></svg>';
+
+let mode = 'ai', diff = 'easy';
+let board = Array(9).fill(null), turn = 'X', over = false, starter = 'X', busy = false, aiTimer = 0, gameId = 0;
+const scores = { ai: { X: 0, O: 0, D: 0 }, pvp: { X: 0, O: 0, D: 0 } };
+
+// ---------- поле ----------
+const cells = [];
+for (let i = 0; i < 9; i++) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'cell'; b.dataset.i = i;
+  b.setAttribute('aria-label', 'Клетка ' + (i + 1));
+  b.addEventListener('click', () => humanMove(i));
+  boardEl.appendChild(b); cells.push(b);
+}
+
+function winner(bd) {
+  for (const l of LINES) { const [a, b, c] = l; if (bd[a] && bd[a] === bd[b] && bd[a] === bd[c]) return { p: bd[a], line: l }; }
+  return bd.every(Boolean) ? { p: 'D' } : null;
+}
+
+// ---------- ИИ ----------
+function minimax(bd, player, me, depth, alpha, beta) {
+  const w = winner(bd);
+  if (w) return w.p === 'D' ? 0 : (w.p === me ? 10 - depth : depth - 10);
+  const other = player === 'X' ? 'O' : 'X';
+  let best = player === me ? -Infinity : Infinity;
+  for (let i = 0; i < 9; i++) {
+    if (bd[i]) continue;
+    bd[i] = player;
+    const v = minimax(bd, other, me, depth + 1, alpha, beta);
+    bd[i] = null;
+    if (player === me) { best = Math.max(best, v); alpha = Math.max(alpha, v); }
+    else { best = Math.min(best, v); beta = Math.min(beta, v); }
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+function bestMove(bd, me) {
+  const other = me === 'X' ? 'O' : 'X';
+  let bestV = -Infinity, moves = [];
+  for (let i = 0; i < 9; i++) {
+    if (bd[i]) continue;
+    bd[i] = me;
+    const v = minimax(bd, other, me, 1, -Infinity, Infinity);
+    bd[i] = null;
+    if (v > bestV) { bestV = v; moves = [i]; } else if (v === bestV) moves.push(i);
+  }
+  return moves[Math.floor(Math.random() * moves.length)];
+}
+function findLineMove(bd, p) {
+  for (const [a, b, c] of LINES) {
+    const v = [bd[a], bd[b], bd[c]];
+    if (v.filter(x => x === p).length === 2 && v.includes(null)) return [a, b, c][v.indexOf(null)];
+  }
+  return -1;
+}
+function easyMove(bd, me) {
+  const other = me === 'X' ? 'O' : 'X';
+  const win = findLineMove(bd, me);
+  if (win >= 0 && Math.random() < 0.6) return win;
+  const block = findLineMove(bd, other);
+  if (block >= 0 && Math.random() < 0.4) return block;
+  const free = bd.map((v, i) => v ? -1 : i).filter(i => i >= 0);
+  return free[Math.floor(Math.random() * free.length)];
+}
+
+// ---------- ход игры ----------
+function place(i) {
+  board[i] = turn;
+  const c = cells[i];
+  c.classList.add(turn.toLowerCase());
+  c.innerHTML = turn === 'X' ? SVG_X : SVG_O;
+  c.disabled = true;
+  c.setAttribute('aria-label', 'Клетка ' + (i + 1) + ': ' + (turn === 'X' ? 'крестик' : 'нолик'));
+  const w = winner(board);
+  if (w) return finish(w);
+  turn = turn === 'X' ? 'O' : 'X';
+  render();
+  if (mode === 'ai' && turn === 'O') aiTurn();
+}
+
+function humanMove(i) {
+  if (over || busy || board[i]) return;
+  if (mode === 'ai' && turn !== 'X') return;
+  place(i);
+}
+
+function aiTurn() {
+  busy = true; render();
+  const id = gameId;
+  aiTimer = setTimeout(() => {
+    if (id !== gameId) return;
+    busy = false;
+    const m = diff === 'hard' ? bestMove(board.slice(), 'O') : easyMove(board, 'O');
+    place(m);
+  }, 380 + Math.random() * 220);
+}
+
+function finish(w) {
+  over = true;
+  const s = scores[mode];
+  if (w.p === 'D') s.D++; else s[w.p]++;
+  if (w.line) {
+    w.line.forEach(i => cells[i].classList.add('hit'));
+    const pos = i => [(i % 3) * 34.33 + 15.67, Math.floor(i / 3) * 34.33 + 15.67];
+    const [a, b] = [pos(w.line[0]), pos(w.line[2])];
+    const ln = $('strike').querySelector('line');
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ext = 9;
+    ln.setAttribute('x1', a[0] - dx / len * ext); ln.setAttribute('y1', a[1] - dy / len * ext);
+    ln.setAttribute('x2', b[0] + dx / len * ext); ln.setAttribute('y2', b[1] + dy / len * ext);
+    requestAnimationFrame(() => requestAnimationFrame(() => $('strike').classList.add('on')));
+  }
+  cells.forEach(c => { c.disabled = true; });
+  render(w);
+}
+
+function newGame(resetStarter) {
+  gameId++; clearTimeout(aiTimer); busy = false;
+  if (resetStarter) starter = 'X';
+  else if (over || board.some(Boolean)) starter = starter === 'X' ? 'O' : 'X';
+  board = Array(9).fill(null); over = false; turn = starter;
+  $('strike').classList.remove('on');
+  cells.forEach((c, i) => { c.className = 'cell'; c.innerHTML = ''; c.disabled = false; c.setAttribute('aria-label', 'Клетка ' + (i + 1)); });
+  render();
+  if (mode === 'ai' && turn === 'O') aiTurn();
+}
+
+function render(w) {
+  const s = scores[mode];
+  $('sx').textContent = s.X; $('so').textContent = s.O; $('sd').textContent = s.D;
+  const ai = mode === 'ai';
+  $('lx').textContent = ai ? 'Вы ✕' : 'Крестики ✕';
+  $('lo').textContent = ai ? 'Компьютер ○' : 'Нолики ○';
+  $('diff').classList.toggle('off', !ai);
+  document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+  document.querySelectorAll('[data-diff]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.diff === diff)));
+  document.querySelector('.sc.x').classList.toggle('turn', !over && turn === 'X');
+  document.querySelector('.sc.o').classList.toggle('turn', !over && turn === 'O');
+  let msg;
+  if (over && w) {
+    if (w.p === 'D') msg = 'Ничья!';
+    else if (ai) msg = w.p === 'X' ? 'Вы победили!' : 'Победил компьютер';
+    else msg = (w.p === 'X' ? 'Крестики' : 'Нолики') + ' победили!';
+  } else if (over) msg = statusEl.textContent;
+  else if (ai) msg = turn === 'X' ? 'Ваш ход' : 'Компьютер думает…';
+  else msg = 'Ходят ' + (turn === 'X' ? 'крестики ✕' : 'нолики ○');
+  statusEl.textContent = msg;
+  statusEl.classList.toggle('win', !!over);
+  cells.forEach(c => { if (!board[c.dataset.i]) c.disabled = over || busy; });
+}
+
+// ---------- управление ----------
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+  if (mode === b.dataset.mode) return;
+  mode = b.dataset.mode; newGame(true);
+}));
+document.querySelectorAll('[data-diff]').forEach(b => b.addEventListener('click', () => {
+  if (diff === b.dataset.diff) return;
+  diff = b.dataset.diff; newGame(true);
+}));
+$('new').addEventListener('click', () => newGame(false));
+
+window.addEventListener('keydown', e => {
+  const k = e.key;
+  if (/^[1-9]$/.test(k)) { e.preventDefault(); humanMove(+k - 1); return; }
+  if (k === 'n' || k === 'N' || k === 'т' || k === 'Т') { newGame(false); return; }
+  const cur = cells.indexOf(document.activeElement);
+  const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3 };
+  if (k in moves) {
+    e.preventDefault();
+    if (cur < 0) { cells[4].focus(); return; }
+    let r = Math.floor(cur / 3), c = cur % 3;
+    if (k === 'ArrowLeft') c = (c + 2) % 3; if (k === 'ArrowRight') c = (c + 1) % 3;
+    if (k === 'ArrowUp') r = (r + 2) % 3; if (k === 'ArrowDown') r = (r + 1) % 3;
+    cells[r * 3 + c].focus();
+  } else if ((k === 'Enter' || k === ' ') && over && cur >= 0) {
+    e.preventDefault(); newGame(false);
+  }
+});
+
+// ---------- размеры ----------
+function layout() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const wide = vw - (vh - 24) - 52 >= 300;
+  app.classList.toggle('wide', wide);
+  let b;
+  if (wide) b = Math.min(vh - 24, vw - 52 - 300, 560);
+  else {
+    const side = $('side').offsetHeight || 140;
+    b = Math.min(vh - side - 28, vw - 24, 560);
+  }
+  document.documentElement.style.setProperty('--b', Math.max(150, Math.floor(b)) + 'px');
+}
+window.addEventListener('resize', layout);
+
+window.__game = { get state() { return { mode, diff, board: board.slice(), turn, over, busy, scores: JSON.parse(JSON.stringify(scores)), status: statusEl.textContent }; } };
+
+newGame(true);
+layout();
+})();
+</script>
+</body>
+</html>
