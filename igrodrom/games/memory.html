@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#102a2b;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#g{display:grid;grid-template-columns:repeat(4,70px);gap:8px}.k{height:70px;border-radius:10px;background:#1f4a4c;font-size:34px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.k.o{background:#fde68a}.k.m{background:#4ade80}#i{margin:10px;font-weight:700}</style>
+<div id="i">Ходов: 0</div><div id="g"></div>
+<script>
+const e='🦊🐼🐸🦉🐙🦄🐝🐳'.match(/./gu),a=[...e,...e].sort(()=>Math.random()-.5);let o=[],m=0,done=0;
+const g=document.getElementById('g');a.forEach((v,i)=>{const d=document.createElement('div');d.className='k';d.onclick=()=>{
+if(o.length>1||d.classList.contains('o')||d.classList.contains('m'))return;d.textContent=v;d.classList.add('o');o.push([d,v]);
+if(o.length==2){m++;document.getElementById('i').textContent='Ходов: '+m;const[[x,vx],[y,vy]]=o;
+if(vx==vy){x.className=y.className='k m';o=[];if(++done==8)document.getElementById('i').textContent='Победа за '+m+' ходов! 🎉'}
+else setTimeout(()=>{x.className=y.className='k';x.textContent=y.textContent='';o=[]},650)}};g.appendChild(d)});
+</script>
