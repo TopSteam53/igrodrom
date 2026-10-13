@@ -116,6 +116,10 @@ test('страница игры и оценки', async () => {
 test('автор редактирует описание своей игры, чужую — нет', async () => {
   const author = client();
   await author('POST', '/api/register', { email: 'a@test.ru', password: 'secret123', name: 'Автор' });
+  const admin = client();
+  await admin('POST', '/api/register', { email: 'admin@test.ru', password: 'secret123', name: 'Модератор' });
+  await author('POST', '/api/developer/application', { studio: 'Автор', about: 'Делаю небольшие браузерные игры.', contact: '@author' });
+  await admin('POST', `/api/admin/developers/${(await author('GET', '/api/me')).data.user.id}`, { action: 'approve' });
   const up = await author('POST', `/api/games?title=${encodeURIComponent('Моя')}&genre=${encodeURIComponent('Спорт')}`,
     null, '<html><canvas></canvas></html>');
   const { id } = up.data.game;
@@ -131,7 +135,7 @@ test('автор редактирует описание своей игры, ч
 
   const other = client();
   await other('POST', '/api/register', { email: 'b@test.ru', password: 'secret123', name: 'Чужой' });
-  assert.equal((await other('PATCH', `/api/games/${id}`, { description: 'взлом' })).status, 404);
+  assert.equal((await other('PATCH', `/api/games/${id}`, { description: 'взлом' })).status, 403, 'не разработчик — не может менять игры');
   assert.equal((await client()('GET', `/api/games/${id}`)).status, 404, 'неодобренная игра не видна публично');
 });
 

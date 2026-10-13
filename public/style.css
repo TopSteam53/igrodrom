@@ -73,6 +73,9 @@ header.top{position:sticky;top:0;z-index:10;background:var(--paper);border-botto
 .empty p{margin:0 0 16px}
 .empty-title{color:var(--ink);font-size:24px;margin:0 0 8px}
 .auth-title{font-size:22px;margin:0 0 4px}.auth-sub{margin:0 0 18px}
+.reject-reason{background:#FDE2E4;color:#7A1020;border-radius:12px;padding:10px 14px;margin:10px 0}
+.app-about{margin:8px 0 0;white-space:pre-line;max-width:70ch}.app-links{margin:6px 0 0;word-break:break-all}
+.app-links a{color:var(--a-ink)}
 
 /* ---------- карточка: обложка и подпись, без рамки и тени ---------- */
 .card{display:block;text-decoration:none;color:var(--ink)}
@@ -167,3 +170,10 @@ details summary{cursor:pointer;margin-top:10px;color:var(--ink-2)}
 .prose{max-width:760px}
 pre.code{background:var(--ink);color:#E8EBF7;border-radius:14px;padding:16px 18px;overflow-x:auto;font-size:14px;line-height:1.55}
 pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit}.prose h1{font-size:34px;margin:36px 0 8px}.prose h2{font-size:21px;margin:32px 0 10px}.prose li{margin:6px 0}
+
+/* ---------- профиль ---------- */
+.profile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:28px 0 4px}
+.profile-name{font-size:30px;margin:0 0 4px}
+.profile-head .mut{margin:0}
+.dev-block{margin-top:12px;max-width:640px}.dev-block p{margin:0 0 16px}
+.save-hint{margin:10px 0 0;font-size:15px;color:var(--ink-2)}.save-hint a{color:var(--a-ink);font-weight:600}

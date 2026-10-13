@@ -39,6 +39,18 @@ function client() {
   };
 }
 
+const APPLICATION = { studio: 'Студия', about: 'Делаю небольшие браузерные игры уже два года.', links: '', contact: '@studio' };
+
+// Подать заявку разработчика и одобрить её модератором — без этого загружать игры нельзя.
+async function approveDeveloper(c) {
+  const admin = client();
+  const r = await admin('POST', '/api/login', { json: { email: 'admin@test.ru', password: 'secret123' } });
+  if (r.status !== 200) await admin('POST', '/api/register', { json: { email: 'admin@test.ru', password: 'secret123', name: 'Модератор' } });
+  await c('POST', '/api/developer/application', { json: APPLICATION });
+  const me = (await c('GET', '/api/me')).data.user;
+  await admin('POST', `/api/admin/developers/${me.id}`, { json: { action: 'approve' } });
+}
+
 const GAME = '<!doctype html><canvas id="c"></canvas><script>console.log(1)</script>';
 const upload = (c, title = 'Тест', genre = 'Аркады', body = GAME) =>
   c('POST', `/api/games?title=${encodeURIComponent(title)}&genre=${encodeURIComponent(genre)}`,
@@ -79,6 +91,7 @@ test('загрузка → модерация → каталог', async () => {
   await author('POST', '/api/register', { json: { email: 'dev@test.ru', password: 'secret123', name: 'Разработчик' } });
   const admin = client();
   await admin('POST', '/api/register', { json: { email: 'admin@test.ru', password: 'secret123', name: 'Модератор' } });
+  await approveDeveloper(author);
   const guest = client();
 
   assert.equal((await upload(guest)).status, 401, 'без входа загружать нельзя');
@@ -132,6 +145,7 @@ test('отклонение с причиной и удаление только 
   await a('POST', '/api/register', { json: { email: 'a1@test.ru', password: 'secret123', name: 'Первый' } });
   const b = client();
   await b('POST', '/api/register', { json: { email: 'b1@test.ru', password: 'secret123', name: 'Второй' } });
+  await approveDeveloper(a);
   const admin = client();
   await admin('POST', '/api/login', { json: { email: 'admin@test.ru', password: 'secret123' } });
 
@@ -149,6 +163,7 @@ test('отклонение с причиной и удаление только 
 test('проверки загрузки', async () => {
   const c = client();
   await c('POST', '/api/register', { json: { email: 'up@test.ru', password: 'secret123', name: 'Загрузчик' } });
+  await approveDeveloper(c);
   assert.equal((await upload(c, 'x')).status, 400, 'короткое название');
   assert.equal((await upload(c, 'Норм', 'Казино')).status, 400, 'неизвестный жанр');
   assert.equal((await upload(c, 'Норм', 'Аркады', '')).status, 400, 'пустой файл');
@@ -185,6 +200,7 @@ test('ограничение попыток входа', async () => {
 test('загрузка ZIP: подпапки, MIME-типы, модерация, удаление', async () => {
   const author = client();
   await author('POST', '/api/register', { json: { email: 'zip@test.ru', password: 'secret123', name: 'Архиватор' } });
+  await approveDeveloper(author);
   const admin = client();
   await admin('POST', '/api/login', { json: { email: 'admin@test.ru', password: 'secret123' } });
   const guest = client();
@@ -229,6 +245,7 @@ test('загрузка ZIP: подпапки, MIME-типы, модерация,
 test('плохие архивы отклоняются с понятной ошибкой', async () => {
   const c = client();
   await c('POST', '/api/register', { json: { email: 'badzip@test.ru', password: 'secret123', name: 'Ломатель' } });
+  await approveDeveloper(c);
   const cases = [
     [makeZip([{ name: 'game.html', data: '<html>' }]), /index\.html/],
     [makeZip([{ name: 'index.html', data: '<html>' }, { name: '../evil.js', data: 'x' }]), /Недопустимый путь/],

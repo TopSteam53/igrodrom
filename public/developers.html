@@ -12,7 +12,7 @@
   <form class="search" id="searchForm" action="index.html" role="search">
     <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
   </form>
-  <a class="btn" id="login" href="cabinet.html">Войти</a>
+  <a class="btn" id="login" href="login.html">Войти</a>
 </div></header>
 
 <main class="w prose">
@@ -21,7 +21,9 @@
 
   <h2>Как опубликовать</h2>
   <ol>
-    <li>Зарегистрируйтесь в <a href="cabinet.html">кабинете автора</a>.</li>
+    <li><a href="login.html?mode=register&amp;next=cabinet.html">Зарегистрируйтесь</a> и подайте заявку на аккаунт разработчика:
+      расскажите о себе и своих играх, оставьте контакт. Модератор проверит заявку.</li>
+    <li>После одобрения в <a href="cabinet.html">кабинете разработчика</a> откроется загрузка игр.</li>
     <li>Загрузите игру: ZIP-архив с <code>index.html</code> или один HTML-файл.</li>
     <li>Добавьте описание, правила, категорию и возрастную метку.</li>
     <li>Игра уходит на модерацию. После проверки она появится в каталоге, а если нет — в кабинете будет указана причина.</li>
@@ -80,13 +82,13 @@
     это изменится, когда у игроков появятся аккаунты.</p>
 
   <h2>Статистика</h2>
-  <p>В кабинете автора видно, сколько раз запускали ваши игры, сколько было игроков и сколько в среднем длится игра — по дням и по каждой игре.</p>
+  <p>В кабинете разработчика видно, сколько раз запускали ваши игры, сколько было игроков и сколько в среднем длится игра — по дням и по каждой игре.</p>
 
-  <p><a class="btn primary" href="cabinet.html">Открыть кабинет автора</a></p>
+  <p><a class="btn primary" href="cabinet.html">Подать заявку или открыть кабинет</a></p>
 </main>
 
 <footer><div class="w">
-  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет автора</a></nav>
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a></nav>
   <div>© Игродром</div>
 </div></footer>
 <script src="app.js"></script>

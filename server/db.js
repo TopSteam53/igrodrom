@@ -81,6 +81,22 @@ export function openDb(file) {
     );
   `);
 
+  db.exec(`
+    -- Заявки на аккаунт разработчика. Публиковать игры можно только с одобренной заявкой.
+    CREATE TABLE IF NOT EXISTS developer_applications (
+      user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      studio     TEXT NOT NULL,              -- имя или студия, как увидят игроки
+      about      TEXT NOT NULL,              -- чем занимается, какие игры делает
+      links      TEXT NOT NULL DEFAULT '',   -- портфолио, страницы игр
+      contact    TEXT NOT NULL DEFAULT '',   -- Telegram, сайт — как связаться
+      status     TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected
+      reason     TEXT,                       -- причина отказа
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS developer_applications_by_status ON developer_applications(status, updated_at);
+  `);
+
   // Колонки, добавленные после первых версий: старые базы дополняются при запуске.
   const columns = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
   const addColumn = (name, ddl) => { if (!columns.includes(name)) db.exec(`ALTER TABLE games ADD COLUMN ${name} ${ddl}`); };

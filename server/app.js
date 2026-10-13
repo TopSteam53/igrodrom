@@ -96,6 +96,24 @@ export function createApp({
     putSave: db.prepare(`INSERT INTO game_saves (game_id, visitor, data, updated_at) VALUES (?, ?, ?, ?)
                          ON CONFLICT (game_id, visitor) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`),
     deleteSave: db.prepare('DELETE FROM game_saves WHERE game_id = ? AND visitor = ?'),
+    savesOf: db.prepare('SELECT game_id, updated_at FROM game_saves WHERE visitor = ?'),
+    moveSave: db.prepare('UPDATE game_saves SET visitor = ? WHERE game_id = ? AND visitor = ?'),
+    recentGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, s.updated_at AS played_at
+                             FROM game_saves s JOIN games g ON g.id = s.game_id
+                             WHERE s.visitor = ? AND g.status = 'approved' ORDER BY s.updated_at DESC LIMIT 24`),
+    application: db.prepare('SELECT * FROM developer_applications WHERE user_id = ?'),
+    upsertApplication: db.prepare(`INSERT INTO developer_applications (user_id, studio, about, links, contact, status, reason, created_at, updated_at)
+                                   VALUES (?, ?, ?, ?, ?, 'pending', NULL, ?, ?)
+                                   ON CONFLICT (user_id) DO UPDATE SET studio = excluded.studio, about = excluded.about,
+                                     links = excluded.links, contact = excluded.contact, status = 'pending', reason = NULL,
+                                     updated_at = excluded.updated_at`),
+    applicationsByStatus: db.prepare(`SELECT a.*, u.name, u.email FROM developer_applications a JOIN users u ON u.id = a.user_id
+                                      WHERE a.status = ? ORDER BY a.updated_at ASC LIMIT 200`),
+    setApplicationStatus: db.prepare('UPDATE developer_applications SET status = ?, reason = ?, updated_at = ? WHERE user_id = ?'),
+    // Авторы, у которых игры появились до введения заявок, считаются одобренными разработчиками.
+    grandfatherAuthors: db.prepare(`INSERT OR IGNORE INTO developer_applications (user_id, studio, about, status, created_at, updated_at)
+                                    SELECT DISTINCT u.id, u.name, 'Публиковал игры до введения заявок', 'approved', ?, ?
+                                    FROM users u JOIN games g ON g.author_id = u.id`),
     gamesByStatus: db.prepare(`SELECT g.id, g.title, g.genre, g.status, g.size, g.file_count, g.created_at,
                                u.name AS author, u.email AS author_email
                                FROM games g JOIN users u ON u.id = g.author_id
@@ -110,6 +128,7 @@ export function createApp({
   const isAdmin = (user) => !!user && admins.has(user.email);
   const gameDir = (id) => path.join(gamesDir, id);
   if (seedDemoGames) seedDemo();
+  q.grandfatherAuthors.run(Date.now(), Date.now());
 
   // Демо-игры из public/games/<slug>/ (с meta.json) заводятся как обычные одобренные игры
   // от имени «Игродрома»: тогда у них работают счётчик, оценки и страница игры.
@@ -264,7 +283,46 @@ export function createApp({
     return { visitor: sha256(id), setCookie };
   }
 
-  const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u) });
+  // ---------- роли ----------
+  // Игрок — любой вошедший пользователь. Разработчик — пользователь с одобренной заявкой (или модератор).
+  const developerStatus = (u) => q.application.get(u.id)?.status || 'none';
+  const canPublish = (u) => isAdmin(u) || developerStatus(u) === 'approved';
+  const publicUser = (u) => ({
+    id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), developer: developerStatus(u), canPublish: canPublish(u),
+  });
+
+  function requireDeveloper(req) {
+    const user = requireUser(req);
+    if (!canPublish(user)) throw new HttpError(403, 'Публиковать игры могут разработчики с одобренной заявкой');
+    return user;
+  }
+
+  // Сохранения вошедшего игрока хранятся за аккаунтом, гостя — за браузером.
+  const userSaveKey = (userId) => `user:${userId}`;
+
+  // При входе прогресс, накопленный гостем в этом браузере, переезжает в аккаунт.
+  // Если у аккаунта уже есть сохранение этой игры, остаётся более свежее.
+  function adoptGuestSaves(req, userId) {
+    const token = cookies(req).vid;
+    if (!token) return;
+    const guest = sha256(token);
+    const target = userSaveKey(userId);
+    const mine = new Map(q.savesOf.all(target).map((s) => [s.game_id, s.updated_at]));
+    db.exec('BEGIN');
+    try {
+      for (const s of q.savesOf.all(guest)) {
+        if (!mine.has(s.game_id)) q.moveSave.run(target, s.game_id, guest);
+        else if (s.updated_at > mine.get(s.game_id)) {
+          q.deleteSave.run(s.game_id, target);
+          q.moveSave.run(target, s.game_id, guest);
+        } else q.deleteSave.run(s.game_id, guest);
+      }
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+  }
 
   // ---------- API ----------
 
@@ -276,11 +334,12 @@ export function createApp({
     if (typeof password !== 'string' || password.length < 8 || password.length > 200) {
       throw new HttpError(400, 'Пароль: от 8 до 200 символов');
     }
-    if (name.length < 2 || name.length > 40) throw new HttpError(400, 'Имя автора: от 2 до 40 символов');
+    if (name.length < 2 || name.length > 40) throw new HttpError(400, 'Имя: от 2 до 40 символов');
     if (q.userByEmail.get(email)) throw new HttpError(409, 'Этот email уже зарегистрирован');
 
     const { lastInsertRowid } = q.insertUser.run(email, name, await hashPassword(password), Date.now());
     const user = { id: Number(lastInsertRowid), email, name };
+    adoptGuestSaves(req, user.id);
     send(res, 201, { user: publicUser(user) }, { 'Set-Cookie': startSession(user.id) });
   }
 
@@ -297,6 +356,7 @@ export function createApp({
       throw new HttpError(401, 'Неверный email или пароль');
     }
     loginLimiter.reset(key);
+    adoptGuestSaves(req, user.id);
     send(res, 200, { user: publicUser(user) }, { 'Set-Cookie': startSession(user.id) });
   }
 
@@ -307,7 +367,7 @@ export function createApp({
   }
 
   async function uploadGame(req, res, url) {
-    const user = requireUser(req);
+    const user = requireDeveloper(req);
     const title = String(url.searchParams.get('title') || '').trim();
     const genre = String(url.searchParams.get('genre') || '');
     if (title.length < 2 || title.length > 60) throw new HttpError(400, 'Название: от 2 до 60 символов');
@@ -391,7 +451,7 @@ export function createApp({
 
   // Автор меняет описание, правила, категорию, возраст и название.
   async function updateGame(req, res, id) {
-    const user = requireUser(req);
+    const user = requireDeveloper(req);
     const game = q.game.get(id);
     if (!game || game.author_id !== user.id) throw new HttpError(404, 'Игра не найдена');
     const body = await readJson(req);
@@ -422,12 +482,51 @@ export function createApp({
     send(res, 200, { likes, dislikes, my_vote: value }, setCookie ? { 'Set-Cookie': setCookie } : {});
   }
 
+  // ---------- заявки разработчиков ----------
+  const appView = (a) => a && ({
+    studio: a.studio, about: a.about, links: a.links, contact: a.contact,
+    status: a.status, reason: a.reason, created_at: a.created_at, updated_at: a.updated_at,
+  });
+
+  async function applyDeveloper(req, res) {
+    const user = requireUser(req);
+    const current = q.application.get(user.id);
+    if (current?.status === 'pending') throw new HttpError(409, 'Заявка уже на рассмотрении');
+    if (current?.status === 'approved') throw new HttpError(409, 'Вы уже разработчик');
+    const body = await readJson(req);
+    const field = (k) => String(body[k] ?? '').trim();
+    const studio = field('studio'), about = field('about'), links = field('links'), contact = field('contact');
+    if (studio.length < 2 || studio.length > 60) throw new HttpError(400, 'Имя или студия: от 2 до 60 символов');
+    if (about.length < 20 || about.length > 1500) throw new HttpError(400, 'Расскажите о себе и играх: от 20 до 1500 символов');
+    if (links.length > 500) throw new HttpError(400, 'Ссылки: до 500 символов');
+    if (contact.length < 3 || contact.length > 200) throw new HttpError(400, 'Как с вами связаться: от 3 до 200 символов');
+    const t = now();
+    q.upsertApplication.run(user.id, studio, about, links, contact, t, t);
+    send(res, 201, { application: appView(q.application.get(user.id)) });
+  }
+
+  async function reviewDeveloper(req, res, userId) {
+    const admin = requireUser(req);
+    if (!isAdmin(admin)) throw new HttpError(403, 'Только для модераторов');
+    const { action, reason } = await readJson(req);
+    const app = q.application.get(userId);
+    if (!app) throw new HttpError(404, 'Заявка не найдена');
+    if (action === 'approve') q.setApplicationStatus.run('approved', null, now(), userId);
+    else if (action === 'reject') {
+      const why = String(reason || '').trim();
+      if (why.length < 3) throw new HttpError(400, 'Напишите причину отказа — её увидит заявитель');
+      q.setApplicationStatus.run('rejected', why.slice(0, 500), now(), userId);
+    } else throw new HttpError(400, 'action: approve или reject');
+    send(res, 200, { ok: true });
+  }
+
   // ---------- сохранения (SDK) ----------
   // Игра сама сюда не ходит: она в песочнице без cookie. Запросы шлёт страница игры
   // по просьбе SDK, а id игры подставляет страница — чужое сохранение игра прочитать не может.
   function saveTarget(req, id) {
     if (!q.publicGame.get(id)) throw new HttpError(404, 'Игра не найдена');
-    return visitorOf(req);
+    const user = currentUser(req);
+    return user ? { visitor: userSaveKey(user.id) } : visitorOf(req);
   }
 
   function getSave(req, res, id) {
@@ -566,11 +665,29 @@ export function createApp({
     }
     if (p === '/api/games' && m === 'GET') return send(res, 200, { games: q.publicGames.all() });
     if (p === '/api/games' && m === 'POST') return uploadGame(req, res, url);
+    let mm;
+    if (p === '/api/me/recent' && m === 'GET') {
+      // «Продолжить играть»: игры, в которых у игрока есть сохранение.
+      return send(res, 200, { games: q.recentGames.all(userSaveKey(requireUser(req).id)) });
+    }
+    if (p === '/api/developer/application' && m === 'GET') {
+      return send(res, 200, { application: appView(q.application.get(requireUser(req).id)) || null });
+    }
+    if (p === '/api/developer/application' && m === 'POST') return applyDeveloper(req, res);
+    if (p === '/api/admin/developers' && m === 'GET') {
+      const admin = requireUser(req);
+      if (!isAdmin(admin)) throw new HttpError(403, 'Только для модераторов');
+      const status = url.searchParams.get('status') || 'pending';
+      if (!['pending', 'approved', 'rejected'].includes(status)) throw new HttpError(400, 'Неизвестный статус');
+      return send(res, 200, {
+        applications: q.applicationsByStatus.all(status).map((a) => ({ user_id: a.user_id, name: a.name, email: a.email, ...appView(a) })),
+      });
+    }
+    if ((mm = p.match(/^\/api\/admin\/developers\/(\d+)$/)) && m === 'POST') return reviewDeveloper(req, res, Number(mm[1]));
     if (p === '/api/my/games' && m === 'GET') {
-      return send(res, 200, { games: withPreview(q.myGames.all(requireUser(req).id)) });
+      return send(res, 200, { games: withPreview(q.myGames.all(requireDeveloper(req).id)) });
     }
 
-    let mm;
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'DELETE') return deleteGame(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'GET') return gameDetails(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'PATCH') return updateGame(req, res, mm[1]);
@@ -583,7 +700,7 @@ export function createApp({
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play$/)) && m === 'POST') return playStart(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play-end$/)) && m === 'POST') return playEnd(req, res, mm[1]);
     if (p === '/api/my/stats' && m === 'GET') {
-      const user = requireUser(req);
+      const user = requireDeveloper(req);
       const days = Number(url.searchParams.get('days') || 30);
       if (!Number.isInteger(days) || days < 1 || days > 365) throw new HttpError(400, 'days: от 1 до 365');
       return send(res, 200, stats.authorStats(user.id, days));

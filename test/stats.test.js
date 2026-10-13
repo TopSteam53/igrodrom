@@ -63,6 +63,11 @@ test('подготовка: автор, модератор, две игры', as
   await author('POST', '/api/register', { json: { email: 'stat@test.ru', password: 'secret123', name: 'Статист' } });
   admin = browser();
   await admin('POST', '/api/register', { json: { email: 'admin@test.ru', password: 'secret123', name: 'Модер' } });
+  await author('POST', '/api/developer/application', {
+    json: { studio: 'Статист', about: 'Делаю небольшие браузерные игры.', contact: '@stat' },
+  });
+  const me = (await author('GET', '/api/me')).data.user;
+  await admin('POST', `/api/admin/developers/${me.id}`, { json: { action: 'approve' } });
   gameA = await publishGame(author, admin, 'Игра А');
   gameB = await publishGame(author, admin, 'Игра Б');
 });
@@ -117,9 +122,7 @@ test('боты, неодобренные игры и чужая статисти
 
   const other = browser();
   await other('POST', '/api/register', { json: { email: 'other@test.ru', password: 'secret123', name: 'Другой' } });
-  const s = (await other('GET', '/api/my/stats')).data;
-  assert.equal(s.totals.plays, 0);
-  assert.equal(s.games.length, 0);
+  assert.equal((await other('GET', '/api/my/stats')).status, 403, 'статистика — только для разработчиков');
   assert.equal((await browser()('GET', '/api/my/stats')).status, 401);
   assert.equal((await author('GET', '/api/my/stats?days=0')).status, 400);
   assert.equal((await author('GET', '/api/my/stats?days=1000')).status, 400);

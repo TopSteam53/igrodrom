@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Профиль — Игродром</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html" aria-label="Игродром, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1C2140"/><circle cx="16" cy="16" r="10.5" fill="#FFC531"/><path d="M13.2 10.9 21.6 16l-8.4 5.1z" fill="#1C2140"/></svg><span>Игродром</span></a>
+  <form class="search" id="searchForm" action="index.html" role="search">
+    <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
+  </form>
+  <a class="btn" id="login" href="login.html">Войти</a>
+</div></header>
+
+<main class="w" id="page">
+  <div class="profile-head">
+    <div>
+      <h1 id="name" class="profile-name">Профиль</h1>
+      <p class="mut" id="email"></p>
+    </div>
+    <button class="btn" id="logout">Выйти</button>
+  </div>
+
+  <section class="sec">
+    <div class="sec-head"><h2>Продолжить играть</h2></div>
+    <div class="grid" id="recent"></div>
+  </section>
+
+  <section class="panel dev-block" id="dev"></section>
+</main>
+
+<footer><div class="w">
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a></nav>
+  <div>© Игродром</div>
+</div></footer>
+
+<script src="app.js"></script>
+<script>
+const { $, esc, me, fromApi, cardHTML } = Igr;
+
+const DEV = {
+  none: () => `<h3>Делаете игры?</h3><p>Подайте заявку на аккаунт разработчика — после проверки сможете публиковать свои игры в каталоге.</p>
+    <a class="btn primary" href="cabinet.html">Подать заявку</a>`,
+  pending: () => `<h3>Заявка разработчика на рассмотрении</h3><p>Когда модератор её одобрит, в кабинете откроется загрузка игр.</p>
+    <a class="btn" href="cabinet.html">Посмотреть заявку</a>`,
+  rejected: () => `<h3>Заявка разработчика отклонена</h3><p>Причина указана в кабинете. Заявку можно исправить и отправить снова.</p>
+    <a class="btn" href="cabinet.html">Открыть заявку</a>`,
+  approved: () => `<h3>Вы разработчик</h3><p>Загружайте игры и смотрите статистику в кабинете.</p>
+    <a class="btn primary" href="cabinet.html">Кабинет разработчика</a>`,
+};
+
+me().then(async (user) => {
+  if (!user) { location.replace('login.html?next=account.html'); return; }
+  $('name').textContent = user.name;
+  $('email').textContent = user.email;
+  $('dev').innerHTML = DEV[user.canPublish ? 'approved' : user.developer]();
+  const { games } = await (await fetch('/api/me/recent')).json();
+  $('recent').innerHTML = games.length ? games.map(fromApi).map(cardHTML).join('')
+    : `<div class="empty"><p>Здесь появятся игры, в которых у вас есть сохранённый прогресс.</p>
+       <a class="btn" href="index.html">Выбрать игру</a></div>`;
+});
+
+$('logout').onclick = async () => {
+  await fetch('/api/logout', { method: 'POST' }).catch(() => {});
+  location.href = 'index.html';
+};
+Igr.initHeader();
+</script>
+</body>
+</html>

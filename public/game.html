@@ -12,7 +12,7 @@
   <form class="search" id="searchForm" action="index.html" role="search">
     <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
   </form>
-  <a class="btn" id="login" href="cabinet.html">Войти</a>
+  <a class="btn" id="login" href="login.html">Войти</a>
 </div></header>
 
 <main class="w" id="page">
@@ -48,6 +48,8 @@
       <button class="btn sm" id="full">Во весь экран</button>
     </div>
 
+    <p class="save-hint hidden" id="saveHint"></p>
+
     <div class="info">
       <div class="panel">
         <h3>Об игре</h3><p id="desc"></p>
@@ -64,7 +66,7 @@
 </main>
 
 <footer><div class="w">
-  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет автора</a></nav>
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a></nav>
   <div>© Игродром</div>
 </div></footer>
 
@@ -128,6 +130,13 @@ function render(all) {
   const similar = [...others.filter((g) => g.genre === game.genre), ...others.filter((g) => g.genre !== game.genre)].slice(0, 10);
   $('similar').innerHTML = similar.map(cardHTML).join('');
   $('votes').classList.toggle('hidden', !live);
+  // Гостю — подсказка: прогресс сейчас живёт только в этом браузере.
+  if (live) Igr.me().then((user) => {
+    if (user) return;
+    const next = encodeURIComponent(`game.html?id=${game.id}`);
+    $('saveHint').innerHTML = `Прогресс сохраняется в этом браузере. <a href="login.html?next=${next}">Войдите</a>, чтобы он был доступен на всех ваших устройствах.`;
+    $('saveHint').classList.remove('hidden');
+  });
 }
 
 function renderScore() {

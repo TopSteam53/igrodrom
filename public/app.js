@@ -95,9 +95,26 @@
         input.oninput = () => { clearTimeout(t); t = setTimeout(() => onSearch(input.value.trim()), 200); };
       }
     }
-    fetch('/api/me').then((r) => r.json()).then(({ user }) => {
-      if (user && $('login')) $('login').textContent = user.name;
-    }).catch(() => {});
+    // «Войти» ведёт на вход и возвращает на эту же страницу; вошедшему — имя и ссылка на профиль.
+    const login = $('login');
+    if (login) login.href = `login.html?next=${encodeURIComponent(here())}`;
+    me().then((user) => {
+      if (user && login) { login.textContent = user.name; login.href = 'account.html'; }
+    });
+  }
+
+  const here = () => (location.pathname.split('/').pop() || 'index.html') + location.search;
+
+  // Текущий пользователь (или null). Без сервера — тоже null.
+  let mePromise;
+  function me() {
+    mePromise ??= fetch('/api/me').then((r) => (r.ok ? r.json() : { user: null })).then(({ user }) => user || null).catch(() => null);
+    return mePromise;
+  }
+
+  // Куда вернуть после входа: только страница этого же сайта, никаких внешних адресов.
+  function safeNext(value, fallback = 'account.html') {
+    return /^[\w-]+\.html(\?[^#]*)?$/.test(value || '') ? value : fallback;
   }
 
   function toast(msg) {
@@ -111,5 +128,5 @@
   const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${g.description || ''}`).includes(norm(q));
 
-  window.Igr = { $, esc, fmt, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader, toast, matches, CATEGORY_ICONS };
+  window.Igr = { $, esc, fmt, me, safeNext, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader, toast, matches, CATEGORY_ICONS };
 })();

@@ -3,32 +3,34 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Кабинет автора — Игродром</title>
+<title>Кабинет разработчика — Игродром</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top"><div class="w top-in">
   <a class="logo" href="index.html" aria-label="Игродром, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1C2140"/><circle cx="16" cy="16" r="10.5" fill="#FFC531"/><path d="M13.2 10.9 21.6 16l-8.4 5.1z" fill="#1C2140"/></svg><span>Игродром</span></a>
-  <span class="mut" style="margin-left:auto">Кабинет автора</span>
-  <div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><span id="uname"></span><button class="btn sm" id="logout">Выйти</button></div>
+  <span class="mut" style="margin-left:auto">Кабинет разработчика</span>
+  <div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><a id="uname" href="account.html"></a><button class="btn sm" id="logout">Выйти</button></div>
 </div></header>
 
-<!-- Вход / регистрация -->
-<main id="auth" class="w hidden"><div class="narrow panel">
-  <h1 class="auth-title">Кабинет автора</h1>
-  <p class="mut auth-sub">Для тех, кто публикует игры. Чтобы играть, вход не нужен.</p>
-  <div class="tabs"><span class="tab on" data-mode="login">Вход</span><span class="tab" data-mode="register">Регистрация</span></div>
-  <form id="authForm">
-    <div id="nameField" class="hidden"><label for="name">Имя автора (видно игрокам)</label><input id="name" maxlength="40" autocomplete="nickname"></div>
-    <label for="email">Email</label><input id="email" type="email" required autocomplete="email">
-    <label for="password">Пароль (от 8 символов)</label><input id="password" type="password" required minlength="8" autocomplete="current-password">
-    <div class="err-text" id="authErr"></div>
-    <button class="btn primary" id="authBtn" style="width:100%;margin-top:6px">Войти</button>
-  </form>
-</div></main>
+<!-- Заявка на аккаунт разработчика: показывается, пока публиковать нельзя -->
+<main id="apply" class="w hidden"><div class="narrow panel" id="applyPanel"></div></main>
 
 <!-- Кабинет -->
 <main id="cabinet" class="w hidden">
+  <section id="admin" class="hidden">
+    <h2>Заявки разработчиков</h2>
+    <div class="tabs" id="devTabs">
+      <span class="tab on" data-s="pending">Новые</span><span class="tab" data-s="approved">Одобрены</span><span class="tab" data-s="rejected">Отклонены</span>
+    </div>
+    <div class="rows" id="devQueue"></div>
+
+    <h2>Модерация игр</h2>
+    <div class="tabs" id="admTabs">
+      <span class="tab on" data-s="pending">На проверке</span><span class="tab" data-s="approved">Опубликованы</span><span class="tab" data-s="rejected">Отклонены</span>
+    </div>
+    <div class="rows" id="queue"></div>
+  </section>
   <section id="stats">
     <div class="stats-head">
       <h2>Статистика</h2>
@@ -72,13 +74,6 @@
   <h2>Мои игры</h2>
   <div class="rows" id="mine"></div>
 
-  <section id="admin" class="hidden">
-    <h2>Модерация</h2>
-    <div class="tabs" id="admTabs">
-      <span class="tab on" data-s="pending">На проверке</span><span class="tab" data-s="approved">Опубликованы</span><span class="tab" data-s="rejected">Отклонены</span>
-    </div>
-    <div class="rows" id="queue"></div>
-  </section>
 </main>
 
 <div class="toast" id="toast"></div>
@@ -111,29 +106,84 @@ async function api(method, url, body, type = 'application/json') {
   return data;
 }
 
-// ---------- вход / регистрация ----------
-let mode = 'login';
-document.querySelector('#auth .tabs').onclick = (e) => {
-  if (!e.target.dataset.mode) return;
-  mode = e.target.dataset.mode;
-  document.querySelectorAll('#auth .tab').forEach((t) => t.classList.toggle('on', t.dataset.mode === mode));
-  $('nameField').classList.toggle('hidden', mode !== 'register');
-  $('authBtn').textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
-  $('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-  $('authErr').textContent = '';
+$('logout').onclick = async () => { await api('POST', '/api/logout').catch(() => {}); location.href = 'index.html'; };
+
+// ---------- заявка разработчика ----------
+const APPLY_FORM = (a = {}) => `
+  <form id="applyForm">
+    <label for="aStudio">Имя или студия — так вас увидят игроки</label><input id="aStudio" maxlength="60" required value="${esc(a.studio || me.name)}">
+    <label for="aAbout">О себе и своих играх</label>
+    <textarea id="aAbout" maxlength="1500" required minlength="20" placeholder="Какие игры делаете, на чём, есть ли уже готовые">${esc(a.about || '')}</textarea>
+    <label for="aLinks">Ссылки на игры или портфолио (если есть)</label><input id="aLinks" maxlength="500" value="${esc(a.links || '')}" placeholder="itch.io, GitHub, сайт">
+    <label for="aContact">Как с вами связаться</label><input id="aContact" maxlength="200" required value="${esc(a.contact || '')}" placeholder="Telegram или другой контакт">
+    <div class="err-text" id="applyErr"></div>
+    <button class="btn primary" id="applyBtn">Отправить заявку</button>
+  </form>`;
+
+async function showApply() {
+  const { application: a } = await api('GET', '/api/developer/application');
+  const panel = $('applyPanel');
+  if (a && a.status === 'pending') {
+    panel.innerHTML = `<h1 class="auth-title">Заявка на рассмотрении</h1>
+      <p class="mut auth-sub">Отправлена ${date(a.updated_at)}. Когда модератор её одобрит, здесь появится загрузка игр.</p>
+      <dl class="facts"><dt>Имя или студия</dt><dd>${esc(a.studio)}</dd><dt>Контакт</dt><dd>${esc(a.contact)}</dd></dl>`;
+    return;
+  }
+  panel.innerHTML = a && a.status === 'rejected'
+    ? `<h1 class="auth-title">Заявка отклонена</h1>
+       <p class="reject-reason">${esc(a.reason)}</p>
+       <p class="mut auth-sub">Исправьте заявку и отправьте снова.</p>${APPLY_FORM(a)}`
+    : `<h1 class="auth-title">Стать разработчиком</h1>
+       <p class="mut auth-sub">Чтобы публиковать игры, расскажите о себе. Модератор проверит заявку, после одобрения
+       откроется загрузка игр. Каждая игра тоже проходит проверку перед публикацией.</p>${APPLY_FORM()}`;
+  $('applyForm').onsubmit = async (e) => {
+    e.preventDefault();
+    $('applyErr').textContent = ''; $('applyBtn').disabled = true;
+    try {
+      await api('POST', '/api/developer/application', {
+        studio: $('aStudio').value, about: $('aAbout').value, links: $('aLinks').value, contact: $('aContact').value,
+      });
+      toast('Заявка отправлена');
+      showApply();
+    } catch (err) { $('applyErr').textContent = err.message; $('applyBtn').disabled = false; }
+  };
+}
+
+// Ссылки из заявки: только http(s), всё остальное — обычный текст.
+const linkify = (text) => String(text || '').split(/(\s+)/).map((t) =>
+  /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener nofollow ugc">${esc(t)}</a>` : esc(t)).join('');
+
+let devStatus = 'pending';
+async function loadDevQueue() {
+  const { applications } = await api('GET', `/api/admin/developers?status=${devStatus}`);
+  $('devQueue').innerHTML = applications.length ? applications.map((a) => `
+    <div class="row"><div class="t"><b>${esc(a.studio)}</b>
+      <span class="facts-line"><span>${esc(a.name)}, ${esc(a.email)}</span><span>${esc(a.contact)}</span><span>${date(a.updated_at)}</span></span>
+      <p class="app-about">${esc(a.about)}</p>
+      ${a.links ? `<p class="app-links">${linkify(a.links)}</p>` : ''}
+      ${a.reason ? `<p class="reject-reason">Причина отказа: ${esc(a.reason)}</p>` : ''}</div>
+      <div class="acts">
+      ${a.status !== 'approved' ? `<button class="btn ok sm" data-dev="approve" data-id="${a.user_id}">Одобрить</button>` : ''}
+      ${a.status !== 'rejected' ? `<button class="btn bad sm" data-dev="reject" data-id="${a.user_id}">Отклонить</button>` : ''}</div></div>`).join('')
+    : '<p class="mut">Заявок нет.</p>';
+}
+$('devTabs').onclick = (e) => {
+  if (!e.target.dataset.s) return;
+  devStatus = e.target.dataset.s;
+  document.querySelectorAll('#devTabs .tab').forEach((t) => t.classList.toggle('on', t.dataset.s === devStatus));
+  loadDevQueue();
 };
-$('authForm').onsubmit = async (e) => {
-  e.preventDefault();
-  $('authErr').textContent = ''; $('authBtn').disabled = true;
+$('devQueue').onclick = async (e) => {
+  const { dev, id } = e.target.dataset;
+  if (!dev) return;
+  let reason;
+  if (dev === 'reject' && (reason = prompt('Причина отказа (её увидит заявитель):')) === null) return;
   try {
-    const body = { email: $('email').value, password: $('password').value };
-    if (mode === 'register') body.name = $('name').value;
-    const { user } = await api('POST', `/api/${mode}`, body);
-    show(user);
-  } catch (err) { $('authErr').textContent = err.message; }
-  $('authBtn').disabled = false;
+    await api('POST', `/api/admin/developers/${id}`, { action: dev, reason });
+    toast(dev === 'approve' ? 'Разработчик одобрен' : 'Заявка отклонена');
+    loadDevQueue();
+  } catch (err) { toast(err.message, true); }
 };
-$('logout').onclick = async () => { await api('POST', '/api/logout').catch(() => {}); show(null); };
 
 // ---------- загрузка ----------
 $('upForm').onsubmit = async (e) => {
@@ -225,7 +275,7 @@ $('queue').onclick = async (e) => {
   const { act, id } = e.target.dataset;
   if (!act) return;
   let reason;
-  if (act === 'reject' && (reason = prompt('Причина отклонения (увидит автор):')) === null) return;
+  if (act === 'reject' && (reason = prompt('Причина отклонения (увидит разработчик):')) === null) return;
   try { await api('POST', `/api/admin/games/${id}`, { action: act, reason }); toast(act === 'approve' ? 'Опубликовано' : 'Отклонено'); loadQueue(); }
   catch (err) { toast(err.message, true); }
 };
@@ -334,15 +384,16 @@ $('periods').onclick = (e) => {
 let me = null;
 function show(user) {
   me = user;
-  $('auth').classList.toggle('hidden', !!user);
-  $('cabinet').classList.toggle('hidden', !user);
-  $('who').classList.toggle('hidden', !user);
-  if (!user) return;
+  if (!user) { location.replace('login.html?next=cabinet.html'); return; }
+  $('who').classList.remove('hidden');
   $('uname').textContent = user.name;
+  $('apply').classList.toggle('hidden', user.canPublish);
+  $('cabinet').classList.toggle('hidden', !user.canPublish);
+  if (!user.canPublish) { showApply(); return; }
   $('admin').classList.toggle('hidden', !user.isAdmin);
   loadMine();
   loadStats();
-  if (user.isAdmin) loadQueue();
+  if (user.isAdmin) { loadQueue(); loadDevQueue(); }
 }
 
 let categories = [], ages = [];
@@ -352,9 +403,9 @@ const catsReady = api('GET', '/api/categories').then((r) => {
   $('age').innerHTML = options(ages, '0+');
 }).catch(() => {});
 api('GET', '/api/me').then(({ user }) => show(user)).catch(() => {
-  // Статическая копия (например, GitHub Pages): API нет, форма входа бесполезна.
-  $('auth').classList.remove('hidden');
-  $('auth').querySelector('.panel').innerHTML = `<h3>Кабинет автора недоступен в демо-версии</h3>
+  // Статическая копия (например, GitHub Pages): API нет.
+  $('apply').classList.remove('hidden');
+  $('applyPanel').innerHTML = `<h3>Кабинет разработчика недоступен в демо-версии</h3>
     <p class="mut">Эта копия сайта статическая: здесь работают витрина и демо-игры. Регистрация, загрузка игр,
     модерация и статистика работают в полной версии на сервере (инструкция по запуску — в README репозитория).</p>
     <a class="btn primary" href="index.html">Открыть каталог</a>`;
