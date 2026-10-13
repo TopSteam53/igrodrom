@@ -7,8 +7,10 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="w"><a class="logo" href="index.html">Игро<b>дром</b></a>
-<div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><span class="mut" id="uname"></span><button class="btn g sm" id="logout">Выйти</button></div>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html">Игро<b>дром</b></a>
+  <span class="mut" style="margin-left:auto">Кабинет автора</span>
+  <div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><span id="uname"></span><button class="btn g sm" id="logout">Выйти</button></div>
 </div></header>
 
 <!-- Вход / регистрация -->
@@ -36,7 +38,6 @@
       <div class="kpi"><span>Запуски</span><b id="kPlays">—</b></div>
       <div class="kpi"><span>Игроки</span><b id="kUniques">—</b></div>
       <div class="kpi"><span>Среднее время</span><b id="kAvg">—</b></div>
-      <div class="kpi"><span>Оценка дохода</span><b id="kIncome">—</b></div>
     </div>
     <div class="panel chart-panel">
       <div class="chart-title">Запуски по дням</div>
@@ -50,7 +51,13 @@
   <h2>Загрузить игру</h2>
   <div class="panel"><form id="upForm">
     <label for="title">Название</label><input id="title" required minlength="2" maxlength="60" placeholder="Моя игра">
-    <label for="genre">Жанр</label><select id="genre"></select>
+    <div class="form-row">
+      <div><label for="genre">Категория</label><select id="genre"></select></div>
+      <div><label aria-hidden="true">&nbsp;</label><span class="mut">Обложку положите в архив как <code>cover.png</code> (16:9)</span></div>
+      <div><label for="age">Возраст</label><select id="age"></select></div>
+    </div>
+    <label for="desc">Об игре</label><textarea id="desc" maxlength="1500" placeholder="О чём игра, в чём её суть"></textarea>
+    <label for="howto">Как играть</label><textarea id="howto" maxlength="600" placeholder="Управление мышью, клавиатурой и на телефоне"></textarea>
     <label for="file">Файл игры: ZIP-архив до 20 МБ или один .html до 5 МБ</label>
     <input type="file" id="file" accept=".zip,.html,.htm,application/zip,text/html" required>
     <p class="mut">В архиве должен быть <b>index.html</b>: в корне или в единственной папке. Картинки, звуки,
@@ -138,7 +145,8 @@ $('upForm').onsubmit = async (e) => {
   $('upBtn').disabled = true; $('upBtn').textContent = 'Загружаем…';
   try {
     const qs = new URLSearchParams({ title: $('title').value, genre: $('genre').value });
-    await api('POST', `/api/games?${qs}`, f, isZip ? 'application/zip' : 'text/html');
+    const { game } = await api('POST', `/api/games?${qs}`, f, isZip ? 'application/zip' : 'text/html');
+    await api('PATCH', `/api/games/${game.id}`, { age: $('age').value, description: $('desc').value, how_to_play: $('howto').value });
     $('upForm').reset();
     toast('Игра отправлена на модерацию');
     loadMine();
@@ -150,20 +158,47 @@ $('upForm').onsubmit = async (e) => {
 
 // ---------- мои игры ----------
 async function loadMine() {
+  await catsReady; // списки категорий нужны формам «Изменить»
   const { games } = await api('GET', '/api/my/games');
   $('mine').innerHTML = games.length ? games.map((g) => `
     <div class="row"><div class="t"><b>${esc(g.title)}</b>
       <span class="mut">${esc(g.genre)} · ${files(g.file_count)} · ${kb(g.size)} · ${date(g.created_at)}</span>
       ${g.status === 'rejected' ? `<div class="mut" style="color:var(--bad)">Причина: ${esc(g.reject_reason || '')}</div>` : ''}</div>
       <span class="badge ${g.status}">${STATUS[g.status]}</span>
-      <div class="acts"><a class="btn g sm" href="${g.status === 'approved' ? `/play/${g.id}/` : g.preview_url}" target="_blank" rel="noopener">Открыть</a>
-      <button class="btn bad sm" data-del="${g.id}">Удалить</button></div></div>`).join('')
+      <div class="acts">${g.status === 'approved' ? `<a class="btn g sm" href="game.html?id=${g.id}">Страница игры</a>` : ''}
+      <a class="btn g sm" href="${g.status === 'approved' ? `/play/${g.id}/` : g.preview_url}" target="_blank" rel="noopener">Открыть</a>
+      <button class="btn g sm" data-edit="${g.id}">Изменить</button>
+      <button class="btn bad sm" data-del="${g.id}">Удалить</button></div>
+      <form class="edit hidden" data-form="${g.id}">
+        <div class="form-row">
+          <div><label>Название</label><input name="title" value="${esc(g.title)}" minlength="2" maxlength="60" required></div>
+          <div><label>Категория</label><select name="genre">${options(categories, g.genre)}</select></div>
+          <div><label>Возраст</label><select name="age">${options(ages, g.age)}</select></div>
+        </div>
+        <label>Об игре</label><textarea name="description" maxlength="1500">${esc(g.description)}</textarea>
+        <label>Как играть</label><textarea name="how_to_play" maxlength="600">${esc(g.how_to_play)}</textarea>
+        <div style="margin-top:10px"><button class="btn sm">Сохранить</button></div>
+      </form></div>`).join('')
     : '<p class="mut">Пока нет игр. Загрузите первую выше.</p>';
 }
+const options = (list, cur) => list.map((v) => `<option ${v === cur ? 'selected' : ''}>${esc(v)}</option>`).join('');
 $('mine').onclick = async (e) => {
+  if (e.target.dataset.edit) {
+    document.querySelector(`[data-form="${e.target.dataset.edit}"]`).classList.toggle('hidden');
+    return;
+  }
   const id = e.target.dataset.del;
   if (!id || !confirm('Удалить игру? Это нельзя отменить.')) return;
   try { await api('DELETE', `/api/games/${id}`); toast('Игра удалена'); loadMine(); loadStats(); } catch (err) { toast(err.message, true); }
+};
+$('mine').onsubmit = async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  try {
+    await api('PATCH', `/api/games/${form.dataset.form}`, Object.fromEntries(new FormData(form)));
+    toast('Сохранено');
+    loadMine();
+  } catch (err) { toast(err.message, true); }
 };
 
 // ---------- модерация ----------
@@ -195,7 +230,6 @@ $('queue').onclick = async (e) => {
 
 // ---------- статистика ----------
 const num = (n) => Math.round(n).toLocaleString('ru-RU');
-const rub = (n) => n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
 const dur = (sec) => {
   const s = Math.round(sec);
   return s < 60 ? `${s} с` : `${Math.floor(s / 60)} мин ${s % 60} с`;
@@ -206,27 +240,24 @@ let statDays = 30, lastStats = null;
 
 async function loadStats() {
   lastStats = await api('GET', `/api/my/stats?days=${statDays}`);
-  const { totals, games, daily, estimate } = lastStats;
+  const { totals, games, daily } = lastStats;
   $('kPlays').textContent = num(totals.plays);
   $('kUniques').textContent = num(totals.uniques);
   $('kAvg').textContent = avg(totals.seconds, totals.plays);
-  $('kIncome').textContent = rub(totals.income.author);
 
   $('gameTable').innerHTML = `<thead><tr><th>Игра</th><th class="n">Запуски</th><th class="n">Игроки</th>
-    <th class="n">Ср. время</th><th class="n">Оценка дохода</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
+    <th class="n">Ср. время</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
     (games.length ? games.map((g) => `<tr><td>${esc(g.title)} <span class="badge ${g.status}">${STATUS[g.status]}</span></td>
       <td class="n">${num(g.plays)}</td><td class="n">${num(g.uniques)}</td><td class="n">${avg(g.seconds, g.plays)}</td>
-      <td class="n">${rub(g.income.author)}</td><td class="n">${num(g.plays_all_time)}</td></tr>`).join('')
-      : '<tr><td colspan="6" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
+      <td class="n">${num(g.plays_all_time)}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
 
   $('dayTable').innerHTML = `<table class="tbl"><thead><tr><th>День</th><th class="n">Запуски</th><th class="n">Игроки</th><th class="n">Ср. время</th></tr></thead><tbody>` +
     daily.slice().reverse().map((d) => `<tr><td>${dayLabel(d.day)}</td><td class="n">${num(d.plays)}</td>
       <td class="n">${num(d.uniques)}</td><td class="n">${avg(d.seconds, d.plays)}</td></tr>`).join('') + '</tbody></table>';
 
   $('estimateNote').textContent = `Игроки — сумма уникальных игроков по дням. Запуск — открытие игры в каталоге; ` +
-    `повторное открытие тем же игроком в течение 30 минут не считается. Оценка дохода: показ рекламы при старте ` +
-    `и каждые 3 минуты игры, ${num(estimate.ecpm)} ₽ за 1000 показов, ваша доля ${Math.round(estimate.share * 100)}%. ` +
-    `Реклама пока не подключена — это прогноз, а не начисления.`;
+    `повторное открытие тем же игроком в течение 30 минут не считается.`;
   drawChart();
 }
 
@@ -312,8 +343,11 @@ function show(user) {
   if (user.isAdmin) loadQueue();
 }
 
-api('GET', '/api/genres').then(({ genres }) => {
-  $('genre').innerHTML = genres.map((g) => `<option>${esc(g)}</option>`).join('');
+let categories = [], ages = [];
+const catsReady = api('GET', '/api/categories').then((r) => {
+  categories = r.categories; ages = r.ages;
+  $('genre').innerHTML = options(categories);
+  $('age').innerHTML = options(ages, '0+');
 }).catch(() => {});
 api('GET', '/api/me').then(({ user }) => show(user)).catch(() => {
   // Статическая копия (например, GitHub Pages): API нет, форма входа бесполезна.

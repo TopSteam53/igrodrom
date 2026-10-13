@@ -9,7 +9,16 @@ import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
 } from './auth.js';
 
-export const GENRES = ['Аркады', 'Головоломки', 'Кликеры', 'Прочее'];
+export const CATEGORIES = [
+  'Аркады', 'Головоломки', 'Три в ряд', 'Казуальные', 'Настольные', 'Карточные', 'Стратегии', 'Гонки',
+  'Симуляторы', 'Приключения', 'Спорт', 'Викторины', 'Обучающие', 'Для двоих', 'Кликеры', 'Прочее',
+];
+export const GENRES = CATEGORIES; // старое имя
+export const AGES = ['0+', '6+', '12+', '16+', '18+'];
+const COVER_FILES = ['cover.png', 'cover.jpg', 'cover.jpeg', 'cover.webp', 'cover.svg'];
+const RATING_SQL = `(SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = 1) AS likes,
+                    (SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = -1) AS dislikes,
+                    (SELECT COALESCE(SUM(plays), 0) FROM play_daily d WHERE d.game_id = g.id) AS plays`;
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // архив целиком
 const MAX_HTML_BYTES = 5 * 1024 * 1024; // одиночный .html
 const MAX_UNZIPPED_BYTES = 50 * 1024 * 1024;
@@ -41,7 +50,8 @@ class HttpError extends Error {
 
 export function createApp({
   dataDir, publicDir, adminEmails = [], secureCookies = false, previewSecret = randomBytes(32), trustProxy = false,
-  now = Date.now, statsTz = 'Europe/Moscow', estimate = { ecpm: 80, share: 0.7 },
+  seedDemoGames = false,
+  now = Date.now, statsTz = 'Europe/Moscow',
 }) {
   const gamesDir = path.join(dataDir, 'games');
   fs.mkdirSync(gamesDir, { recursive: true });
@@ -49,7 +59,7 @@ export function createApp({
   const db = openDb(path.join(dataDir, 'igrodrom.db'));
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
-  const stats = createStats({ db, now, tz: statsTz, estimate });
+  const stats = createStats({ db, now, tz: statsTz });
 
   const q = {
     userByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
@@ -59,25 +69,72 @@ export function createApp({
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
-    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, u.name AS author, g.created_at,
-                               (SELECT COALESCE(SUM(plays), 0) FROM play_daily d WHERE d.game_id = g.id) AS plays
+    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, u.name AS author, g.created_at, ${RATING_SQL}
                              FROM games g JOIN users u ON u.id = g.author_id
                              WHERE g.status = 'approved' ORDER BY g.created_at DESC LIMIT 500`),
-    myGames: db.prepare(`SELECT id, title, genre, status, reject_reason, size, file_count, created_at
+    publicGame: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.description, g.how_to_play,
+                              u.name AS author, g.created_at, g.updated_at, ${RATING_SQL}
+                            FROM games g JOIN users u ON u.id = g.author_id
+                            WHERE g.id = ? AND g.status = 'approved'`),
+    myGames: db.prepare(`SELECT id, title, genre, age, cover, description, how_to_play, status, reject_reason,
+                           size, file_count, created_at
                          FROM games WHERE author_id = ? ORDER BY created_at DESC`),
+    updateMeta: db.prepare(`UPDATE games SET title = ?, genre = ?, age = ?, description = ?, how_to_play = ?, updated_at = ?
+                            WHERE id = ?`),
+    myVote: db.prepare('SELECT value FROM game_votes WHERE game_id = ? AND visitor = ?'),
+    upsertVote: db.prepare(`INSERT INTO game_votes (game_id, visitor, value, created_at) VALUES (?, ?, ?, ?)
+                            ON CONFLICT (game_id, visitor) DO UPDATE SET value = excluded.value`),
+    deleteVote: db.prepare('DELETE FROM game_votes WHERE game_id = ? AND visitor = ?'),
     gamesByStatus: db.prepare(`SELECT g.id, g.title, g.genre, g.status, g.size, g.file_count, g.created_at,
                                u.name AS author, u.email AS author_email
                                FROM games g JOIN users u ON u.id = g.author_id
                                WHERE g.status = ? ORDER BY g.created_at ASC LIMIT 200`),
     game: db.prepare('SELECT * FROM games WHERE id = ?'),
-    insertGame: db.prepare(`INSERT INTO games (id, author_id, title, genre, status, size, file_count, created_at, updated_at)
-                            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?)`),
+    insertGame: db.prepare(`INSERT INTO games (id, author_id, title, genre, status, size, file_count, cover, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`),
     setStatus: db.prepare('UPDATE games SET status = ?, reject_reason = ?, updated_at = ? WHERE id = ?'),
     deleteGame: db.prepare('DELETE FROM games WHERE id = ?'),
   };
 
   const isAdmin = (user) => !!user && admins.has(user.email);
   const gameDir = (id) => path.join(gamesDir, id);
+  if (seedDemoGames) seedDemo();
+
+  // Демо-игры из public/games/<slug>/ (с meta.json) заводятся как обычные одобренные игры
+  // от имени «Игродрома»: тогда у них работают счётчик, оценки и страница игры.
+  function seedDemo() {
+    const root = path.join(publicDir, 'games');
+    if (!fs.existsSync(root)) return;
+    const studioEmail = 'studio@igrodrom.local';
+    let studio = q.userByEmail.get(studioEmail);
+    if (!studio) {
+      // Пароль-заглушка: verifyPassword его никогда не примет, войти под этим аккаунтом нельзя.
+      q.insertUser.run(studioEmail, 'Игродром', '!', Date.now());
+      studio = q.userByEmail.get(studioEmail);
+    }
+    const slugs = fs.readdirSync(root).filter((d) => fs.existsSync(path.join(root, d, 'meta.json'))).sort();
+    for (const slug of slugs) {
+      const src = path.join(root, slug);
+      let meta;
+      try { meta = JSON.parse(fs.readFileSync(path.join(src, 'meta.json'), 'utf8')); } catch { continue; }
+      if (!fs.existsSync(path.join(src, 'index.html'))) continue;
+      const id = sha256(`demo:${slug}`).slice(0, 16);
+      fs.cpSync(src, gameDir(id), { recursive: true, force: true });
+      const genre = CATEGORIES.includes(meta.category) ? meta.category : 'Прочее';
+      const age = AGES.includes(meta.age) ? meta.age : '0+';
+      const cover = COVER_FILES.find((f) => fs.existsSync(path.join(src, f))) || null;
+      const files = fs.readdirSync(src, { recursive: true }).filter((f) => fs.statSync(path.join(src, f)).isFile());
+      const size = files.reduce((n, f) => n + fs.statSync(path.join(src, f)).size, 0);
+      if (!q.game.get(id)) {
+        const t = Date.now();
+        q.insertGame.run(id, studio.id, meta.title || slug, genre, size, files.length, cover, t, t);
+        q.setStatus.run('approved', null, t, id);
+      }
+      q.updateMeta.run(String(meta.title || slug).slice(0, 60), genre, age,
+        String(meta.description || '').slice(0, 1500), String(meta.how_to_play || '').slice(0, 600), Date.now(), id);
+      db.prepare('UPDATE games SET cover = ?, size = ?, file_count = ? WHERE id = ?').run(cover, size, files.length, id);
+    }
+  }
 
   // Pending and rejected games are opened through a signed link instead of a cookie check:
   // the game runs with an opaque origin, so its scripts and images would arrive without cookies.
@@ -243,7 +300,7 @@ export function createApp({
     const title = String(url.searchParams.get('title') || '').trim();
     const genre = String(url.searchParams.get('genre') || '');
     if (title.length < 2 || title.length > 60) throw new HttpError(400, 'Название: от 2 до 60 символов');
-    if (!GENRES.includes(genre)) throw new HttpError(400, 'Неизвестный жанр');
+    if (!CATEGORIES.includes(genre)) throw new HttpError(400, 'Неизвестная категория');
 
     const body = await readBody(req, MAX_UPLOAD_BYTES);
     if (body.length === 0) throw new HttpError(400, 'Пустой файл');
@@ -282,9 +339,12 @@ export function createApp({
     }
     const size = files.reduce((n, f) => n + f.data.length, 0);
     const now = Date.now();
-    q.insertGame.run(id, user.id, title, genre, size, files.length, now, now);
+    const cover = COVER_FILES.find((name) => files.some((f) => f.path === name)) || null;
+    q.insertGame.run(id, user.id, title, genre, size, files.length, cover, now, now);
     send(res, 201, {
-      game: { id, title, genre, status: 'pending', size, file_count: files.length, created_at: now, preview_url: previewUrl(id) },
+      game: {
+        id, title, genre, cover, status: 'pending', size, file_count: files.length, created_at: now, preview_url: previewUrl(id),
+      },
     });
   }
 
@@ -306,6 +366,48 @@ export function createApp({
     else if (action === 'reject') q.setStatus.run('rejected', String(reason || 'Без пояснения').slice(0, 300), Date.now(), id);
     else throw new HttpError(400, 'action: approve или reject');
     send(res, 200, { ok: true });
+  }
+
+  // Карточка игры: всё, что нужно странице игры.
+  function gameDetails(req, res, id) {
+    const game = q.publicGame.get(id);
+    if (!game) throw new HttpError(404, 'Игра не найдена');
+    const token = cookies(req).vid;
+    const vote = token ? q.myVote.get(id, sha256(token)) : null;
+    send(res, 200, { game: { ...game, my_vote: vote ? vote.value : 0 } });
+  }
+
+  // Автор меняет описание, правила, категорию, возраст и название.
+  async function updateGame(req, res, id) {
+    const user = requireUser(req);
+    const game = q.game.get(id);
+    if (!game || game.author_id !== user.id) throw new HttpError(404, 'Игра не найдена');
+    const body = await readJson(req);
+    const pick = (key, fallback) => (body[key] === undefined ? fallback : String(body[key]).trim());
+    const title = pick('title', game.title);
+    const genre = pick('genre', game.genre);
+    const age = pick('age', game.age);
+    const description = pick('description', game.description);
+    const howToPlay = pick('how_to_play', game.how_to_play);
+    if (title.length < 2 || title.length > 60) throw new HttpError(400, 'Название: от 2 до 60 символов');
+    if (!CATEGORIES.includes(genre)) throw new HttpError(400, 'Неизвестная категория');
+    if (!AGES.includes(age)) throw new HttpError(400, 'Неизвестная возрастная метка');
+    if (description.length > 1500) throw new HttpError(400, 'Описание: до 1500 символов');
+    if (howToPlay.length > 600) throw new HttpError(400, '«Как играть»: до 600 символов');
+    q.updateMeta.run(title, genre, age, description, howToPlay, Date.now(), id);
+    send(res, 200, { ok: true });
+  }
+
+  // Нравится / не нравится. value: 1, -1 или 0 (снять оценку).
+  async function vote(req, res, id) {
+    const { value } = await readJson(req);
+    if (![1, -1, 0].includes(value)) throw new HttpError(400, 'value: 1, -1 или 0');
+    if (!q.publicGame.get(id)) throw new HttpError(404, 'Игра не найдена');
+    const { visitor, setCookie } = visitorOf(req);
+    if (value === 0) q.deleteVote.run(id, visitor);
+    else q.upsertVote.run(id, visitor, value, now());
+    const { likes, dislikes } = q.publicGame.get(id);
+    send(res, 200, { likes, dislikes, my_vote: value }, setCookie ? { 'Set-Cookie': setCookie } : {});
   }
 
   function playStart(req, res, id) {
@@ -408,7 +510,9 @@ export function createApp({
       const u = currentUser(req);
       return send(res, 200, { user: u ? publicUser(u) : null });
     }
-    if (p === '/api/genres' && m === 'GET') return send(res, 200, { genres: GENRES });
+    if ((p === '/api/categories' || p === '/api/genres') && m === 'GET') {
+      return send(res, 200, { categories: CATEGORIES, genres: CATEGORIES, ages: AGES });
+    }
     if (p === '/api/games' && m === 'GET') return send(res, 200, { games: q.publicGames.all() });
     if (p === '/api/games' && m === 'POST') return uploadGame(req, res, url);
     if (p === '/api/my/games' && m === 'GET') {
@@ -417,6 +521,9 @@ export function createApp({
 
     let mm;
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'DELETE') return deleteGame(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'GET') return gameDetails(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'PATCH') return updateGame(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/vote$/)) && m === 'POST') return vote(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play$/)) && m === 'POST') return playStart(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play-end$/)) && m === 'POST') return playEnd(req, res, mm[1]);
     if (p === '/api/my/stats' && m === 'GET') {

@@ -10,7 +10,7 @@ const END_GRACE_MS = MAX_SESSION_SEC * 1000 + 10 * 60 * 1000;
 const MAX_PLAYS_PER_IP_GAME_DAY = 30;
 const BOT_UA = /bot|crawl|spider|slurp|headless|preview|lighthouse|curl|wget|python|java\/|go-http/i;
 
-export function createStats({ db, now = Date.now, tz = 'Europe/Moscow', estimate }) {
+export function createStats({ db, now = Date.now, tz = 'Europe/Moscow' }) {
   const dayFmt = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
   const dayOf = (ms) => dayFmt.format(new Date(ms)); // YYYY-MM-DD
   const shiftDay = (day, delta) => {
@@ -49,13 +49,6 @@ export function createStats({ db, now = Date.now, tz = 'Europe/Moscow', estimate
     lastPruneDay = today;
     q.prune.run(shiftDay(today, -2));
     perIp.clear();
-  }
-
-  // Оценка дохода: показ при старте + межстраничный блок каждые 3 минуты игры.
-  function estimateIncome(plays, seconds) {
-    const impressions = plays + Math.floor(seconds / 180);
-    const revenue = (impressions / 1000) * estimate.ecpm;
-    return { impressions, revenue, author: revenue * estimate.share };
   }
 
   return {
@@ -122,15 +115,13 @@ export function createStats({ db, now = Date.now, tz = 'Europe/Moscow', estimate
         const r = byDay.get(day);
         daily.push({ day, plays: r?.plays ?? 0, uniques: r?.uniques ?? 0, seconds: r?.seconds ?? 0 });
       }
-      const games = q.authorGames.all(from, to, from, to, from, to, authorId)
-        .map((g) => ({ ...g, income: estimateIncome(g.plays, g.seconds) }));
+      const games = q.authorGames.all(from, to, from, to, from, to, authorId);
       const totals = daily.reduce((s, d) => ({
         plays: s.plays + d.plays, uniques: s.uniques + d.uniques, seconds: s.seconds + d.seconds,
       }), { plays: 0, uniques: 0, seconds: 0 });
       return {
         period: { from, to, days, tz },
-        estimate,
-        totals: { ...totals, income: estimateIncome(totals.plays, totals.seconds) },
+        totals,
         daily,
         games,
       };

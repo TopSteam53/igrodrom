@@ -30,10 +30,7 @@ const server = createApp({
   trustProxy: process.env.TRUST_PROXY === '1',
   previewSecret: loadPreviewSecret(),
   statsTz: process.env.STATS_TZ || 'Europe/Moscow',
-  estimate: {
-    ecpm: Number(process.env.ESTIMATE_ECPM) || 80,
-    share: Number(process.env.AUTHOR_SHARE) || 0.7,
-  },
+  seedDemoGames: process.env.SEED_DEMO_GAMES !== '0',
 });
 
 server.listen(port, () => console.log(`Игродром: http://localhost:${port}`));

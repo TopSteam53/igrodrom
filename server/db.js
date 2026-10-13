@@ -59,7 +59,24 @@ export function openDb(file) {
     CREATE INDEX IF NOT EXISTS play_visitors_by_day ON play_visitors(day);
   `);
 
+  db.exec(`
+    -- Оценки игроков: одна на игру от анонимного посетителя (хэш cookie vid).
+    CREATE TABLE IF NOT EXISTS game_votes (
+      game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      visitor    TEXT NOT NULL,
+      value      INTEGER NOT NULL CHECK (value IN (-1, 1)),
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, visitor)
+    );
+  `);
+
+  // Колонки, добавленные после первых версий: старые базы дополняются при запуске.
   const columns = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
-  if (!columns.includes('file_count')) db.exec('ALTER TABLE games ADD COLUMN file_count INTEGER NOT NULL DEFAULT 1');
+  const addColumn = (name, ddl) => { if (!columns.includes(name)) db.exec(`ALTER TABLE games ADD COLUMN ${name} ${ddl}`); };
+  addColumn('file_count', 'INTEGER NOT NULL DEFAULT 1');
+  addColumn('description', "TEXT NOT NULL DEFAULT ''");
+  addColumn('how_to_play', "TEXT NOT NULL DEFAULT ''");
+  addColumn('age', "TEXT NOT NULL DEFAULT '0+'");
+  addColumn('cover', 'TEXT'); // имя файла обложки внутри папки игры
   return db;
 }

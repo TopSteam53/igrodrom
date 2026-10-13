@@ -3,120 +3,103 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Игродром — площадка для инди-игр</title>
+<title>Игродром — бесплатные игры онлайн</title>
+<meta name="description" content="Бесплатные браузерные игры без скачивания и регистрации: аркады, головоломки, три в ряд и другие.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header><div class="w"><a class="logo" href="index.html">Игро<b>дром</b></a>
-<nav><a href="#games">Игры</a><a href="#dev">Разработчикам</a><a href="#calc">Доход</a></nav>
-<a class="btn" id="cab" href="cabinet.html">Кабинет автора</a></div></header>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html">Игро<b>дром</b></a>
+  <form class="search" id="searchForm" action="index.html" role="search">
+    <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
+  </form>
+  <a class="btn g" id="login" href="cabinet.html">Войти</a>
+</div></header>
+<div class="static-note hidden" id="staticNote"><div class="w">Демо-версия без сервера: оценки, счётчики и кабинет авторов работают в полной версии.</div></div>
 
-<div class="static-note hidden" id="staticNote"><div class="w">Демо-версия без сервера: витрина и демо-игры работают, а кабинет автора, загрузка игр и статистика — только в полной версии на сервере.</div></div>
+<main class="w">
+  <nav class="chips" id="chips" aria-label="Категории"></nav>
 
-<section class="hero"><div class="w">
-<h1>Площадка для игр,<br><span>которая платит вам.</span></h1>
-<p>Загрузите HTML5-игру за 2 минуты. Мы покажем её игрокам, подключим рекламу и отдадим вам 70% выручки.</p>
-<div class="stats"><div><b id="cnt">3</b>игр в каталоге</div><div><b>70%</b>доля разработчика</div><div><b>2 мин</b>на публикацию</div></div>
-</div></section>
+  <div id="home">
+    <section class="sec"><div class="sec-head"><h2>Популярные</h2></div><div class="row-scroll" id="popular"></div></section>
+    <section class="sec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
+  </div>
 
-<section id="games"><div class="w"><h2>Каталог</h2><div class="tabs" id="tabs"></div><div class="grid" id="grid"></div></div></section>
+  <section class="sec" id="all">
+    <div class="sec-head">
+      <h2 id="allTitle">Все игры</h2>
+      <select id="sort" aria-label="Сортировка">
+        <option value="popular">Популярные</option>
+        <option value="new">Новые</option>
+        <option value="rating">По оценкам</option>
+        <option value="title">По названию</option>
+      </select>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
 
-<section id="dev"><div class="w"><h2>Разработчикам</h2><div class="dev">
-<div class="panel"><h3>Как выложить игру</h3>
-<p class="mut">1. Зарегистрируйтесь в кабинете автора.<br>2. Загрузите игру ZIP-архивом с index.html (до 20 МБ) или одним .html-файлом.<br>3. Модератор проверит её на вирусы и контент.<br>4. После одобрения игра появится в каталоге.</p>
-<a class="btn" href="cabinet.html">Открыть кабинет автора</a></div>
-<div class="panel"><h3>Как делим доход</h3>
-<p class="mut">Перед стартом и между уровнями показывается реклама. Раз в месяц выплачиваем 70% рекламной выручки вашей игры.</p>
-<div class="split"><i style="width:70%;background:var(--ok)"></i><i style="width:30%;background:var(--ac)"></i></div>
-<div class="mut">70% — вам · 30% — платформе (хостинг, модерация, выплаты)</div></div>
-</div></div></section>
+<footer><div class="w">
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет автора</a></nav>
+  <div>© Игродром</div>
+</div></footer>
 
-<section id="calc"><div class="w"><h2>Сколько можно заработать</h2><div class="panel">
-<label>Игроков в месяц: <b id="v1">50 000</b></label><input type="range" id="r1" min="1000" max="1000000" step="1000" value="50000">
-<label>Рекламных показов на игрока: <b id="v2">6</b></label><input type="range" id="r2" min="1" max="20" value="6">
-<label>Цена 1000 показов (₽): <b id="v3">120</b></label><input type="range" id="r3" min="30" max="400" value="120">
-<div class="res" id="out">0 ₽</div><div class="mut">ваш доход в месяц при доле 70%. Цифры условные — для демонстрации модели.</div>
-</div></div></section>
-
-<footer><div class="w">Игродром — прототип. Игры с пометкой «демо» встроены в сайт, остальные загружены авторами.</div></footer>
-
-<div class="modal" id="m"><div class="box"><div class="bar"><b id="mt"></b><button id="mc" aria-label="Закрыть">✕</button></div>
-<iframe id="fr" sandbox="allow-scripts allow-pointer-lock" title="Игра"></iframe>
-<div class="ad"><div class="slot">Здесь рекламный блок · автор получает 70%</div></div></div></div>
-
+<script src="app.js"></script>
 <script>
-const $ = (i) => document.getElementById(i);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const COLORS = ['#312e81', '#14532d', '#4c1d95', '#134e4a', '#7c2d12', '#1e3a8a', '#701a75'];
-const EMOJI = { 'Аркады': '🕹️', 'Головоломки': '🧩', 'Кликеры': '👆', 'Прочее': '🎮' };
-const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
+const { $, esc, loadCatalog, rating, cardHTML, initHeader, matches, CATEGORY_ICONS } = Igr;
+const params = new URLSearchParams(location.search);
+let state = { q: params.get('q') || '', cat: params.get('category') || '', sort: 'popular' };
+let games = [];
 
-const demo = [
-  { id: 'snake', title: 'Змейка', genre: 'Аркады', author: 'демо', e: '🐍', c: '#14532d', src: 'games/snake.html', demo: true },
-  { id: 'clicker', title: 'Печенье', genre: 'Кликеры', author: 'демо', e: '🍪', c: '#4c1d95', src: 'games/clicker.html', demo: true },
-  { id: 'memory', title: 'Мемори', genre: 'Головоломки', author: 'демо', e: '🦊', c: '#134e4a', src: 'games/memory.html', demo: true },
-];
-let games = demo, cur = 'Все';
+const SORTS = {
+  popular: (a, b) => b.plays - a.plays || (rating(b) ?? -1) - (rating(a) ?? -1) || b.created_at - a.created_at,
+  new: (a, b) => (b.created_at || 0) - (a.created_at || 0),
+  rating: (a, b) => (rating(b) ?? -1) - (rating(a) ?? -1) || b.likes - a.likes,
+  title: (a, b) => a.title.localeCompare(b.title, 'ru'),
+};
 
 function render() {
-  $('cnt').textContent = games.length;
-  const genres = ['Все', ...new Set(games.map((g) => g.genre))];
-  $('tabs').innerHTML = genres.map((g) => `<span class="tab ${g === cur ? 'on' : ''}" data-g="${esc(g)}">${esc(g)}</span>`).join('');
-  $('grid').innerHTML = games.filter((g) => cur === 'Все' || g.genre === cur).map((g, i) =>
-    `<div class="gc" data-id="${esc(g.id)}"><div class="th" style="background:${g.c || COLORS[i % COLORS.length]}">${g.e || EMOJI[g.genre] || '🎮'}</div>` +
-    `<div class="i"><b>${esc(g.title)}</b><small>${esc(g.genre)} · ${esc(g.author)}` +
-    `${g.plays ? ` · ▶ ${fmt(g.plays)}` : ''}</small></div></div>`).join('');
+  // Категории — только те, в которых есть игры.
+  const cats = [...new Set(games.map((g) => g.genre))].sort((a, b) => a.localeCompare(b, 'ru'));
+  $('chips').innerHTML = [`<a class="chip ${state.cat ? '' : 'on'}" href="index.html" data-cat="">Все игры</a>`,
+    ...cats.map((c) => `<a class="chip ${c === state.cat ? 'on' : ''}" href="index.html?category=${encodeURIComponent(c)}" data-cat="${esc(c)}">${CATEGORY_ICONS[c] || '🎮'} ${esc(c)}</a>`)].join('');
+
+  const filtering = state.q || state.cat;
+  $('home').classList.toggle('hidden', !!filtering);
+  if (!filtering) {
+    $('popular').innerHTML = games.slice().sort(SORTS.popular).slice(0, 10).map(cardHTML).join('');
+    $('fresh').innerHTML = games.slice().sort(SORTS.new).slice(0, 10).map(cardHTML).join('');
+  }
+
+  const list = games.filter((g) => (!state.cat || g.genre === state.cat) && matches(g, state.q)).sort(SORTS[state.sort]);
+  $('allTitle').textContent = state.q ? `Поиск: «${state.q}»` : state.cat || 'Все игры';
+  $('grid').innerHTML = list.length ? list.map(cardHTML).join('')
+    : `<p class="empty">Ничего не нашлось. Попробуйте другое название или <a href="index.html">посмотрите все игры</a>.</p>`;
 }
 
-$('tabs').onclick = (e) => { if (e.target.dataset.g) { cur = e.target.dataset.g; render(); } };
-$('grid').onclick = (e) => {
-  const card = e.target.closest('.gc');
-  if (!card) return;
-  const g = games.find((x) => x.id === card.dataset.id);
-  $('mt').textContent = g.title;
-  $('fr').src = g.src;
-  $('m').classList.add('on');
-  if (!g.demo) startSession(g.id);
-};
-$('mc').onclick = () => { endSession(); $('m').classList.remove('on'); $('fr').src = 'about:blank'; };
-
-// ---------- счётчик запусков ----------
-// Время считается, только пока вкладка видна: забытая фоновая вкладка не накручивает минуты.
-let session = null;
-function startSession(id) {
-  fetch(`/api/games/${id}/play`, { method: 'POST' }).catch(() => {});
-  session = { id, visibleMs: 0, since: document.hidden ? null : Date.now() };
-}
-function endSession() {
-  if (!session) return;
-  if (session.since) session.visibleMs += Date.now() - session.since;
-  const body = new Blob([JSON.stringify({ seconds: Math.round(session.visibleMs / 1000) })], { type: 'application/json' });
-  navigator.sendBeacon(`/api/games/${session.id}/play-end`, body);
-  session = null;
-}
-document.addEventListener('visibilitychange', () => {
-  if (!session) return;
-  if (document.hidden && session.since) { session.visibleMs += Date.now() - session.since; session.since = null; }
-  if (!document.hidden && !session.since) session.since = Date.now();
-});
-addEventListener('pagehide', endSession);
-
-// Каталог с сервера. Если страница открыта как файл, остаются только демо-игры.
-fetch('/api/games').then((r) => r.json()).then(({ games: list }) => {
-  games = [...list.map((g) => ({ ...g, src: `/play/${g.id}/` })), ...demo];
+function setState(patch) {
+  state = { ...state, ...patch };
+  const qs = new URLSearchParams();
+  if (state.q) qs.set('q', state.q);
+  if (state.cat) qs.set('category', state.cat);
+  history.replaceState(null, '', qs.toString() ? `?${qs}` : location.pathname);
   render();
-}).catch(() => { $('staticNote').classList.remove('hidden'); });
-fetch('/api/me').then((r) => r.json()).then(({ user }) => {
-  if (user) $('cab').textContent = user.name;
-}).catch(() => {});
-
-function calc() {
-  const a = +$('r1').value, b = +$('r2').value, c = +$('r3').value;
-  $('v1').textContent = fmt(a); $('v2').textContent = b; $('v3').textContent = c;
-  $('out').textContent = fmt(a * b / 1000 * c * 0.7) + ' ₽';
 }
-['r1', 'r2', 'r3'].forEach((i) => { $(i).oninput = calc; });
-calc(); render();
+
+$('chips').onclick = (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  e.preventDefault();
+  setState({ cat: chip.dataset.cat });
+};
+$('sort').onchange = () => setState({ sort: $('sort').value });
+initHeader({ onSearch: (q) => setState({ q }) });
+
+loadCatalog().then(({ live, games: list }) => {
+  games = list;
+  if (!live) $('staticNote').classList.remove('hidden');
+  render();
+});
 </script>
 </body>
 </html>

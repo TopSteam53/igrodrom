@@ -16,7 +16,7 @@ before(async () => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-stats-'));
   server = createApp({
     dataDir, publicDir: path.join(root, 'public'), adminEmails: ['admin@test.ru'],
-    now: () => clock, estimate: { ecpm: 100, share: 0.7 },
+    now: () => clock,
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   base = `http://127.0.0.1:${server.address().port}`;
@@ -134,7 +134,7 @@ test('ограничение накрутки с одного IP', async () => {
   assert.equal(counted, 30, 'новые cookie каждый раз, но IP один');
 });
 
-test('дни, итоги, оценка дохода и каталог', async () => {
+test('дни, итоги и каталог', async () => {
   // Следующий день по Москве.
   clock = Date.parse('2026-10-14T09:00:00+03:00');
   const p = browser();
@@ -151,13 +151,12 @@ test('дни, итоги, оценка дохода и каталог', async ()
 
   const a = s.games.find((g) => g.id === gameA);
   assert.equal(a.plays, 4);
-  // 4 показа при старте + 2 межстраничных за 6 минут = 6 показов; 6/1000 * 100 ₽ = 0,6 ₽, автору 70%.
-  assert.equal(a.income.impressions, 6);
-  assert.ok(Math.abs(a.income.author - 0.42) < 1e-9);
+  assert.equal(s.totals.seconds, s.daily[0].seconds + s.daily[1].seconds);
 
   const oneDay = (await author('GET', '/api/my/stats?days=1')).data.games.find((g) => g.id === gameA);
   assert.equal(oneDay.plays, 1, 'только сегодня');
   assert.equal(oneDay.plays_all_time, 4);
+  assert.equal(oneDay.seconds, 360, 'время только за сегодня');
 
   const catalog = (await browser()('GET', '/api/games')).data.games;
   assert.equal(catalog.find((g) => g.id === gameA).plays, 4);

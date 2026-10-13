@@ -170,7 +170,7 @@ test('запросы с чужого сайта отклоняются', async (
 test('статика и защита от выхода из папки', async () => {
   const c = client();
   assert.equal((await c('GET', '/')).status, 200);
-  assert.equal((await c('GET', '/games/snake.html')).status, 200);
+  assert.equal((await c('GET', '/games/snake/index.html')).status, 200);
   assert.equal((await c('GET', '/%2e%2e/package.json')).status, 404);
   assert.equal((await c('GET', '/..%2fserver%2fapp.js')).status, 404);
 });

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Разработчикам — Игродром</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html">Игро<b>дром</b></a>
+  <form class="search" id="searchForm" action="index.html" role="search">
+    <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
+  </form>
+  <a class="btn g" id="login" href="cabinet.html">Войти</a>
+</div></header>
+
+<main class="w prose">
+  <h1>Разработчикам</h1>
+  <p class="mut">Как опубликовать HTML5-игру в каталоге Игродрома.</p>
+
+  <h2>Как опубликовать</h2>
+  <ol>
+    <li>Зарегистрируйтесь в <a href="cabinet.html">кабинете автора</a>.</li>
+    <li>Загрузите игру: ZIP-архив с <code>index.html</code> или один HTML-файл.</li>
+    <li>Добавьте описание, правила, категорию и возрастную метку.</li>
+    <li>Игра уходит на модерацию. После проверки она появится в каталоге, а если нет — в кабинете будет указана причина.</li>
+  </ol>
+
+  <h2>Требования к игре</h2>
+  <ul>
+    <li><code>index.html</code> — в корне архива или в единственной папке внутри него.</li>
+    <li>Ресурсы подключаются относительными путями: <code>img/hero.png</code>, а не <code>/img/hero.png</code>.</li>
+    <li>Архив — до 20 МБ (после распаковки — до 50 МБ, до 1000 файлов), одиночный HTML — до 5 МБ.</li>
+    <li>Обложка: положите в корень архива <code>cover.png</code>, <code>cover.jpg</code>, <code>cover.webp</code> или <code>cover.svg</code> в пропорции 16:9.</li>
+    <li>Игра должна работать и на компьютере, и на телефоне: мышь, клавиатура и касания.</li>
+    <li>Игра запускается в изолированной песочнице: <code>localStorage</code>, cookie, <code>alert</code> и всплывающие окна недоступны.
+      Если сохраняете рекорд, оберните обращение к хранилищу в <code>try/catch</code>.</li>
+  </ul>
+
+  <h2>Что не пройдёт модерацию</h2>
+  <ul>
+    <li>Чужие игры и чужая графика без прав на них.</li>
+    <li>Вредоносный код, майнинг, попытки выйти за пределы песочницы.</li>
+    <li>Азартные игры на деньги, экстремизм, контент 18+ без соответствующей метки.</li>
+    <li>Неработающие игры: чёрный экран, ошибки при запуске, невозможность пройти начало.</li>
+  </ul>
+
+  <h2>Статистика</h2>
+  <p>В кабинете автора видно, сколько раз запускали ваши игры, сколько было игроков и сколько в среднем длится игра — по дням и по каждой игре.</p>
+
+  <p><a class="btn" href="cabinet.html">Открыть кабинет автора</a></p>
+</main>
+
+<footer><div class="w">
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет автора</a></nav>
+  <div>© Игродром</div>
+</div></footer>
+<script src="app.js"></script>
+<script>Igr.initHeader();</script>
+</body>
+</html>
