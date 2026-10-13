@@ -3,6 +3,7 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './app.js';
+import { adsFromEnv, siteFromEnv } from './config.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT) || 3000;
@@ -31,6 +32,8 @@ const server = createApp({
   previewSecret: loadPreviewSecret(),
   statsTz: process.env.STATS_TZ || 'Europe/Moscow',
   seedDemoGames: process.env.SEED_DEMO_GAMES !== '0',
+  ads: adsFromEnv(process.env),
+  site: siteFromEnv(process.env),
 });
 
 server.listen(port, () => console.log(`Игродром: http://localhost:${port}`));

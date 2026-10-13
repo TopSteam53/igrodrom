@@ -178,6 +178,20 @@
 
   function call(fn) { if (typeof fn === 'function') { try { fn.apply(null, [].slice.call(arguments, 1)); } catch (e) { setTimeout(function () { throw e; }); } } }
 
+  // Площадка присылает pause/resume на время рекламы — это game_api_pause/resume Яндекса.
+  var openWaiters = [];
+  function whenOpened(fn) {
+    var w = { fired: false, cancel: function () { openWaiters = openWaiters.filter(function (x) { return x !== w; }); } };
+    w.fire = function () { w.fired = true; w.cancel(); fn(); };
+    openWaiters.push(w);
+    return w;
+  }
+  function listenHost(s) {
+    if (!s.on) return;
+    s.on('pause', function () { emit('game_api_pause'); openWaiters.slice().forEach(function (w) { w.fire(); }); });
+    s.on('resume', function () { emit('game_api_resume'); });
+  }
+
   function makeYsdk(info) {
     var player = makePlayer(info.player || { anonymous: true });
     var gameId = info.environment.gameId || 'igrodrom';
@@ -209,21 +223,23 @@
         PluginEngineDataReporterAPI: { report: function () {} },
       },
       adv: {
+        // onOpen вызывается, когда площадка действительно открыла рекламу (событие pause).
         showFullscreenAdv: function (opts) {
           var cb = (opts && opts.callbacks) || {};
+          var opened = whenOpened(function () { call(cb.onOpen); });
           info.ads.fullscreen().then(function (r) {
-            if (r.shown) { call(cb.onOpen); }
+            opened.cancel();
             call(cb.onClose, r.shown);
           });
         },
         showRewardedVideo: function (opts) {
           var cb = (opts && opts.callbacks) || {};
-          emit('game_api_pause');
-          call(cb.onOpen);
+          var opened = whenOpened(function () { call(cb.onOpen); });
           info.ads.rewarded().then(function (r) {
+            if (!opened.fired) call(cb.onOpen); // без рекламы игра всё равно ждёт onOpen перед наградой
+            opened.cancel();
             if (r.rewarded) call(cb.onRewarded);
             call(cb.onClose);
-            emit('game_api_resume');
           });
         },
         showBannerAdv: function () { return resolved({ stickyAdvIsShowing: false, reason: 'ADV_IS_NOT_CONNECTED' }); },
@@ -300,6 +316,7 @@
           });
         }
         sdk = s;
+        listenHost(s);
         if (dirty) { dirty = false; persist(); }
         return s;
       });

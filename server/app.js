@@ -5,6 +5,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { openDb } from './db.js';
 import { extractZip, isZip, ZipError } from './zip.js';
 import { createStats } from './stats.js';
+import { adsFromEnv, siteFromEnv, publicConfig } from './config.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
 } from './auth.js';
@@ -63,7 +64,7 @@ class HttpError extends Error {
 
 export function createApp({
   dataDir, publicDir, adminEmails = [], secureCookies = false, previewSecret = randomBytes(32), trustProxy = false,
-  seedDemoGames = false,
+  seedDemoGames = false, ads = adsFromEnv(), site = siteFromEnv(),
   now = Date.now, statsTz = 'Europe/Moscow',
 }) {
   const gamesDir = path.join(dataDir, 'games');
@@ -653,6 +654,26 @@ export function createApp({
     send(res, 200, { counted }, setCookie ? { 'Set-Cookie': setCookie } : {});
   }
 
+  // Показ рекламы: страница игры сообщает после показа. Считаем только при включённой сети.
+  async function adShown(req, res, id) {
+    const { kind } = await readJson(req);
+    const game = q.game.get(id);
+    if (!game || game.status !== 'approved') throw new HttpError(404, 'Игра не найдена');
+    const counted = ads.provider !== 'none' || ads.banner !== 'none'
+      ? !stats.isBot(req.headers['user-agent']) && stats.recordAd(id, String(kind), clientIp(req))
+      : false;
+    send(res, 200, { counted });
+  }
+
+  // ads.txt: файл DATA_DIR/ads.txt или строки из ADS_TXT. Сети проверяют его в корне домена.
+  function adsTxt(req, res) {
+    let body = '';
+    try { body = fs.readFileSync(path.join(dataDir, 'ads.txt'), 'utf8'); } catch { body = ads.adsTxt; }
+    if (!body.trim()) return notFound(res, 'ads.txt не настроен');
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    res.end(body.endsWith('\n') ? body : `${body}\n`);
+  }
+
   async function playEnd(req, res, id) {
     const { seconds } = await readJson(req);
     const token = cookies(req).vid;
@@ -741,6 +762,8 @@ export function createApp({
       db.prepare('SELECT 1').get();
       return send(res, 200, { ok: true });
     }
+    if (p === '/api/config' && m === 'GET') return send(res, 200, publicConfig(ads, site));
+    if (p === '/ads.txt' && (m === 'GET' || m === 'HEAD')) return adsTxt(req, res);
     if (p === '/api/register' && m === 'POST') return register(req, res);
     if (p === '/api/login' && m === 'POST') return login(req, res);
     if (p === '/api/logout' && m === 'POST') return logout(req, res);
@@ -793,6 +816,7 @@ export function createApp({
     }
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play$/)) && m === 'POST') return playStart(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play-end$/)) && m === 'POST') return playEnd(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/ad$/)) && m === 'POST') return adShown(req, res, mm[1]);
     if (p === '/api/my/stats' && m === 'GET') {
       const user = requireDeveloper(req);
       const days = Number(url.searchParams.get('days') || 30);

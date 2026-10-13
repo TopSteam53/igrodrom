@@ -46,9 +46,20 @@
   var seq = 0;
   var pending = {};
 
+  // События от площадки (без id): 'pause' — началась реклама, 'resume' — можно продолжать.
+  var listeners = {};
+  function on(name, fn) {
+    (listeners[name] = listeners[name] || []).push(fn);
+    return function () { listeners[name] = (listeners[name] || []).filter(function (f) { return f !== fn; }); };
+  }
+
   function onMessage(e) {
     if (e.source !== global.parent) return;
     var m = e.data;
+    if (m && m.protocol === PROTOCOL && typeof m.event === 'string' && m.id === undefined) {
+      (listeners[m.event] || []).slice().forEach(function (fn) { try { fn(); } catch (err) { setTimeout(function () { throw err; }); } });
+      return;
+    }
     if (!m || m.protocol !== PROTOCOL || !pending[m.id]) return;
     var p = pending[m.id];
     delete pending[m.id];
@@ -141,6 +152,8 @@
       },
       ads: hostedAds(),
       game: hostedGame(),
+      // sdk.on('pause' | 'resume', fn): площадка показывает рекламу — выключите звук и остановите игру.
+      on: on,
     };
   }
 
@@ -182,6 +195,7 @@
         rewarded: function () { return Promise.resolve({ rewarded: true }); },
       },
       game: { ready: noop, start: noop, stop: noop },
+      on: function () { return function () {}; },
     };
   }
 

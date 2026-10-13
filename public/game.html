@@ -52,6 +52,7 @@
     </div>
 
     <p class="save-hint hidden" id="saveHint"></p>
+    <aside class="ad-banner hidden" id="adBanner" aria-label="Реклама"></aside>
 
     <div class="info">
       <div class="panel">
@@ -69,11 +70,12 @@
 </main>
 
 <footer><div class="w">
-  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a></nav>
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a><a href="terms.html">Правила</a><a href="privacy.html">Конфиденциальность</a><a href="contacts.html">Контакты</a></nav>
   <div>© Игродром</div>
 </div></footer>
 
 <script src="app.js"></script>
+<script src="ads.js"></script>
 <script src="sdk-host.js"></script>
 <script>
 const { $, esc, fmt, loadCatalog, rating, cardHTML, iconHTML, initHeader, toast } = Igr;
@@ -135,6 +137,11 @@ function render(all) {
   const similar = [...others.filter((g) => g.genre === game.genre), ...others.filter((g) => g.genre !== game.genre)].slice(0, 10);
   $('similar').innerHTML = similar.map(cardHTML).join('');
   $('votes').classList.toggle('hidden', !live);
+  // Баннер под игрой — только если сеть настроена на сервере.
+  IgrAds.banner($('adBanner')).then((placed) => {
+    $('adBanner').classList.toggle('hidden', !placed);
+    if (placed) countAd('banner');
+  });
   // «Играть» из подборки на главной: запускаем сразу, без второго нажатия.
   const qs = new URLSearchParams(location.search);
   if (qs.get('play') === '1') {
@@ -170,6 +177,8 @@ $('play').onclick = () => {
   IgrodromHost.attach(frame, {
     gameId: game.id,
     live,
+    ads: IgrAds,
+    onAd: countAd,
     // Игре — имя вошедшего игрока и его id для этой игры (почта и id аккаунта игре не передаются).
     player: async () => {
       const user = live ? await Igr.me() : null;
@@ -182,8 +191,16 @@ $('play').onclick = () => {
   frame.setAttribute('allow', 'fullscreen; autoplay');
   $('splash').replaceWith(frame);
   frame.focus();
+  IgrAds.start();
   if (live) startSession();
 };
+
+// Показы рекламы — в статистику автора игры.
+function countAd(kind) {
+  if (!live) return;
+  fetch(`/api/games/${game.id}/ad`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind }) })
+    .catch(() => {});
+}
 
 // Время считается, только пока вкладка видна.
 function startSession() {

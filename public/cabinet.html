@@ -81,6 +81,7 @@
       <div class="kpi"><span>Запуски</span><b id="kPlays">—</b></div>
       <div class="kpi"><span>Игроки</span><b id="kUniques">—</b></div>
       <div class="kpi"><span>Среднее время</span><b id="kAvg">—</b></div>
+      <div class="kpi"><span>Показы рекламы</span><b id="kAds">—</b></div>
     </div>
     <div class="panel chart-panel">
       <div class="chart-title">Запуски по дням</div>
@@ -402,20 +403,22 @@ async function loadStats() {
   $('kPlays').textContent = num(totals.plays);
   $('kUniques').textContent = num(totals.uniques);
   $('kAvg').textContent = avg(totals.seconds, totals.plays);
+  $('kAds').textContent = num(totals.ads || 0);
 
   $('gameTable').innerHTML = `<thead><tr><th>Игра</th><th class="n">Запуски</th><th class="n">Игроки</th>
-    <th class="n">Ср. время</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
+    <th class="n">Ср. время</th><th class="n">Реклама</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
     (games.length ? games.map((g) => `<tr><td>${esc(g.title)} <span class="badge ${g.status}">${STATUS[g.status]}</span></td>
       <td class="n">${num(g.plays)}</td><td class="n">${num(g.uniques)}</td><td class="n">${avg(g.seconds, g.plays)}</td>
-      <td class="n">${num(g.plays_all_time)}</td></tr>`).join('')
-      : '<tr><td colspan="5" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
+      <td class="n">${num(g.ads || 0)}</td><td class="n">${num(g.plays_all_time)}</td></tr>`).join('')
+      : '<tr><td colspan="6" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
 
-  $('dayTable').innerHTML = `<table class="tbl"><thead><tr><th>День</th><th class="n">Запуски</th><th class="n">Игроки</th><th class="n">Ср. время</th></tr></thead><tbody>` +
+  $('dayTable').innerHTML = `<table class="tbl"><thead><tr><th>День</th><th class="n">Запуски</th><th class="n">Игроки</th><th class="n">Ср. время</th><th class="n">Реклама</th></tr></thead><tbody>` +
     daily.slice().reverse().map((d) => `<tr><td>${dayLabel(d.day)}</td><td class="n">${num(d.plays)}</td>
-      <td class="n">${num(d.uniques)}</td><td class="n">${avg(d.seconds, d.plays)}</td></tr>`).join('') + '</tbody></table>';
+      <td class="n">${num(d.uniques)}</td><td class="n">${avg(d.seconds, d.plays)}</td><td class="n">${num(d.ads || 0)}</td></tr>`).join('') + '</tbody></table>';
 
   $('estimateNote').textContent = `Игроки — сумма уникальных игроков по дням. Запуск — открытие игры в каталоге; ` +
-    `повторное открытие тем же игроком в течение 30 минут не считается.`;
+    `повторное открытие тем же игроком в течение 30 минут не считается. Реклама — показанные полноэкранные ` +
+    `и досмотренные за награду.`;
   drawChart();
 }
 

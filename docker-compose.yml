@@ -4,6 +4,8 @@ services:
   app:
     build: .
     restart: unless-stopped
+    # Все настройки из .env: реклама, контакты, счётчик. Ниже — обязательные и неизменяемые.
+    env_file: .env
     environment:
       ADMIN_EMAILS: ${ADMIN_EMAILS:?укажите ADMIN_EMAILS в .env}
       COOKIE_SECURE: "1"

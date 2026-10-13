@@ -108,6 +108,16 @@ export function openDb(file) {
       created_at   INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS moderation_log_by_time ON moderation_log(created_at);
+
+    -- Показы рекламы по играм и дням: для кабинета разработчика и будущих выплат авторам.
+    CREATE TABLE IF NOT EXISTS ad_daily (
+      game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      day        TEXT NOT NULL,
+      fullscreen INTEGER NOT NULL DEFAULT 0, -- показанные полноэкранные
+      rewarded   INTEGER NOT NULL DEFAULT 0, -- досмотренные за награду
+      banner     INTEGER NOT NULL DEFAULT 0, -- загруженные баннеры
+      PRIMARY KEY (game_id, day)
+    );
   `);
 
   // Колонки, добавленные после первых версий: старые базы дополняются при запуске.

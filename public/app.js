@@ -98,9 +98,46 @@
     // «Войти» ведёт на вход и возвращает на эту же страницу; вошедшему — имя и ссылка на профиль.
     const login = $('login');
     if (login && window.IgrTheme) login.before(IgrTheme.button());
+    metrika();
     if (login) login.href = `login.html?next=${encodeURIComponent(here())}`;
     me().then((user) => {
       if (user && login) { login.textContent = user.name; login.href = 'account.html'; }
+    });
+  }
+
+  // Настройки сервера: контакты владельца, счётчик, реклама. Без сервера — пусто.
+  let configPromise;
+  function config() {
+    configPromise ??= fetch('/api/config').then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+    return configPromise;
+  }
+
+  // Контакты на страницах «Контакты», «Правила», «Конфиденциальность»: элементы с data-site.
+  function fillSite() {
+    config().then(({ site }) => {
+      if (!site) return;
+      for (const el of document.querySelectorAll('[data-site]')) {
+        const key = el.dataset.site;
+        const value = site[key];
+        if (!value) continue;
+        if (key === 'email') { el.textContent = value; el.href = `mailto:${value}`; }
+        else if (key === 'telegram') { el.textContent = `@${value}`; el.href = `https://t.me/${encodeURIComponent(value)}`; }
+        else el.textContent = value;
+      }
+    });
+  }
+
+  // Яндекс Метрика — если номер счётчика задан в .env (METRIKA_ID).
+  function metrika() {
+    config().then(({ site }) => {
+      const id = site && site.metrika;
+      if (!id || window.ym) return;
+      window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
+      window.ym.l = Date.now();
+      const s = document.createElement('script');
+      s.async = true; s.src = 'https://mc.yandex.ru/metrika/tag.js';
+      document.head.append(s);
+      window.ym(Number(id), 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true });
     });
   }
 
@@ -129,5 +166,5 @@
   const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${g.description || ''}`).includes(norm(q));
 
-  window.Igr = { $, esc, fmt, me, safeNext, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader, toast, matches, CATEGORY_ICONS };
+  window.Igr = { $, esc, fmt, me, safeNext, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader, toast, matches, CATEGORY_ICONS };
 })();

@@ -36,13 +36,35 @@
     };
   }
 
+  // Без рекламной сети: полноэкранная не показывается, награда выдаётся сразу.
+  const NO_ADS = {
+    fullscreen: async () => ({ shown: false }),
+    rewarded: async (hooks) => { hooks.open?.(); return { rewarded: true, shown: false }; },
+  };
+
   /**
    * Начать обслуживать игру в iframe. Вызывать до того, как iframe начнёт загружаться.
    * player() — кто играет: { authorized, name, id }; id у каждой игры свой, по нему нельзя
    * связать игрока между играми. onEvent(type) — события игры: game.ready, game.start, game.stop.
+   * ads — реклама страницы (IgrAds из ads.js); onAd(kind) — реклама показана, для статистики.
    */
-  function attach(frame, { gameId, live, player = async () => null, onEvent = () => {} }) {
+  function attach(frame, { gameId, live, player = async () => null, onEvent = () => {}, ads = NO_ADS, onAd = () => {} }) {
     const store = live ? serverStore(gameId) : browserStore(gameId);
+    // События площадки для игры: пауза на время рекламы и продолжение.
+    const push = (event) => frame.contentWindow?.postMessage({ protocol: PROTOCOL, event }, '*');
+
+    async function advert(kind) {
+      let opened = false;
+      const result = await ads[kind]({ open: () => { opened = true; push('pause'); } });
+      // «Продолжить» уходит после ответа: игра сначала узнаёт результат, потом снимается с паузы.
+      if (opened) setTimeout(() => push('resume'), 0);
+      if (kind === 'fullscreen') {
+        if (result.shown) onAd('fullscreen');
+        return { shown: !!result.shown };
+      }
+      if (result.shown && result.rewarded) onAd('rewarded');
+      return { rewarded: !!result.rewarded };
+    }
 
     async function handle(m) {
       switch (m.type) {
@@ -50,9 +72,8 @@
           const p = await player().catch(() => null);
           return { gameId, storage: store.kind, lang: 'ru', sdk: 1, player: p || { authorized: false, name: '', id: null } };
         }
-        // Рекламной сети пока нет: полноэкранная не показывается, награда выдаётся сразу.
-        case 'adv.fullscreen': return { shown: false };
-        case 'adv.rewarded': return { rewarded: true };
+        case 'adv.fullscreen': return advert('fullscreen');
+        case 'adv.rewarded': return advert('rewarded');
         case 'game.ready': case 'game.start': case 'game.stop': onEvent(m.type); return null;
         case 'data.get': return store.get();
         case 'data.set': {
