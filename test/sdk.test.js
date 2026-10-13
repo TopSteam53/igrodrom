@@ -83,7 +83,7 @@ test('частые сохранения склеиваются, побеждае
 test('слишком большое или не-JSON сохранение отклоняется сразу', async () => {
   const { parent, child } = linked();
   const sdk = await child.Igrodrom.init();
-  await assert.rejects(sdk.data.set({ blob: 'x'.repeat(70 * 1024) }), /64 КБ/);
+  await assert.rejects(sdk.data.set({ blob: 'x'.repeat(210 * 1024) }), /200 КБ/);
   await assert.rejects(sdk.data.set(undefined), /JSON/);
   const cyclic = {}; cyclic.self = cyclic;
   await assert.rejects(sdk.data.set(cyclic), /JSON/);

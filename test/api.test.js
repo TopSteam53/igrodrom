@@ -170,8 +170,8 @@ test('проверки загрузки', async () => {
   assert.equal((await upload(c, 'Норм', 'Аркады', 'просто текст')).status, 400, 'не HTML');
   const big = '<html>' + 'x'.repeat(5 * 1024 * 1024);
   assert.equal((await upload(c, 'Норм', 'Аркады', big)).status, 413, 'html больше 5 МБ');
-  const huge = Buffer.concat([Buffer.from('PK\x03\x04'), Buffer.alloc(20 * 1024 * 1024)]);
-  assert.equal((await upload(c, 'Норм', 'Аркады', huge)).status, 413, 'архив больше 20 МБ');
+  const huge = Buffer.concat([Buffer.from('PK\x03\x04'), Buffer.alloc(100 * 1024 * 1024)]);
+  assert.equal((await upload(c, 'Норм', 'Аркады', huge)).status, 413, 'архив больше 100 МБ');
 });
 
 test('запросы с чужого сайта отклоняются', async () => {
@@ -308,4 +308,37 @@ test('X-Forwarded-For учитывается только за своим про
   }
   const r = await c('POST', '/api/login', { json: { email: 'spoof@test.ru', password: 'nope-nope' }, headers: { 'x-forwarded-for': '10.0.0.99' } });
   assert.equal(r.status, 429);
+});
+
+test('игра с Яндекс Игр: SDK подменяется, сжатая Unity-сборка отдаётся с Content-Encoding', async () => {
+  const zlib = await import('node:zlib');
+  const c = client();
+  await c('POST', '/api/register', { json: { email: 'ya@test.ru', password: 'secret123', name: 'Яндексовец' } });
+  await approveDeveloper(c);
+  const wasm = Buffer.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0]);
+  const zip = makeZip([
+    { name: 'index.html', data: '<!doctype html><script src="https://yandex.ru/games/sdk/v2"></script><canvas></canvas>' },
+    { name: 'Build/game.wasm.br', data: zlib.brotliCompressSync(wasm) },
+    { name: 'Build/game.data.gz', data: zlib.gzipSync(Buffer.from('level-data')) },
+  ]);
+  const r = await c('POST', `/api/games?title=${encodeURIComponent('С Яндекса')}&genre=${encodeURIComponent('Аркады')}`,
+    { body: zip, headers: { 'content-type': 'application/zip' } });
+  assert.equal(r.status, 201);
+  assert.equal(r.data.yandex_sdk, true, 'кабинет покажет, что нашёл Яндекс SDK');
+
+  const preview = r.data.game.preview_url;
+  const html = await (await fetch(base + preview)).text();
+  assert.match(html, /<script src="\/sdk\.js"><\/script>/);
+  // fetch сам распаковывает по Content-Encoding — получаем исходные байты.
+  const br = await fetch(`${base}${preview}Build/game.wasm.br`);
+  assert.equal(br.headers.get('content-type'), 'application/wasm');
+  assert.equal(br.headers.get('content-encoding'), 'br');
+  assert.deepEqual(Buffer.from(await br.arrayBuffer()), wasm);
+  const gz = await fetch(`${base}${preview}Build/game.data.gz`);
+  assert.equal(gz.headers.get('content-encoding'), 'gzip');
+  assert.equal(await gz.text(), 'level-data');
+
+  const sdk = await fetch(`${base}/sdk.js`);
+  assert.equal(sdk.status, 200);
+  assert.match(await sdk.text(), /YaGames/);
 });

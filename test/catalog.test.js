@@ -158,7 +158,7 @@ test('сохранения игр: чтение, запись, лимиты, и�
   assert.equal((await p1('GET', `/api/games/${b.id}/save`)).data.data, null, 'у другой игры своё сохранение');
   assert.equal((await client()('GET', `/api/games/${a.id}/save`)).data.data, null, 'у другого игрока своё сохранение');
 
-  assert.equal((await p1('PUT', `/api/games/${a.id}/save`, { data: 'x'.repeat(65 * 1024) })).status, 413);
+  assert.equal((await p1('PUT', `/api/games/${a.id}/save`, { data: 'x'.repeat(201 * 1024) })).status, 413);
   assert.equal((await p1('PUT', `/api/games/${a.id}/save`, { nodata: 1 })).status, 400);
   assert.equal((await p1('PUT', '/api/games/0000000000000000/save', { data: 1 })).status, 404);
 

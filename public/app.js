@@ -97,6 +97,7 @@
     }
     // «Войти» ведёт на вход и возвращает на эту же страницу; вошедшему — имя и ссылка на профиль.
     const login = $('login');
+    if (login && window.IgrTheme) login.before(IgrTheme.button());
     if (login) login.href = `login.html?next=${encodeURIComponent(here())}`;
     me().then((user) => {
       if (user && login) { login.textContent = user.name; login.href = 'account.html'; }

@@ -21,13 +21,14 @@ const ICON_FILES = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.webp', 'icon.svg'
 const RATING_SQL = `(SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = 1) AS likes,
                     (SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = -1) AS dislikes,
                     (SELECT COALESCE(SUM(plays), 0) FROM play_daily d WHERE d.game_id = g.id) AS plays`;
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // архив целиком
+// Лимиты как у Яндекс Игр: игра оттуда переносится тем же архивом.
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // архив целиком
 const MAX_HTML_BYTES = 5 * 1024 * 1024; // одиночный .html
-const MAX_UNZIPPED_BYTES = 50 * 1024 * 1024;
-const MAX_GAME_FILES = 1000;
+const MAX_UNZIPPED_BYTES = 300 * 1024 * 1024;
+const MAX_GAME_FILES = 5000;
 const PREVIEW_TTL_SEC = 6 * 3600;
 const VISITOR_TTL_SEC = 365 * 24 * 3600;
-export const MAX_SAVE_BYTES = 64 * 1024; // одно сохранение игры
+export const MAX_SAVE_BYTES = 200 * 1024; // одно сохранение игры, как у Яндекс Игр
 const SAVE_WRITES_PER_MINUTE = 60;
 const MAX_JSON_BYTES = 16 * 1024;
 const SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
@@ -44,6 +45,14 @@ const MIME = {
   '.mp4': 'video/mp4', '.webm': 'video/webm',
   '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf',
 };
+
+// Ссылки на Яндекс Игры SDK в играх оттуда. При загрузке они заменяются на /sdk.js — наш SDK
+// с тем же API (public/sdk/yandex.js), поэтому игру с Яндекса не нужно пересобирать.
+const YANDEX_SDK_URL = /(?:https?:)?\/\/(?:yandex\.(?:ru|com|com\.tr|by|kz|uz)\/games\/sdk\/v2|sdk\.games\.s3\.yandex\.net\/sdk\.js)/g;
+// Сборки под Яндекс подключают SDK как <script src="/sdk.js">, иногда без слэша.
+const RELATIVE_SDK = /(<script\b[^>]*\bsrc\s*=\s*["'])(?:\.\/)?sdk\.js(["'])/gi;
+// Сжатые файлы Unity-сборок (Build/*.br, *.gz) браузер распаковывает сам по заголовку Content-Encoding.
+const ENCODINGS = { '.br': 'br', '.gz': 'gzip' };
 
 // Uploaded games run with an opaque origin: no access to our cookies, storage or API.
 const GAME_CSP = 'sandbox allow-scripts allow-pointer-lock';
@@ -74,7 +83,7 @@ export function createApp({
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
-    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, u.name AS author, g.created_at, ${RATING_SQL},
+    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, g.description, u.name AS author, g.created_at, ${RATING_SQL},
                                u.email = '${STUDIO_EMAIL}' AS demo
                              FROM games g JOIN users u ON u.id = g.author_id
                              WHERE g.status = 'approved' ORDER BY g.created_at DESC LIMIT 500`),
@@ -393,6 +402,8 @@ export function createApp({
       throw new HttpError(400, 'index.html не похож на HTML-игру');
     }
 
+    const yandexSdk = adaptYandexSdk(files);
+
     const id = newGameId();
     const tmp = `${gameDir(id)}.tmp`;
     try {
@@ -417,6 +428,7 @@ export function createApp({
       game: {
         id, title, genre, cover, icon, status: 'pending', size, file_count: files.length, created_at: now, preview_url: previewUrl(id),
       },
+      yandex_sdk: yandexSdk,
     });
   }
 
@@ -603,10 +615,14 @@ export function createApp({
     const file = path.resolve(root, rel);
     if (!file.startsWith(root + path.sep)) return notFound(res, 'Файл не найден');
 
+    const ext = path.extname(file).toLowerCase();
+    const encoding = ENCODINGS[ext];
+    const typeExt = encoding ? path.extname(file.slice(0, -ext.length)).toLowerCase() : ext;
     fs.stat(file, (err, st) => {
       if (err || !st.isFile()) return notFound(res, 'Файл не найден');
       res.writeHead(200, {
-        'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
+        'Content-Type': MIME[typeExt] || 'application/octet-stream',
+        ...(encoding && { 'Content-Encoding': encoding }),
         'Content-Length': st.size,
         'Content-Security-Policy': GAME_CSP,
         // The sandboxed game has an opaque origin, so its own fetch() calls are cross-origin.
@@ -669,6 +685,13 @@ export function createApp({
     if (p === '/api/me/recent' && m === 'GET') {
       // «Продолжить играть»: игры, в которых у игрока есть сохранение.
       return send(res, 200, { games: q.recentGames.all(userSaveKey(requireUser(req).id)) });
+    }
+    if (p === '/api/recent' && m === 'GET') {
+      // То же для главной: вошедшему — по аккаунту, гостю — по этому браузеру.
+      const user = currentUser(req);
+      const token = cookies(req).vid;
+      const key = user ? userSaveKey(user.id) : token ? sha256(token) : null;
+      return send(res, 200, { games: key ? q.recentGames.all(key) : [] });
     }
     if (p === '/api/developer/application' && m === 'GET') {
       return send(res, 200, { application: appView(q.application.get(requireUser(req).id)) || null });
@@ -742,6 +765,25 @@ export function createApp({
   });
   server.on('close', () => db.close());
   return server;
+}
+
+// Игра с Яндекс Игр: ссылки на их SDK ведут на наш /sdk.js. Меняем только HTML и JS, в которых
+// есть такие ссылки; работаем с байтами как с latin1, чтобы не испортить файлы не в UTF-8.
+// Возвращает true, если игра использует Яндекс SDK.
+export function adaptYandexSdk(files) {
+  const hasOwnSdk = files.some((f) => f.path === 'sdk.js');
+  let found = false;
+  for (const f of files) {
+    const isHtml = /\.html?$/i.test(f.path);
+    if (!isHtml && !/\.m?js$/i.test(f.path)) continue;
+    const text = f.data.toString('latin1');
+    let out = text.replace(YANDEX_SDK_URL, '/sdk.js');
+    if (isHtml && !hasOwnSdk) out = out.replace(RELATIVE_SDK, '$1/sdk.js$2');
+    if (out !== text) f.data = Buffer.from(out, 'latin1');
+    // Подключение может быть и тегом, и из скрипта: s.src = '/sdk.js'.
+    if (out !== text || /["']\/sdk\.js["']/.test(out)) found = true;
+  }
+  return found;
 }
 
 // v0.2 stored single-file games as games/<id>.html; v0.3 keeps every game in games/<id>/.

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Игра — Игродром</title>
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -33,6 +35,7 @@
         <div class="splash-in">
           <div id="splashIcon"></div>
           <p class="splash-title" id="splashTitle"></p>
+          <p class="splash-meta" id="splashMeta"></p>
           <button class="btn play-btn" id="play">Играть</button>
         </div>
       </div>
@@ -112,6 +115,8 @@ function render(all) {
   if (game.cover_url) $('splashBg').innerHTML = `<img src="${esc(game.cover_url)}" alt="" onerror="this.remove()">`;
   $('splashIcon').innerHTML = iconHTML(game, 'game-icon big');
   $('splashTitle').textContent = game.title;
+  const r0 = rating(game);
+  $('splashMeta').innerHTML = `<span>${esc(game.genre)}</span><span class="age">${esc(game.age || '0+')}</span>${r0 !== null ? `<span>👍 ${r0}%</span>` : ''}`;
   $('desc').textContent = game.description || 'Описание пока не добавлено.';
   $('howto').textContent = game.how_to_play || 'Правила пока не добавлены.';
   renderScore();
@@ -130,6 +135,13 @@ function render(all) {
   const similar = [...others.filter((g) => g.genre === game.genre), ...others.filter((g) => g.genre !== game.genre)].slice(0, 10);
   $('similar').innerHTML = similar.map(cardHTML).join('');
   $('votes').classList.toggle('hidden', !live);
+  // «Играть» из подборки на главной: запускаем сразу, без второго нажатия.
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('play') === '1') {
+    qs.delete('play');
+    history.replaceState(null, '', `?${qs}`);
+    $('play').click();
+  }
   // Гостю — подсказка: прогресс сейчас живёт только в этом браузере.
   if (live) Igr.me().then((user) => {
     if (user) return;
@@ -155,7 +167,15 @@ let session = null;
 $('play').onclick = () => {
   const frame = document.createElement('iframe');
   // SDK-хост слушает до загрузки игры, чтобы не пропустить её первое сообщение.
-  IgrodromHost.attach(frame, { gameId: game.id, live });
+  IgrodromHost.attach(frame, {
+    gameId: game.id,
+    live,
+    // Игре — имя вошедшего игрока и его id для этой игры (почта и id аккаунта игре не передаются).
+    player: async () => {
+      const user = live ? await Igr.me() : null;
+      return user ? { authorized: true, name: user.name, id: await IgrodromHost.playerIdFor(user.id, game.id) } : null;
+    },
+  });
   frame.src = game.src;
   frame.title = game.title;
   frame.setAttribute('sandbox', 'allow-scripts allow-pointer-lock');

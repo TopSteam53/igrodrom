@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Игродром — бесплатные игры онлайн</title>
 <meta name="description" content="Бесплатные браузерные игры без скачивания и регистрации: аркады, головоломки, три в ряд и другие.">
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,6 +24,15 @@
 
   <!-- Подборки появляются, когда для них есть данные; пока игр мало, главная — одна сетка, как у Яндекс Игр. -->
   <div id="home">
+    <section class="hero hidden" id="hero" aria-roledescription="карусель" aria-label="Подборка игр">
+      <div id="heroSlides"></div>
+      <div class="hero-nav">
+        <button class="hero-arrow" id="heroPrev" type="button" aria-label="Предыдущая игра"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg></button>
+        <div class="hero-dots" id="heroDots"></div>
+        <button class="hero-arrow" id="heroNext" type="button" aria-label="Следующая игра"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></button>
+      </div>
+    </section>
+    <section class="sec hidden" id="recentSec"><div class="sec-head"><h2>Продолжить играть</h2></div><div class="row-scroll" id="recent"></div></section>
     <section class="sec hidden" id="popularSec"><div class="sec-head"><h2>Популярные</h2></div><div class="row-scroll" id="popular"></div></section>
     <section class="sec hidden" id="freshSec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
   </div>
@@ -36,9 +47,25 @@
         <option value="title">По названию</option>
       </select>
     </div>
-    <div class="grid" id="grid"></div>
+    <div class="grid" id="grid">
+      <!-- Силуэты карточек, пока грузится каталог -->
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+      <div class="card sk" aria-hidden="true"><div class="cover"></div><div class="card-body"><b class="sk-line"></b><span class="sk-line short"></span></div></div>
+    </div>
   </section>
 </main>
+
+<aside class="login-bar hidden" id="loginBar" aria-label="Вход">
+  <p><b>Войдите, чтобы не потерять прогресс</b><span>Сохранения будут доступны на телефоне и компьютере</span></p>
+  <a class="btn primary" id="loginBarBtn" href="login.html">Войти</a>
+  <button class="x" id="loginBarClose" type="button" aria-label="Скрыть">×</button>
+</aside>
 
 <footer><div class="w">
   <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a></nav>
@@ -68,6 +95,8 @@ function render() {
   const filtering = state.q || state.cat;
   $('home').classList.toggle('hidden', !!filtering);
   if (!filtering) {
+    renderHero();
+    renderRecent();
     const played = games.filter((g) => g.plays > 0);
     const showPopular = games.length >= 8 && played.length >= 4;
     $('popularSec').classList.toggle('hidden', !showPopular);
@@ -83,6 +112,76 @@ function render() {
   $('grid').innerHTML = list.length ? list.map(cardHTML).join('')
     : `<div class="empty"><p>По запросу «${esc(state.q)}» игр нет${state.cat ? ` в категории «${esc(state.cat)}»` : ''}. Проверьте написание или выберите игру из всего каталога.</p>
        <a class="btn" href="index.html">Показать все игры</a></div>`;
+}
+
+// ---------- подборка: самые популярные игры с обложкой ----------
+const HERO_SIZE = 5;
+const HERO_MS = 7000;
+let hero = { games: [], i: 0, timer: null, paused: false };
+
+function renderHero() {
+  if (hero.games.length) return; // собираем один раз, чтобы поиск не сбрасывал карусель
+  hero.games = games.filter((g) => g.cover_url).sort(SORTS.popular).slice(0, HERO_SIZE);
+  if (games.length < 4 || !hero.games.length) return;
+  $('heroSlides').innerHTML = hero.games.map((g, i) => {
+    const url = `game.html?id=${encodeURIComponent(g.id)}`;
+    return `<article class="hero-slide" aria-roledescription="слайд" aria-label="${i + 1} из ${hero.games.length}">
+      <div class="hero-bg"><img src="${esc(g.cover_url)}" alt="" onerror="this.remove()"></div>
+      <div class="hero-text">
+        <div class="hero-kicker"><span>${esc(g.genre)}</span><span class="age">${esc(g.age || '0+')}</span>${rating(g) !== null ? `<span>👍 ${rating(g)}%</span>` : ''}</div>
+        <h2 class="hero-title">${esc(g.title)}</h2>
+        ${g.description ? `<p class="hero-desc">${esc(g.description)}</p>` : ''}
+        <a class="btn play-btn md" href="${url}&play=1">Играть</a>
+      </div>
+      <a class="hero-cover" href="${url}" tabindex="-1" aria-hidden="true"><img src="${esc(g.cover_url)}" alt=""></a>
+    </article>`;
+  }).join('');
+  $('heroDots').innerHTML = hero.games.map((g, i) => `<button class="hero-dot" type="button" data-i="${i}" aria-label="${esc(g.title)}"></button>`).join('');
+  const single = hero.games.length < 2;
+  $('heroPrev').hidden = $('heroNext').hidden = $('heroDots').hidden = single;
+  $('hero').classList.remove('hidden');
+  showSlide(0);
+}
+
+function showSlide(i) {
+  const n = hero.games.length;
+  hero.i = (i + n) % n;
+  document.querySelectorAll('.hero-slide').forEach((el, k) => el.classList.toggle('on', k === hero.i));
+  document.querySelectorAll('.hero-dot').forEach((el, k) => el.classList.toggle('on', k === hero.i));
+  clearTimeout(hero.timer);
+  // Без автопрокрутки, если пользователь просил меньше движения или навёл мышь.
+  if (n > 1 && !hero.paused && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    hero.timer = setTimeout(() => showSlide(hero.i + 1), HERO_MS);
+  }
+}
+$('heroPrev').onclick = () => showSlide(hero.i - 1);
+$('heroNext').onclick = () => showSlide(hero.i + 1);
+$('heroDots').onclick = (e) => { const d = e.target.closest('.hero-dot'); if (d) showSlide(Number(d.dataset.i)); };
+for (const [type, paused] of [['mouseenter', true], ['mouseleave', false], ['focusin', true], ['focusout', false]]) {
+  $('hero').addEventListener(type, () => { hero.paused = paused; showSlide(hero.i); });
+}
+
+// ---------- «Продолжить играть»: игры, где у игрока есть сохранение ----------
+let recent = [];
+function renderRecent() {
+  const list = recent.map((r) => games.find((g) => g.id === r.id)).filter(Boolean);
+  $('recentSec').classList.toggle('hidden', !list.length);
+  $('recent').innerHTML = list.map(cardHTML).join('');
+}
+
+// ---------- плашка входа для гостя ----------
+const BAR_KEY = 'igrodrom-login-bar';
+function initLoginBar() {
+  try { if (localStorage.getItem(BAR_KEY)) return; } catch {}
+  Igr.me().then((user) => {
+    if (user) return;
+    $('loginBarBtn').href = `login.html?next=${encodeURIComponent('index.html')}`;
+    $('loginBar').classList.remove('hidden');
+  });
+  $('loginBarClose').onclick = () => {
+    $('loginBar').classList.add('hidden');
+    try { localStorage.setItem(BAR_KEY, String(Date.now())); } catch {}
+  };
 }
 
 function setState(patch) {
@@ -103,10 +202,16 @@ $('chips').onclick = (e) => {
 $('sort').onchange = () => setState({ sort: $('sort').value });
 initHeader({ onSearch: (q) => setState({ q }) });
 
-loadCatalog().then(({ live, games: list }) => {
+loadCatalog().then(async ({ live, games: list }) => {
   games = list;
   if (!live) $('staticNote').classList.remove('hidden');
   render();
+  if (!live) return;
+  initLoginBar();
+  try {
+    recent = (await (await fetch('/api/recent')).json()).games || [];
+    if (!state.q && !state.cat) renderRecent();
+  } catch {}
 });
 </script>
 </body>

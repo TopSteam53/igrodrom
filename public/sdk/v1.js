@@ -1,10 +1,12 @@
 /*!
- * Игродром SDK v1 — сохранения для HTML5-игр.
+ * Игродром SDK v1 — сохранения, реклама и события для HTML5-игр.
  *
  *   <script src="/sdk/v1.js"></script>
  *   const sdk = await Igrodrom.init();
  *   const save = (await sdk.data.get()) || { level: 1 };
+ *   sdk.game.ready();                                  // игра загрузилась
  *   await sdk.data.set({ level: 2, coins: 150 });
+ *   const { rewarded } = await sdk.ads.rewarded();     // награда за рекламу
  *
  * Игра на Игродроме работает в песочнице без доступа к хранилищу браузера, поэтому SDK передаёт
  * сохранения странице площадки через postMessage, а та хранит их на сервере за игроком.
@@ -17,9 +19,10 @@
 
   var PROTOCOL = 'igrodrom-sdk';
   var VERSION = 1;
-  var MAX_SAVE_BYTES = 64 * 1024;
+  var MAX_SAVE_BYTES = 200 * 1024; // как у Яндекс Игр: перенесённые игры влезают без изменений
   var HANDSHAKE_MS = 1500;   // столько ждём ответа площадки, потом считаем, что её нет
   var REQUEST_MS = 10000;
+  var AD_MS = 5 * 60 * 1000; // реклама может идти долго
   var MIN_WRITE_GAP_MS = 1000; // не чаще одной записи в секунду; лишние склеиваются
 
   function inFrame() {
@@ -35,7 +38,7 @@
     var json;
     try { json = JSON.stringify(value); } catch (e) { throw new TypeError('Igrodrom SDK: сохранение должно сериализоваться в JSON'); }
     if (json === undefined) throw new TypeError('Igrodrom SDK: сохранение должно быть JSON-значением');
-    if (sizeOf(json) > MAX_SAVE_BYTES) throw new RangeError('Igrodrom SDK: сохранение больше 64 КБ');
+    if (sizeOf(json) > MAX_SAVE_BYTES) throw new RangeError('Igrodrom SDK: сохранение больше 200 КБ');
     return json;
   }
 
@@ -91,12 +94,42 @@
     };
   }
 
+  // Площадка сама решает, показывать ли рекламу. Без рекламной сети полноэкранная не показывается,
+  // а награду игрок получает сразу — игра не должна ломаться от того, что реклама не пришла.
+  function hostedAds() {
+    return {
+      fullscreen: function () {
+        return request('adv.fullscreen', null, AD_MS).then(function (r) { return { shown: !!(r && r.shown) }; },
+          function () { return { shown: false }; });
+      },
+      rewarded: function () {
+        return request('adv.rewarded', null, AD_MS).then(function (r) { return { rewarded: !!(r && r.rewarded) }; },
+          function () { return { rewarded: false }; });
+      },
+    };
+  }
+
+  // События игры: площадка по ним прячет заставку и считает время. Ошибки игре не нужны.
+  function hostedGame() {
+    function notify(type) { return request(type).then(function () {}, function () {}); }
+    return {
+      ready: function () { return notify('game.ready'); },
+      start: function () { return notify('game.start'); },
+      stop: function () { return notify('game.stop'); },
+    };
+  }
+
+  function playerOf(p) {
+    p = p || {};
+    return { anonymous: !p.authorized, name: p.name || '', id: p.id || null };
+  }
+
   function hosted(info) {
     var write = throttledWriter(function (json) { return request('data.set', json); });
     return {
       version: VERSION,
       environment: { host: 'igrodrom', storage: info.storage, gameId: info.gameId, lang: info.lang || 'ru' },
-      player: { anonymous: true },
+      player: playerOf(info.player),
       data: {
         get: function () { return request('data.get').then(function (json) { return json == null ? null : JSON.parse(json); }); },
         set: function (value) {
@@ -106,10 +139,14 @@
         },
         clear: function () { return request('data.clear').then(function () {}); },
       },
+      ads: hostedAds(),
+      game: hostedGame(),
     };
   }
 
   // ---------- без площадки ----------
+  function noop() { return Promise.resolve(); }
+
   function standalone(key) {
     var storageKey = 'igrodrom-sdk:' + key;
     var memory = null;
@@ -118,7 +155,7 @@
     return {
       version: VERSION,
       environment: { host: 'standalone', storage: storage, gameId: null, lang: 'ru' },
-      player: { anonymous: true },
+      player: playerOf(null),
       data: {
         get: function () {
           try {
@@ -140,6 +177,11 @@
           return Promise.resolve();
         },
       },
+      ads: {
+        fullscreen: function () { return Promise.resolve({ shown: false }); },
+        rewarded: function () { return Promise.resolve({ rewarded: true }); },
+      },
+      game: { ready: noop, start: noop, stop: noop },
     };
   }
 

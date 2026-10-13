@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Кабинет разработчика — Игродром</title>
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,6 +13,7 @@
   <a class="logo" href="index.html" aria-label="Игродром, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1C2140"/><circle cx="16" cy="16" r="10.5" fill="#FFC531"/><path d="M13.2 10.9 21.6 16l-8.4 5.1z" fill="#1C2140"/></svg><span>Игродром</span></a>
   <span class="mut" style="margin-left:auto">Кабинет разработчика</span>
   <div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><a id="uname" href="account.html"></a><button class="btn sm" id="logout">Выйти</button></div>
+  <span id="themeSlot"></span>
 </div></header>
 
 <!-- Заявка на аккаунт разработчика: показывается, пока публиковать нельзя -->
@@ -62,11 +65,12 @@
     </div>
     <label for="desc">Об игре</label><textarea id="desc" maxlength="1500" placeholder="О чём игра, в чём её суть"></textarea>
     <label for="howto">Как играть</label><textarea id="howto" maxlength="600" placeholder="Управление мышью, клавиатурой и на телефоне"></textarea>
-    <label for="file">Файл игры: ZIP-архив до 20 МБ или один .html до 5 МБ</label>
+    <label for="file">Файл игры: ZIP-архив до 100 МБ или один .html до 5 МБ</label>
     <input type="file" id="file" accept=".zip,.html,.htm,application/zip,text/html" required>
     <p class="mut">В архиве должен быть <b>index.html</b>: в корне или в единственной папке. Картинки, звуки,
       скрипты подключайте относительными путями (<code>img/hero.png</code>, а не <code>/img/hero.png</code>).
-      Распакованный размер — до 50 МБ, до 1000 файлов.</p>
+      Распакованный размер — до 300 МБ, до 5000 файлов. Игру с Яндекс Игр загружайте тем же архивом,
+      что и в их консоль: Яндекс SDK у нас уже есть.</p>
     <div class="err-text" id="upErr"></div>
     <button class="btn primary" id="upBtn">Отправить на модерацию</button>
   </form></div>
@@ -192,15 +196,15 @@ $('upForm').onsubmit = async (e) => {
   $('upErr').textContent = '';
   if (!f) return;
   const isZip = /\.zip$/i.test(f.name);
-  const limit = isZip ? 20 : 5;
+  const limit = isZip ? 100 : 5;
   if (f.size > limit * 1024 * 1024) { $('upErr').textContent = `Файл больше ${limit} МБ`; return; }
   $('upBtn').disabled = true; $('upBtn').textContent = 'Загружаем…';
   try {
     const qs = new URLSearchParams({ title: $('title').value, genre: $('genre').value });
-    const { game } = await api('POST', `/api/games?${qs}`, f, isZip ? 'application/zip' : 'text/html');
+    const { game, yandex_sdk: yandexSdk } = await api('POST', `/api/games?${qs}`, f, isZip ? 'application/zip' : 'text/html');
     await api('PATCH', `/api/games/${game.id}`, { age: $('age').value, description: $('desc').value, how_to_play: $('howto').value });
     $('upForm').reset();
-    toast('Игра отправлена на модерацию');
+    toast(yandexSdk ? 'Игра отправлена на модерацию. Нашли Яндекс SDK и подключили совместимый' : 'Игра отправлена на модерацию');
     loadMine();
     loadStats();
     if (me && me.isAdmin) loadQueue();
@@ -215,7 +219,7 @@ async function loadMine() {
   $('mine').innerHTML = games.length ? games.map((g) => `
     <div class="row"><div class="t"><b>${esc(g.title)}</b>
       <span class="facts-line"><span>${esc(g.genre)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${date(g.created_at)}</span></span>
-      ${g.status === 'rejected' ? `<div class="mut" style="color:var(--bad)">Причина: ${esc(g.reject_reason || '')}</div>` : ''}</div>
+      ${g.status === 'rejected' ? `<div class="mut" style="color:var(--b-ink)">Причина: ${esc(g.reject_reason || '')}</div>` : ''}</div>
       <span class="badge ${g.status}">${STATUS[g.status]}</span>
       <div class="acts">${g.status === 'approved' ? `<a class="btn sm" href="game.html?id=${g.id}">Страница игры</a>` : ''}
       <a class="btn sm" href="${g.status === 'approved' ? `/play/${g.id}/` : g.preview_url}" target="_blank" rel="noopener">Открыть</a>
@@ -379,6 +383,8 @@ $('periods').onclick = (e) => {
   document.querySelectorAll('#periods .tab').forEach((t) => t.classList.toggle('on', t === e.target));
   loadStats();
 };
+
+$('themeSlot').replaceWith(IgrTheme.button());
 
 // ---------- состояние страницы ----------
 let me = null;

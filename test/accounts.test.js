@@ -156,3 +156,13 @@ test('авторы, публиковавшие игры до заявок, ст�
   assert.equal(user.developer, 'approved');
   await new Promise((r) => again.close(r));
 });
+
+test('«Продолжить играть» на главной: и гостю, и вошедшему', async () => {
+  const [alpha] = await games();
+  const guest = browser();
+  assert.deepEqual((await guest('GET', '/api/recent')).data.games, [], 'новый гость — пусто');
+  await guest('PUT', `/api/games/${alpha.id}/save`, { data: { level: 1 } });
+  assert.deepEqual((await guest('GET', '/api/recent')).data.games.map((g) => g.id), [alpha.id]);
+  await guest('POST', '/api/register', { email: 'recent@test.ru', password: 'secret123', name: 'Недавний' });
+  assert.deepEqual((await guest('GET', '/api/recent')).data.games.map((g) => g.id), [alpha.id], 'после входа — из аккаунта');
+});
