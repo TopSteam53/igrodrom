@@ -137,3 +137,32 @@ test('категории и возрастные метки', async () => {
   assert.ok(r.categories.includes('Три в ряд'));
   assert.deepEqual(r.ages, ['0+', '6+', '12+', '16+', '18+']);
 });
+
+test('сохранения игр: чтение, запись, лимиты, изоляция', async () => {
+  const { games } = (await client()('GET', '/api/games')).data;
+  const [a, b] = games;
+  const p1 = client();
+  let r = await p1('GET', `/api/games/${a.id}/save`);
+  assert.deepEqual(r.data, { data: null, updated_at: null });
+
+  r = await p1('PUT', `/api/games/${a.id}/save`, { data: { level: 5, coins: [1, 2] } });
+  assert.equal(r.status, 200);
+  assert.deepEqual((await p1('GET', `/api/games/${a.id}/save`)).data.data, { level: 5, coins: [1, 2] });
+  assert.equal((await p1('GET', `/api/games/${b.id}/save`)).data.data, null, 'у другой игры своё сохранение');
+  assert.equal((await client()('GET', `/api/games/${a.id}/save`)).data.data, null, 'у другого игрока своё сохранение');
+
+  assert.equal((await p1('PUT', `/api/games/${a.id}/save`, { data: 'x'.repeat(65 * 1024) })).status, 413);
+  assert.equal((await p1('PUT', `/api/games/${a.id}/save`, { nodata: 1 })).status, 400);
+  assert.equal((await p1('PUT', '/api/games/0000000000000000/save', { data: 1 })).status, 404);
+
+  await p1('DELETE', `/api/games/${a.id}/save`);
+  assert.equal((await p1('GET', `/api/games/${a.id}/save`)).data.data, null);
+});
+
+test('сохранения: не больше 60 записей в минуту на игру', async () => {
+  const { games } = (await client()('GET', '/api/games')).data;
+  const p = client();
+  let last;
+  for (let i = 0; i < 61; i++) last = await p('PUT', `/api/games/${games[1].id}/save`, { data: { i } });
+  assert.equal(last.status, 429);
+});

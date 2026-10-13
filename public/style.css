@@ -156,4 +156,6 @@ details summary{cursor:pointer;margin-top:10px;color:var(--ink-2)}
 .tbl .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.tbl .badge{margin-left:8px}
 
 /* ---------- страница для разработчиков ---------- */
-.prose{max-width:760px}.prose h1{font-size:34px;margin:36px 0 8px}.prose h2{font-size:21px;margin:32px 0 10px}.prose li{margin:6px 0}
+.prose{max-width:760px}
+pre.code{background:var(--ink);color:#E8EBF7;border-radius:14px;padding:16px 18px;overflow-x:auto;font-size:14px;line-height:1.55}
+pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit}.prose h1{font-size:34px;margin:36px 0 8px}.prose h2{font-size:21px;margin:32px 0 10px}.prose li{margin:6px 0}

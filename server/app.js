@@ -26,6 +26,8 @@ const MAX_UNZIPPED_BYTES = 50 * 1024 * 1024;
 const MAX_GAME_FILES = 1000;
 const PREVIEW_TTL_SEC = 6 * 3600;
 const VISITOR_TTL_SEC = 365 * 24 * 3600;
+export const MAX_SAVE_BYTES = 64 * 1024; // одно сохранение игры
+const SAVE_WRITES_PER_MINUTE = 60;
 const MAX_JSON_BYTES = 16 * 1024;
 const SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,6 +62,7 @@ export function createApp({
   const db = openDb(path.join(dataDir, 'igrodrom.db'));
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
+  const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
   const stats = createStats({ db, now, tz: statsTz });
 
   const q = {
@@ -88,6 +91,10 @@ export function createApp({
     upsertVote: db.prepare(`INSERT INTO game_votes (game_id, visitor, value, created_at) VALUES (?, ?, ?, ?)
                             ON CONFLICT (game_id, visitor) DO UPDATE SET value = excluded.value`),
     deleteVote: db.prepare('DELETE FROM game_votes WHERE game_id = ? AND visitor = ?'),
+    getSave: db.prepare('SELECT data, updated_at FROM game_saves WHERE game_id = ? AND visitor = ?'),
+    putSave: db.prepare(`INSERT INTO game_saves (game_id, visitor, data, updated_at) VALUES (?, ?, ?, ?)
+                         ON CONFLICT (game_id, visitor) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`),
+    deleteSave: db.prepare('DELETE FROM game_saves WHERE game_id = ? AND visitor = ?'),
     gamesByStatus: db.prepare(`SELECT g.id, g.title, g.genre, g.status, g.size, g.file_count, g.created_at,
                                u.name AS author, u.email AS author_email
                                FROM games g JOIN users u ON u.id = g.author_id
@@ -412,6 +419,45 @@ export function createApp({
     send(res, 200, { likes, dislikes, my_vote: value }, setCookie ? { 'Set-Cookie': setCookie } : {});
   }
 
+  // ---------- сохранения (SDK) ----------
+  // Игра сама сюда не ходит: она в песочнице без cookie. Запросы шлёт страница игры
+  // по просьбе SDK, а id игры подставляет страница — чужое сохранение игра прочитать не может.
+  function saveTarget(req, id) {
+    if (!q.publicGame.get(id)) throw new HttpError(404, 'Игра не найдена');
+    return visitorOf(req);
+  }
+
+  function getSave(req, res, id) {
+    const { visitor, setCookie } = saveTarget(req, id);
+    const row = q.getSave.get(id, visitor);
+    send(res, 200, { data: row ? JSON.parse(row.data) : null, updated_at: row ? row.updated_at : null },
+      setCookie ? { 'Set-Cookie': setCookie } : {});
+  }
+
+  async function putSave(req, res, id) {
+    const { visitor, setCookie } = saveTarget(req, id);
+    if (saveLimiter.blocked(`${visitor}|${id}`)) throw new HttpError(429, 'Слишком частые сохранения');
+    saveLimiter.fail(`${visitor}|${id}`); // считаем каждую запись
+    const raw = (await readBody(req, MAX_SAVE_BYTES + 1024)).toString('utf8');
+    let body;
+    try { body = JSON.parse(raw); } catch { throw new HttpError(400, 'Некорректный JSON'); }
+    if (!body || typeof body !== 'object' || !('data' in body)) throw new HttpError(400, 'Нужно поле data');
+    const json = JSON.stringify(body.data);
+    if (json === undefined) throw new HttpError(400, 'data должно быть JSON-значением');
+    if (Buffer.byteLength(json) > MAX_SAVE_BYTES) {
+      throw new HttpError(413, `Сохранение больше ${MAX_SAVE_BYTES / 1024} КБ`);
+    }
+    const t = now();
+    q.putSave.run(id, visitor, json, t);
+    send(res, 200, { ok: true, updated_at: t }, setCookie ? { 'Set-Cookie': setCookie } : {});
+  }
+
+  function deleteSave(req, res, id) {
+    const { visitor } = saveTarget(req, id);
+    q.deleteSave.run(id, visitor);
+    send(res, 200, { ok: true });
+  }
+
   function playStart(req, res, id) {
     const game = q.game.get(id);
     if (!game || game.status !== 'approved') throw new HttpError(404, 'Игра не найдена');
@@ -526,6 +572,11 @@ export function createApp({
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'GET') return gameDetails(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'PATCH') return updateGame(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/vote$/)) && m === 'POST') return vote(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/save$/))) {
+      if (m === 'GET') return getSave(req, res, mm[1]);
+      if (m === 'PUT') return putSave(req, res, mm[1]);
+      if (m === 'DELETE') return deleteSave(req, res, mm[1]);
+    }
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play$/)) && m === 'POST') return playStart(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play-end$/)) && m === 'POST') return playEnd(req, res, mm[1]);
     if (p === '/api/my/stats' && m === 'GET') {

@@ -70,6 +70,17 @@ export function openDb(file) {
     );
   `);
 
+  db.exec(`
+    -- Сохранения игр через SDK: одно на игру у каждого игрока (анонимный cookie vid, в базе — хэш).
+    CREATE TABLE IF NOT EXISTS game_saves (
+      game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      visitor    TEXT NOT NULL,
+      data       TEXT NOT NULL,   -- JSON от игры
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, visitor)
+    );
+  `);
+
   // Колонки, добавленные после первых версий: старые базы дополняются при запуске.
   const columns = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
   const addColumn = (name, ddl) => { if (!columns.includes(name)) db.exec(`ALTER TABLE games ADD COLUMN ${name} ${ddl}`); };
