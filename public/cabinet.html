@@ -25,6 +25,28 @@
 
 <!-- Кабинет -->
 <main id="cabinet" class="w hidden">
+  <section id="stats">
+    <div class="stats-head">
+      <h2>Статистика</h2>
+      <div class="tabs" id="periods" role="tablist" aria-label="Период">
+        <span class="tab" data-days="7">7 дней</span><span class="tab on" data-days="30">30 дней</span><span class="tab" data-days="90">90 дней</span>
+      </div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><span>Запуски</span><b id="kPlays">—</b></div>
+      <div class="kpi"><span>Игроки</span><b id="kUniques">—</b></div>
+      <div class="kpi"><span>Среднее время</span><b id="kAvg">—</b></div>
+      <div class="kpi"><span>Оценка дохода</span><b id="kIncome">—</b></div>
+    </div>
+    <div class="panel chart-panel">
+      <div class="chart-title">Запуски по дням</div>
+      <div class="chart" id="chart"></div>
+      <details class="mut"><summary>Таблица по дням</summary><div id="dayTable"></div></details>
+    </div>
+    <div class="panel table-panel"><table class="tbl" id="gameTable"></table></div>
+    <p class="mut" id="estimateNote"></p>
+  </section>
+
   <h2>Загрузить игру</h2>
   <div class="panel"><form id="upForm">
     <label for="title">Название</label><input id="title" required minlength="2" maxlength="60" placeholder="Моя игра">
@@ -120,6 +142,7 @@ $('upForm').onsubmit = async (e) => {
     $('upForm').reset();
     toast('Игра отправлена на модерацию');
     loadMine();
+    loadStats();
     if (me && me.isAdmin) loadQueue();
   } catch (err) { $('upErr').textContent = err.message; }
   $('upBtn').disabled = false; $('upBtn').textContent = 'Отправить на модерацию';
@@ -140,7 +163,7 @@ async function loadMine() {
 $('mine').onclick = async (e) => {
   const id = e.target.dataset.del;
   if (!id || !confirm('Удалить игру? Это нельзя отменить.')) return;
-  try { await api('DELETE', `/api/games/${id}`); toast('Игра удалена'); loadMine(); } catch (err) { toast(err.message, true); }
+  try { await api('DELETE', `/api/games/${id}`); toast('Игра удалена'); loadMine(); loadStats(); } catch (err) { toast(err.message, true); }
 };
 
 // ---------- модерация ----------
@@ -170,6 +193,110 @@ $('queue').onclick = async (e) => {
   catch (err) { toast(err.message, true); }
 };
 
+// ---------- статистика ----------
+const num = (n) => Math.round(n).toLocaleString('ru-RU');
+const rub = (n) => n.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+const dur = (sec) => {
+  const s = Math.round(sec);
+  return s < 60 ? `${s} с` : `${Math.floor(s / 60)} мин ${s % 60} с`;
+};
+const avg = (seconds, plays) => plays ? dur(seconds / plays) : '—';
+const dayLabel = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+let statDays = 30, lastStats = null;
+
+async function loadStats() {
+  lastStats = await api('GET', `/api/my/stats?days=${statDays}`);
+  const { totals, games, daily, estimate } = lastStats;
+  $('kPlays').textContent = num(totals.plays);
+  $('kUniques').textContent = num(totals.uniques);
+  $('kAvg').textContent = avg(totals.seconds, totals.plays);
+  $('kIncome').textContent = rub(totals.income.author);
+
+  $('gameTable').innerHTML = `<thead><tr><th>Игра</th><th class="n">Запуски</th><th class="n">Игроки</th>
+    <th class="n">Ср. время</th><th class="n">Оценка дохода</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
+    (games.length ? games.map((g) => `<tr><td>${esc(g.title)} <span class="badge ${g.status}">${STATUS[g.status]}</span></td>
+      <td class="n">${num(g.plays)}</td><td class="n">${num(g.uniques)}</td><td class="n">${avg(g.seconds, g.plays)}</td>
+      <td class="n">${rub(g.income.author)}</td><td class="n">${num(g.plays_all_time)}</td></tr>`).join('')
+      : '<tr><td colspan="6" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
+
+  $('dayTable').innerHTML = `<table class="tbl"><thead><tr><th>День</th><th class="n">Запуски</th><th class="n">Игроки</th><th class="n">Ср. время</th></tr></thead><tbody>` +
+    daily.slice().reverse().map((d) => `<tr><td>${dayLabel(d.day)}</td><td class="n">${num(d.plays)}</td>
+      <td class="n">${num(d.uniques)}</td><td class="n">${avg(d.seconds, d.plays)}</td></tr>`).join('') + '</tbody></table>';
+
+  $('estimateNote').textContent = `Игроки — сумма уникальных игроков по дням. Запуск — открытие игры в каталоге; ` +
+    `повторное открытие тем же игроком в течение 30 минут не считается. Оценка дохода: показ рекламы при старте ` +
+    `и каждые 3 минуты игры, ${num(estimate.ecpm)} ₽ за 1000 показов, ваша доля ${Math.round(estimate.share * 100)}%. ` +
+    `Реклама пока не подключена — это прогноз, а не начисления.`;
+  drawChart();
+}
+
+// Шаг сетки «1, 2, 5 × 10ⁿ», не меньше 1 (запуски — целые).
+function niceStep(x) {
+  if (x <= 1) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(x)));
+  return [1, 2, 5, 10].find((k) => x <= k * p) * p;
+}
+
+// Столбцы: одна серия, без легенды. Толщина ≤ 24px, скругление только сверху, зазор 2px.
+function drawChart() {
+  if (!lastStats) return;
+  const box = $('chart');
+  const data = lastStats.daily;
+  const W = Math.max(box.clientWidth, 280), H = 200;
+  const m = { t: 12, r: 8, b: 26, l: 36 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const max = Math.max(...data.map((d) => d.plays));
+  const step = niceStep(max / 4);
+  const top = Math.max(step * Math.ceil(max / step), 1);
+  const band = iw / data.length;
+  const bw = Math.min(24, Math.max(band - 2, 1));
+  const y = (v) => m.t + ih - (v / top) * ih;
+
+  let svg = `<svg width="${W}" height="${H}" role="img" aria-label="Запуски по дням за ${data.length} дн.">`;
+  for (let v = 0; v <= top; v += step) {
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" class="grid"/>` +
+      `<text x="${m.l - 6}" y="${y(v) + 4}" text-anchor="end" class="axis">${num(v)}</text>`;
+  }
+  const labelEvery = Math.ceil(data.length / 6);
+  data.forEach((d, i) => {
+    const x = m.l + band * i + (band - bw) / 2;
+    if (d.plays > 0) {
+      const h = (d.plays / top) * ih, r = Math.min(4, h, bw / 2), y0 = m.t + ih;
+      svg += `<path class="bar" d="M${x},${y0}V${y0 - h + r}Q${x},${y0 - h} ${x + r},${y0 - h}H${x + bw - r}Q${x + bw},${y0 - h} ${x + bw},${y0 - h + r}V${y0}Z"/>`;
+    }
+    if ((data.length - 1 - i) % labelEvery === 0) {
+      svg += `<text x="${m.l + band * i + band / 2}" y="${H - 8}" text-anchor="middle" class="axis">${dayLabel(d.day)}</text>`;
+    }
+    svg += `<rect class="hit" data-i="${i}" x="${m.l + band * i}" y="${m.t}" width="${band}" height="${ih}"/>`;
+  });
+  svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${m.t + ih}" y2="${m.t + ih}" class="base"/></svg><div class="tip" id="tip"></div>`;
+  box.innerHTML = svg;
+
+  const tip = $('tip');
+  const show = (e) => {
+    const i = e.target.dataset?.i;
+    if (i === undefined) { tip.style.display = 'none'; return; }
+    const d = data[i];
+    tip.innerHTML = `<b>${dayLabel(d.day)}</b><br>Запуски: ${num(d.plays)}<br>Игроки: ${num(d.uniques)}<br>Ср. время: ${avg(d.seconds, d.plays)}`;
+    tip.style.display = 'block';
+    const bx = box.getBoundingClientRect();
+    const rx = e.target.getBoundingClientRect();
+    const left = Math.min(Math.max(rx.left - bx.left + rx.width / 2 - tip.offsetWidth / 2, 0), bx.width - tip.offsetWidth);
+    tip.style.left = `${left}px`;
+  };
+  box.onpointermove = show;
+  box.onpointerdown = show;
+  box.onpointerleave = () => { tip.style.display = 'none'; };
+}
+addEventListener('resize', () => { clearTimeout(drawChart.t); drawChart.t = setTimeout(drawChart, 150); });
+
+$('periods').onclick = (e) => {
+  if (!e.target.dataset.days) return;
+  statDays = Number(e.target.dataset.days);
+  document.querySelectorAll('#periods .tab').forEach((t) => t.classList.toggle('on', t === e.target));
+  loadStats();
+};
+
 // ---------- состояние страницы ----------
 let me = null;
 function show(user) {
@@ -181,6 +308,7 @@ function show(user) {
   $('uname').textContent = user.name;
   $('admin').classList.toggle('hidden', !user.isAdmin);
   loadMine();
+  loadStats();
   if (user.isAdmin) loadQueue();
 }
 

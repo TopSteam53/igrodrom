@@ -36,6 +36,29 @@ export function openDb(file) {
     CREATE INDEX IF NOT EXISTS games_by_author ON games(author_id, created_at);
   `);
 
+  db.exec(`
+    -- Агрегаты по дням (день — по часовому поясу STATS_TZ). Источник для статистики автора.
+    CREATE TABLE IF NOT EXISTS play_daily (
+      game_id TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      day     TEXT NOT NULL,              -- YYYY-MM-DD
+      plays   INTEGER NOT NULL DEFAULT 0, -- запуски (повтор того же игрока в течение 30 минут не считается)
+      uniques INTEGER NOT NULL DEFAULT 0, -- разные игроки за день
+      seconds INTEGER NOT NULL DEFAULT 0, -- суммарное время в игре
+      PRIMARY KEY (game_id, day)
+    );
+
+    -- Кто уже играл сегодня: для уникальных игроков и защиты от накрутки. Старше 2 дней удаляется.
+    CREATE TABLE IF NOT EXISTS play_visitors (
+      game_id   TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      day       TEXT NOT NULL,
+      visitor   TEXT NOT NULL,              -- sha256 анонимного cookie посетителя
+      last_at   INTEGER NOT NULL,           -- время последнего открытия
+      open      INTEGER NOT NULL DEFAULT 1, -- 1, пока не пришло время сессии
+      PRIMARY KEY (game_id, day, visitor)
+    );
+    CREATE INDEX IF NOT EXISTS play_visitors_by_day ON play_visitors(day);
+  `);
+
   const columns = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
   if (!columns.includes('file_count')) db.exec('ALTER TABLE games ADD COLUMN file_count INTEGER NOT NULL DEFAULT 1');
   return db;

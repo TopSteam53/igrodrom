@@ -45,3 +45,25 @@ footer{border-top:1px solid var(--line);margin-top:60px;padding:28px 0;color:var
 .badge.pending{background:#422006;color:var(--warn)}.badge.approved{background:#052e16;color:var(--ok)}.badge.rejected{background:#450a0a;color:var(--bad)}
 .err-text{color:var(--bad);font-size:14px;min-height:20px;margin-top:8px}
 .hidden{display:none!important}
+
+/* статистика */
+.stats-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.stats-head h2{margin-bottom:12px}.stats-head .tabs{margin:44px 0 12px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+@media(max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}.stats-head .tabs{margin:0 0 12px}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.kpi span{display:block;color:var(--mut);font-size:13px}.kpi b{display:block;font-size:26px;letter-spacing:-.5px;margin-top:2px}
+.chart-panel{margin-bottom:14px}.chart-title{font-weight:700;margin-bottom:8px}
+.chart{position:relative;width:100%}.chart svg{display:block}
+.chart .bar{fill:var(--ac)}.chart .grid{stroke:var(--line);stroke-width:1}.chart .base{stroke:#3a3f73;stroke-width:1}
+.chart .axis{fill:var(--mut);font-size:11px}.chart .hit{fill:transparent;cursor:default}
+.chart .hit:hover{fill:#ffffff0a}
+.tip{position:absolute;top:0;display:none;pointer-events:none;background:#0d0f1f;border:1px solid var(--line);border-radius:8px;
+  padding:8px 10px;font-size:13px;line-height:1.45;white-space:nowrap;box-shadow:0 6px 20px #0008}
+details summary{cursor:pointer;margin-top:10px}
+.table-panel{overflow-x:auto;padding:8px 12px;margin-bottom:8px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px}
+.tbl th{color:var(--mut);font-weight:600;text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:8px;border-bottom:1px solid var(--line)}.tbl tr:last-child td{border-bottom:0}
+.tbl .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl .badge{margin-left:6px}

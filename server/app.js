@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { openDb } from './db.js';
 import { extractZip, isZip, ZipError } from './zip.js';
+import { createStats } from './stats.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
 } from './auth.js';
@@ -14,6 +15,7 @@ const MAX_HTML_BYTES = 5 * 1024 * 1024; // одиночный .html
 const MAX_UNZIPPED_BYTES = 50 * 1024 * 1024;
 const MAX_GAME_FILES = 1000;
 const PREVIEW_TTL_SEC = 6 * 3600;
+const VISITOR_TTL_SEC = 365 * 24 * 3600;
 const MAX_JSON_BYTES = 16 * 1024;
 const SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -39,6 +41,7 @@ class HttpError extends Error {
 
 export function createApp({
   dataDir, publicDir, adminEmails = [], secureCookies = false, previewSecret = randomBytes(32), trustProxy = false,
+  now = Date.now, statsTz = 'Europe/Moscow', estimate = { ecpm: 80, share: 0.7 },
 }) {
   const gamesDir = path.join(dataDir, 'games');
   fs.mkdirSync(gamesDir, { recursive: true });
@@ -46,6 +49,7 @@ export function createApp({
   const db = openDb(path.join(dataDir, 'igrodrom.db'));
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
+  const stats = createStats({ db, now, tz: statsTz, estimate });
 
   const q = {
     userByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
@@ -55,7 +59,8 @@ export function createApp({
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
-    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, u.name AS author, g.created_at
+    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, u.name AS author, g.created_at,
+                               (SELECT COALESCE(SUM(plays), 0) FROM play_daily d WHERE d.game_id = g.id) AS plays
                              FROM games g JOIN users u ON u.id = g.author_id
                              WHERE g.status = 'approved' ORDER BY g.created_at DESC LIMIT 500`),
     myGames: db.prepare(`SELECT id, title, genre, status, reject_reason, size, file_count, created_at
@@ -180,6 +185,17 @@ export function createApp({
     return req.socket.remoteAddress;
   }
 
+  // Анонимный id браузера для подсчёта игроков. В базе хранится только его хэш.
+  function visitorOf(req) {
+    let id = cookies(req).vid;
+    let setCookie;
+    if (!id || !/^[A-Za-z0-9_-]{43}$/.test(id)) {
+      id = newToken();
+      setCookie = `vid=${id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${VISITOR_TTL_SEC}${secureCookies ? '; Secure' : ''}`;
+    }
+    return { visitor: sha256(id), setCookie };
+  }
+
   const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u) });
 
   // ---------- API ----------
@@ -292,6 +308,22 @@ export function createApp({
     send(res, 200, { ok: true });
   }
 
+  function playStart(req, res, id) {
+    const game = q.game.get(id);
+    if (!game || game.status !== 'approved') throw new HttpError(404, 'Игра не найдена');
+    if (stats.isBot(req.headers['user-agent'])) return send(res, 200, { counted: false });
+    const { visitor, setCookie } = visitorOf(req);
+    const counted = stats.recordStart(id, visitor, clientIp(req));
+    send(res, 200, { counted }, setCookie ? { 'Set-Cookie': setCookie } : {});
+  }
+
+  async function playEnd(req, res, id) {
+    const { seconds } = await readJson(req);
+    const token = cookies(req).vid;
+    const recorded = token && q.game.get(id) ? stats.recordEnd(id, sha256(token), seconds) : false;
+    send(res, 200, { recorded });
+  }
+
   function notFound(res, text = 'Игра не найдена') {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' });
     res.end(text);
@@ -385,6 +417,14 @@ export function createApp({
 
     let mm;
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})$/)) && m === 'DELETE') return deleteGame(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play$/)) && m === 'POST') return playStart(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play-end$/)) && m === 'POST') return playEnd(req, res, mm[1]);
+    if (p === '/api/my/stats' && m === 'GET') {
+      const user = requireUser(req);
+      const days = Number(url.searchParams.get('days') || 30);
+      if (!Number.isInteger(days) || days < 1 || days > 365) throw new HttpError(400, 'days: от 1 до 365');
+      return send(res, 200, stats.authorStats(user.id, days));
+    }
     if ((mm = p.match(/^\/api\/admin\/games\/([0-9a-f]{16})$/)) && m === 'POST') return moderate(req, res, mm[1]);
     if (p === '/api/admin/games' && m === 'GET') {
       const user = requireUser(req);

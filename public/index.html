@@ -47,11 +47,12 @@ const $ = (i) => document.getElementById(i);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const COLORS = ['#312e81', '#14532d', '#4c1d95', '#134e4a', '#7c2d12', '#1e3a8a', '#701a75'];
 const EMOJI = { 'Аркады': '🕹️', 'Головоломки': '🧩', 'Кликеры': '👆', 'Прочее': '🎮' };
+const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
 
 const demo = [
-  { id: 'snake', title: 'Змейка', genre: 'Аркады', author: 'демо', e: '🐍', c: '#14532d', src: 'games/snake.html' },
-  { id: 'clicker', title: 'Печенье', genre: 'Кликеры', author: 'демо', e: '🍪', c: '#4c1d95', src: 'games/clicker.html' },
-  { id: 'memory', title: 'Мемори', genre: 'Головоломки', author: 'демо', e: '🦊', c: '#134e4a', src: 'games/memory.html' },
+  { id: 'snake', title: 'Змейка', genre: 'Аркады', author: 'демо', e: '🐍', c: '#14532d', src: 'games/snake.html', demo: true },
+  { id: 'clicker', title: 'Печенье', genre: 'Кликеры', author: 'демо', e: '🍪', c: '#4c1d95', src: 'games/clicker.html', demo: true },
+  { id: 'memory', title: 'Мемори', genre: 'Головоломки', author: 'демо', e: '🦊', c: '#134e4a', src: 'games/memory.html', demo: true },
 ];
 let games = demo, cur = 'Все';
 
@@ -61,7 +62,8 @@ function render() {
   $('tabs').innerHTML = genres.map((g) => `<span class="tab ${g === cur ? 'on' : ''}" data-g="${esc(g)}">${esc(g)}</span>`).join('');
   $('grid').innerHTML = games.filter((g) => cur === 'Все' || g.genre === cur).map((g, i) =>
     `<div class="gc" data-id="${esc(g.id)}"><div class="th" style="background:${g.c || COLORS[i % COLORS.length]}">${g.e || EMOJI[g.genre] || '🎮'}</div>` +
-    `<div class="i"><b>${esc(g.title)}</b><small>${esc(g.genre)} · ${esc(g.author)}</small></div></div>`).join('');
+    `<div class="i"><b>${esc(g.title)}</b><small>${esc(g.genre)} · ${esc(g.author)}` +
+    `${g.plays ? ` · ▶ ${fmt(g.plays)}` : ''}</small></div></div>`).join('');
 }
 
 $('tabs').onclick = (e) => { if (e.target.dataset.g) { cur = e.target.dataset.g; render(); } };
@@ -72,8 +74,30 @@ $('grid').onclick = (e) => {
   $('mt').textContent = g.title;
   $('fr').src = g.src;
   $('m').classList.add('on');
+  if (!g.demo) startSession(g.id);
 };
-$('mc').onclick = () => { $('m').classList.remove('on'); $('fr').src = 'about:blank'; };
+$('mc').onclick = () => { endSession(); $('m').classList.remove('on'); $('fr').src = 'about:blank'; };
+
+// ---------- счётчик запусков ----------
+// Время считается, только пока вкладка видна: забытая фоновая вкладка не накручивает минуты.
+let session = null;
+function startSession(id) {
+  fetch(`/api/games/${id}/play`, { method: 'POST' }).catch(() => {});
+  session = { id, visibleMs: 0, since: document.hidden ? null : Date.now() };
+}
+function endSession() {
+  if (!session) return;
+  if (session.since) session.visibleMs += Date.now() - session.since;
+  const body = new Blob([JSON.stringify({ seconds: Math.round(session.visibleMs / 1000) })], { type: 'application/json' });
+  navigator.sendBeacon(`/api/games/${session.id}/play-end`, body);
+  session = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (!session) return;
+  if (document.hidden && session.since) { session.visibleMs += Date.now() - session.since; session.since = null; }
+  if (!document.hidden && !session.since) session.since = Date.now();
+});
+addEventListener('pagehide', endSession);
 
 // Каталог с сервера. Если страница открыта как файл, остаются только демо-игры.
 fetch('/api/games').then((r) => r.json()).then(({ games: list }) => {
@@ -84,7 +108,6 @@ fetch('/api/me').then((r) => r.json()).then(({ user }) => {
   if (user) $('cab').textContent = user.name;
 }).catch(() => {});
 
-const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
 function calc() {
   const a = +$('r1').value, b = +$('r2').value, c = +$('r3').value;
   $('v1').textContent = fmt(a); $('v2').textContent = b; $('v3').textContent = c;
