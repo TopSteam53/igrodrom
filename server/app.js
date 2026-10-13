@@ -84,7 +84,7 @@ export function createApp({
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
-    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, g.description, u.name AS author, g.created_at, ${RATING_SQL},
+    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, g.description, g.featured, u.name AS author, g.created_at, ${RATING_SQL},
                                u.email = '${STUDIO_EMAIL}' AS demo
                              FROM games g JOIN users u ON u.id = g.author_id
                              WHERE g.status = 'approved' ORDER BY g.created_at DESC LIMIT 500`),
@@ -195,7 +195,9 @@ export function createApp({
       }
       q.updateMeta.run(String(meta.title || slug).slice(0, 60), genre, age,
         String(meta.description || '').slice(0, 1500), String(meta.how_to_play || '').slice(0, 600), Date.now(), id);
-      db.prepare('UPDATE games SET cover = ?, icon = ?, size = ?, file_count = ? WHERE id = ?').run(cover, icon, size, files.length, id);
+      const featured = Number.isInteger(meta.featured) ? meta.featured : 0;
+      db.prepare('UPDATE games SET cover = ?, icon = ?, size = ?, file_count = ?, featured = ? WHERE id = ?')
+        .run(cover, icon, size, files.length, featured, id);
     }
   }
 

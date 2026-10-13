@@ -25,6 +25,7 @@ export function buildCatalog() {
         author: 'Игродром',
         cover: COVERS.find((f) => fs.existsSync(path.join(root, slug, f))) || null,
         icon: ICONS.find((f) => fs.existsSync(path.join(root, slug, f))) || null,
+        featured: Number.isInteger(meta.featured) ? meta.featured : 0,
       };
     });
   return `${JSON.stringify({ games }, null, 2)}\n`;

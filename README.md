@@ -11,7 +11,7 @@
 |---|---|
 | `server/` | сервер и API |
 | `public/` | каталог (`index.html`), страница игры (`game.html`), `developers.html`, вход (`login.html`), профиль (`account.html`), кабинет разработчика (`cabinet.html`), `app.js` — общий код |
-| `public/games/<slug>/` | демо-игры: `index.html`, `cover.svg`, `meta.json` |
+| `public/games/<slug>/` | демо-игры: `index.html`, обложка `cover.*`, иконка `icon.*`, `meta.json` |
 | `scripts/build-catalog.js` | собирает `public/games/catalog.json` для статической версии |
 | `test/` | тесты (`npm test`) |
 | `Dockerfile`, `docker-compose.yml`, `Caddyfile` | деплой |
@@ -139,6 +139,9 @@ docker compose start app
 - **Оценки** — одна на игру от браузера (анонимный cookie `vid`), можно передумать или снять.
 - **Демо-игры** из `public/games/<slug>/` при запуске сервера заводятся в базу как одобренные игры
   от имени «Игродрома» (выключается `SEED_DEMO_GAMES=0`). Обновили `meta.json` — описание обновится при перезапуске.
+  `"featured": 1` в `meta.json` ставит игру первой в подборку на главной.
+  «Мурмерж» (`public/games/murmerzh`) — игра с Яндекс Игр, перенесённая без изменений кода: заменён только путь
+  к SDK (`/sdk.js` → `../../sdk.js`, чтобы работало и на GitHub Pages) и добавлены обложка и иконка.
 - **Без сервера** (GitHub Pages) каталог берётся из `games/catalog.json`; оценки, счётчики и кабинет недоступны,
   вверху висит плашка «Демо-версия». После изменения `meta.json` выполните `npm run build:catalog`
   (тест проверяет, что файл не устарел).

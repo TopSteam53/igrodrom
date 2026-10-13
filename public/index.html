@@ -121,7 +121,9 @@ let hero = { games: [], i: 0, timer: null, paused: false };
 
 function renderHero() {
   if (hero.games.length) return; // собираем один раз, чтобы поиск не сбрасывал карусель
-  hero.games = games.filter((g) => g.cover_url).sort(SORTS.popular).slice(0, HERO_SIZE);
+  // Сначала отмеченные для подборки, потом самые популярные.
+  hero.games = games.filter((g) => g.cover_url)
+    .sort((a, b) => (b.featured || 0) - (a.featured || 0) || SORTS.popular(a, b)).slice(0, HERO_SIZE);
   if (games.length < 4 || !hero.games.length) return;
   $('heroSlides').innerHTML = hero.games.map((g, i) => {
     const url = `game.html?id=${encodeURIComponent(g.id)}`;
