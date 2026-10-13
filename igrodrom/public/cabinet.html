@@ -29,8 +29,11 @@
   <div class="panel"><form id="upForm">
     <label for="title">Название</label><input id="title" required minlength="2" maxlength="60" placeholder="Моя игра">
     <label for="genre">Жанр</label><select id="genre"></select>
-    <label for="file">Файл игры: один .html, до 5 МБ (скрипты и картинки — внутри файла)</label>
-    <input type="file" id="file" accept=".html,.htm,text/html" required>
+    <label for="file">Файл игры: ZIP-архив до 20 МБ или один .html до 5 МБ</label>
+    <input type="file" id="file" accept=".zip,.html,.htm,application/zip,text/html" required>
+    <p class="mut">В архиве должен быть <b>index.html</b>: в корне или в единственной папке. Картинки, звуки,
+      скрипты подключайте относительными путями (<code>img/hero.png</code>, а не <code>/img/hero.png</code>).
+      Распакованный размер — до 50 МБ, до 1000 файлов.</p>
     <div class="err-text" id="upErr"></div>
     <button class="btn" id="upBtn">Отправить на модерацию</button>
   </form></div>
@@ -55,6 +58,10 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const STATUS = { pending: 'на модерации', approved: 'опубликована', rejected: 'отклонена' };
 const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' МБ' : Math.ceil(n / 1024) + ' КБ';
 const date = (t) => new Date(t).toLocaleDateString('ru-RU');
+const files = (n) => {
+  const a = n % 10, b = n % 100;
+  return `${n} ${a === 1 && b !== 11 ? 'файл' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'файла' : 'файлов'}`;
+};
 
 function toast(msg, err) {
   const t = $('toast');
@@ -103,11 +110,13 @@ $('upForm').onsubmit = async (e) => {
   const f = $('file').files[0];
   $('upErr').textContent = '';
   if (!f) return;
-  if (f.size > 5 * 1024 * 1024) { $('upErr').textContent = 'Файл больше 5 МБ'; return; }
+  const isZip = /\.zip$/i.test(f.name);
+  const limit = isZip ? 20 : 5;
+  if (f.size > limit * 1024 * 1024) { $('upErr').textContent = `Файл больше ${limit} МБ`; return; }
   $('upBtn').disabled = true; $('upBtn').textContent = 'Загружаем…';
   try {
     const qs = new URLSearchParams({ title: $('title').value, genre: $('genre').value });
-    await api('POST', `/api/games?${qs}`, f, 'text/html');
+    await api('POST', `/api/games?${qs}`, f, isZip ? 'application/zip' : 'text/html');
     $('upForm').reset();
     toast('Игра отправлена на модерацию');
     loadMine();
@@ -121,10 +130,10 @@ async function loadMine() {
   const { games } = await api('GET', '/api/my/games');
   $('mine').innerHTML = games.length ? games.map((g) => `
     <div class="row"><div class="t"><b>${esc(g.title)}</b>
-      <span class="mut">${esc(g.genre)} · ${kb(g.size)} · ${date(g.created_at)}</span>
+      <span class="mut">${esc(g.genre)} · ${files(g.file_count)} · ${kb(g.size)} · ${date(g.created_at)}</span>
       ${g.status === 'rejected' ? `<div class="mut" style="color:var(--bad)">Причина: ${esc(g.reject_reason || '')}</div>` : ''}</div>
       <span class="badge ${g.status}">${STATUS[g.status]}</span>
-      <div class="acts"><a class="btn g sm" href="/play/${g.id}" target="_blank" rel="noopener">Открыть</a>
+      <div class="acts"><a class="btn g sm" href="${g.status === 'approved' ? `/play/${g.id}/` : g.preview_url}" target="_blank" rel="noopener">Открыть</a>
       <button class="btn bad sm" data-del="${g.id}">Удалить</button></div></div>`).join('')
     : '<p class="mut">Пока нет игр. Загрузите первую выше.</p>';
 }
@@ -140,8 +149,8 @@ async function loadQueue() {
   const { games } = await api('GET', `/api/admin/games?status=${admStatus}`);
   $('queue').innerHTML = games.length ? games.map((g) => `
     <div class="row"><div class="t"><b>${esc(g.title)}</b>
-      <span class="mut">${esc(g.genre)} · ${esc(g.author)} (${esc(g.author_email)}) · ${kb(g.size)} · ${date(g.created_at)}</span></div>
-      <div class="acts"><a class="btn g sm" href="/play/${g.id}" target="_blank" rel="noopener">Проверить</a>
+      <span class="mut">${esc(g.genre)} · ${esc(g.author)} (${esc(g.author_email)}) · ${files(g.file_count)} · ${kb(g.size)} · ${date(g.created_at)}</span></div>
+      <div class="acts"><a class="btn g sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить</a>
       ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Одобрить</button>` : ''}
       ${g.status !== 'rejected' ? `<button class="btn bad sm" data-act="reject" data-id="${g.id}">Отклонить</button>` : ''}</div></div>`).join('')
     : '<p class="mut">Пусто.</p>';

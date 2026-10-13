@@ -35,5 +35,8 @@ export function openDb(file) {
     CREATE INDEX IF NOT EXISTS games_by_status ON games(status, created_at);
     CREATE INDEX IF NOT EXISTS games_by_author ON games(author_id, created_at);
   `);
+
+  const columns = db.prepare('PRAGMA table_info(games)').all().map((c) => c.name);
+  if (!columns.includes('file_count')) db.exec('ALTER TABLE games ADD COLUMN file_count INTEGER NOT NULL DEFAULT 1');
   return db;
 }

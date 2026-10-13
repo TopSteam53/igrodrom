@@ -1,9 +1,9 @@
 {
   "name": "igrodrom",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
-  "description": "Площадка HTML5-игр: аккаунты авторов, загрузка, модерация",
+  "description": "Площадка HTML5-игр: аккаунты авторов, загрузка ZIP/HTML, модерация",
   "engines": {
     "node": ">=22.13"
   },

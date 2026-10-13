@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../server/app.js';
+import { makeZip } from './make-zip.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let server, base, dataDir;
@@ -29,6 +30,7 @@ function client() {
       method,
       headers: { ...(cookie && { cookie }), ...(json && { 'content-type': 'application/json' }), ...headers },
       body: json ? JSON.stringify(json) : body,
+      redirect: 'manual',
     });
     const set = res.headers.get('set-cookie');
     if (set) cookie = set.split(';')[0];
@@ -86,12 +88,20 @@ test('загрузка → модерация → каталог', async () => {
   const { id } = up.data.game;
   assert.equal(up.data.game.status, 'pending');
 
-  // Пока на модерации: не в каталоге и не открывается гостю, но открывается автору.
+  // Пока на модерации: нет в каталоге и по /play/, но автор открывает по подписанной ссылке.
   assert.equal((await guest('GET', '/api/games')).data.games.length, 0);
-  assert.equal((await guest('GET', `/play/${id}`)).status, 404);
-  const own = await author('GET', `/play/${id}`);
+  assert.equal((await guest('GET', `/play/${id}/`)).status, 404);
+  assert.equal((await author('GET', `/play/${id}/`)).status, 404);
+  const { preview_url } = (await author('GET', '/api/my/games')).data.games[0];
+  assert.match(preview_url, /^\/preview\/[0-9a-f]{16}\.\d+\.[0-9a-f]{32}\/$/);
+  const own = await guest('GET', preview_url); // ссылка работает и без cookie: так грузятся ресурсы игры
   assert.equal(own.status, 200);
   assert.equal(own.data, GAME);
+  assert.match(own.headers.get('content-security-policy'), /^sandbox allow-scripts/);
+  const forged = preview_url.replace(/[0-9a-f]{32}\/$/, '0'.repeat(32) + '/');
+  assert.equal((await guest('GET', forged)).status, 404, 'поддельная подпись');
+  const otherId = preview_url.replace(id, 'f'.repeat(16));
+  assert.equal((await guest('GET', otherId)).status, 404, 'подпись от другой игры');
 
   assert.equal((await author('GET', '/api/admin/games')).status, 403, 'автор не модератор');
   assert.equal((await author('POST', `/api/admin/games/${id}`, { json: { action: 'approve' } })).status, 403);
@@ -105,7 +115,10 @@ test('загрузка → модерация → каталог', async () => {
   assert.equal(list.data.games[0].title, 'Моя <b>игра</b>');
   assert.equal(list.data.games[0].author, 'Разработчик');
 
-  const play = await guest('GET', `/play/${id}`);
+  const redirect = await guest('GET', `/play/${id}`);
+  assert.equal(redirect.status, 301);
+  assert.equal(redirect.headers.get('location'), `/play/${id}/`);
+  const play = await guest('GET', `/play/${id}/`);
   assert.equal(play.status, 200);
   assert.match(play.headers.get('content-security-policy'), /^sandbox allow-scripts/);
   assert.doesNotMatch(play.headers.get('content-security-policy'), /allow-same-origin/);
@@ -130,7 +143,7 @@ test('отклонение с причиной и удаление только 
 
   assert.equal((await b('DELETE', `/api/games/${id}`)).status, 404, 'чужую игру удалить нельзя');
   assert.equal((await a('DELETE', `/api/games/${id}`)).status, 200);
-  assert.equal(fs.existsSync(path.join(dataDir, 'games', `${id}.html`)), false);
+  assert.equal(fs.existsSync(path.join(dataDir, 'games', id)), false);
 });
 
 test('проверки загрузки', async () => {
@@ -141,7 +154,9 @@ test('проверки загрузки', async () => {
   assert.equal((await upload(c, 'Норм', 'Аркады', '')).status, 400, 'пустой файл');
   assert.equal((await upload(c, 'Норм', 'Аркады', 'просто текст')).status, 400, 'не HTML');
   const big = '<html>' + 'x'.repeat(5 * 1024 * 1024);
-  assert.equal((await upload(c, 'Норм', 'Аркады', big)).status, 413, 'больше 5 МБ');
+  assert.equal((await upload(c, 'Норм', 'Аркады', big)).status, 413, 'html больше 5 МБ');
+  const huge = Buffer.concat([Buffer.from('PK\x03\x04'), Buffer.alloc(20 * 1024 * 1024)]);
+  assert.equal((await upload(c, 'Норм', 'Аркады', huge)).status, 413, 'архив больше 20 МБ');
 });
 
 test('запросы с чужого сайта отклоняются', async () => {
@@ -165,4 +180,81 @@ test('ограничение попыток входа', async () => {
   for (let i = 0; i < 10; i++) await c('POST', '/api/login', { json: { email: 'brute@test.ru', password: 'nope-nope' } });
   const r = await c('POST', '/api/login', { json: { email: 'brute@test.ru', password: 'nope-nope' } });
   assert.equal(r.status, 429);
+});
+
+test('загрузка ZIP: подпапки, MIME-типы, модерация, удаление', async () => {
+  const author = client();
+  await author('POST', '/api/register', { json: { email: 'zip@test.ru', password: 'secret123', name: 'Архиватор' } });
+  const admin = client();
+  await admin('POST', '/api/login', { json: { email: 'admin@test.ru', password: 'secret123' } });
+  const guest = client();
+
+  const zip = makeZip([
+    { name: 'my-game/index.html', data: '<!doctype html><script src="js/main.js"></script>' },
+    { name: 'my-game/js/main.js', data: 'fetch("data/level.json")' },
+    { name: 'my-game/data/level.json', data: '{"level":1}' },
+    { name: 'my-game/img/hero.png', data: Buffer.from([0x89, 0x50, 0x4e, 0x47]), method: 0 },
+    { name: 'my-game/core.wasm', data: Buffer.from([0, 0x61, 0x73, 0x6d]) },
+  ]);
+  const up = await upload(author, 'Архивная игра', 'Аркады', zip);
+  assert.equal(up.status, 201, JSON.stringify(up.data));
+  const { id, preview_url } = up.data.game;
+  assert.equal(up.data.game.file_count, 5);
+
+  // До одобрения: ресурсы доступны только по подписанной ссылке.
+  assert.equal((await guest('GET', `/play/${id}/js/main.js`)).status, 404);
+  assert.equal((await guest('GET', `${preview_url}js/main.js`)).status, 200);
+
+  await admin('POST', `/api/admin/games/${id}`, { json: { action: 'approve' } });
+
+  const expect = {
+    '': 'text/html', 'js/main.js': 'text/javascript', 'data/level.json': 'application/json',
+    'img/hero.png': 'image/png', 'core.wasm': 'application/wasm',
+  };
+  for (const [file, type] of Object.entries(expect)) {
+    const r = await guest('GET', `/play/${id}/${file}`);
+    assert.equal(r.status, 200, file);
+    assert.ok(r.headers.get('content-type').startsWith(type), `${file}: ${r.headers.get('content-type')}`);
+    assert.equal(r.headers.get('access-control-allow-origin'), '*');
+    assert.match(r.headers.get('content-security-policy'), /^sandbox/);
+  }
+  assert.equal((await guest('GET', `/play/${id}/nope.js`)).status, 404);
+  assert.equal((await guest('GET', `/play/${id}/..%2f..%2figrodrom.db`)).status, 404);
+  assert.equal((await guest('GET', `/play/${id}/%2e%2e/%2e%2e/igrodrom.db`)).status, 404);
+
+  assert.equal((await author('DELETE', `/api/games/${id}`)).status, 200);
+  assert.equal(fs.existsSync(path.join(dataDir, 'games', id)), false);
+});
+
+test('плохие архивы отклоняются с понятной ошибкой', async () => {
+  const c = client();
+  await c('POST', '/api/register', { json: { email: 'badzip@test.ru', password: 'secret123', name: 'Ломатель' } });
+  const cases = [
+    [makeZip([{ name: 'game.html', data: '<html>' }]), /index\.html/],
+    [makeZip([{ name: 'index.html', data: '<html>' }, { name: '../evil.js', data: 'x' }]), /Недопустимый путь/],
+    [makeZip([{ name: 'index.html', data: 'просто текст' }]), /не похож/],
+    [makeZip([{ name: 'index.html', data: '<html>' }, { name: 'a', data: '1' }, { name: 'a/b', data: '2' }]), /Конфликт путей/],
+  ];
+  for (const [zip, re] of cases) {
+    const r = await upload(c, 'Плохая', 'Прочее', zip);
+    assert.equal(r.status, 400);
+    assert.match(r.data.error, re);
+  }
+  assert.equal((await c('GET', '/api/my/games')).data.games.length, 0, 'ничего не сохранилось');
+  const leftovers = fs.readdirSync(path.join(dataDir, 'games')).filter((n) => n.endsWith('.tmp'));
+  assert.deepEqual(leftovers, [], 'временные папки убраны');
+});
+
+test('игры старого формата (games/<id>.html) переезжают в папки', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-migrate-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'games'));
+    fs.writeFileSync(path.join(dir, 'games', '0123456789abcdef.html'), '<html>old</html>');
+    const app = createApp({ dataDir: dir, publicDir: path.join(root, 'public') });
+    assert.equal(fs.readFileSync(path.join(dir, 'games', '0123456789abcdef', 'index.html'), 'utf8'), '<html>old</html>');
+    assert.equal(fs.existsSync(path.join(dir, 'games', '0123456789abcdef.html')), false);
+    app.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
