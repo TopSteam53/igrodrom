@@ -1,0 +1,14 @@
+{
+  "name": "igrodrom",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Площадка HTML5-игр: аккаунты авторов, загрузка, модерация",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  }
+}

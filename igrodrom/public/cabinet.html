@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Кабинет автора — Игродром</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><div class="w"><a class="logo" href="/">Игро<b>дром</b></a>
+<div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><span class="mut" id="uname"></span><button class="btn g sm" id="logout">Выйти</button></div>
+</div></header>
+
+<!-- Вход / регистрация -->
+<main id="auth" class="w hidden"><div class="narrow panel">
+  <div class="tabs"><span class="tab on" data-mode="login">Вход</span><span class="tab" data-mode="register">Регистрация</span></div>
+  <form id="authForm">
+    <div id="nameField" class="hidden"><label for="name">Имя автора (видно игрокам)</label><input id="name" maxlength="40" autocomplete="nickname"></div>
+    <label for="email">Email</label><input id="email" type="email" required autocomplete="email">
+    <label for="password">Пароль (от 8 символов)</label><input id="password" type="password" required minlength="8" autocomplete="current-password">
+    <div class="err-text" id="authErr"></div>
+    <button class="btn" id="authBtn" style="width:100%;margin-top:6px">Войти</button>
+  </form>
+</div></main>
+
+<!-- Кабинет -->
+<main id="cabinet" class="w hidden">
+  <h2>Загрузить игру</h2>
+  <div class="panel"><form id="upForm">
+    <label for="title">Название</label><input id="title" required minlength="2" maxlength="60" placeholder="Моя игра">
+    <label for="genre">Жанр</label><select id="genre"></select>
+    <label for="file">Файл игры: один .html, до 5 МБ (скрипты и картинки — внутри файла)</label>
+    <input type="file" id="file" accept=".html,.htm,text/html" required>
+    <div class="err-text" id="upErr"></div>
+    <button class="btn" id="upBtn">Отправить на модерацию</button>
+  </form></div>
+
+  <h2>Мои игры</h2>
+  <div class="rows" id="mine"></div>
+
+  <section id="admin" class="hidden">
+    <h2>Модерация</h2>
+    <div class="tabs" id="admTabs">
+      <span class="tab on" data-s="pending">На проверке</span><span class="tab" data-s="approved">Опубликованы</span><span class="tab" data-s="rejected">Отклонены</span>
+    </div>
+    <div class="rows" id="queue"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (i) => document.getElementById(i);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const STATUS = { pending: 'на модерации', approved: 'опубликована', rejected: 'отклонена' };
+const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' МБ' : Math.ceil(n / 1024) + ' КБ';
+const date = (t) => new Date(t).toLocaleDateString('ru-RU');
+
+function toast(msg, err) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+async function api(method, url, body, type = 'application/json') {
+  const res = await fetch(url, {
+    method,
+    headers: body !== undefined ? { 'content-type': type } : {},
+    body: body === undefined ? undefined : type === 'application/json' ? JSON.stringify(body) : body,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+  return data;
+}
+
+// ---------- вход / регистрация ----------
+let mode = 'login';
+document.querySelector('#auth .tabs').onclick = (e) => {
+  if (!e.target.dataset.mode) return;
+  mode = e.target.dataset.mode;
+  document.querySelectorAll('#auth .tab').forEach((t) => t.classList.toggle('on', t.dataset.mode === mode));
+  $('nameField').classList.toggle('hidden', mode !== 'register');
+  $('authBtn').textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
+  $('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  $('authErr').textContent = '';
+};
+$('authForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('authErr').textContent = ''; $('authBtn').disabled = true;
+  try {
+    const body = { email: $('email').value, password: $('password').value };
+    if (mode === 'register') body.name = $('name').value;
+    const { user } = await api('POST', `/api/${mode}`, body);
+    show(user);
+  } catch (err) { $('authErr').textContent = err.message; }
+  $('authBtn').disabled = false;
+};
+$('logout').onclick = async () => { await api('POST', '/api/logout').catch(() => {}); show(null); };
+
+// ---------- загрузка ----------
+$('upForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const f = $('file').files[0];
+  $('upErr').textContent = '';
+  if (!f) return;
+  if (f.size > 5 * 1024 * 1024) { $('upErr').textContent = 'Файл больше 5 МБ'; return; }
+  $('upBtn').disabled = true; $('upBtn').textContent = 'Загружаем…';
+  try {
+    const qs = new URLSearchParams({ title: $('title').value, genre: $('genre').value });
+    await api('POST', `/api/games?${qs}`, f, 'text/html');
+    $('upForm').reset();
+    toast('Игра отправлена на модерацию');
+    loadMine();
+    if (me && me.isAdmin) loadQueue();
+  } catch (err) { $('upErr').textContent = err.message; }
+  $('upBtn').disabled = false; $('upBtn').textContent = 'Отправить на модерацию';
+};
+
+// ---------- мои игры ----------
+async function loadMine() {
+  const { games } = await api('GET', '/api/my/games');
+  $('mine').innerHTML = games.length ? games.map((g) => `
+    <div class="row"><div class="t"><b>${esc(g.title)}</b>
+      <span class="mut">${esc(g.genre)} · ${kb(g.size)} · ${date(g.created_at)}</span>
+      ${g.status === 'rejected' ? `<div class="mut" style="color:var(--bad)">Причина: ${esc(g.reject_reason || '')}</div>` : ''}</div>
+      <span class="badge ${g.status}">${STATUS[g.status]}</span>
+      <div class="acts"><a class="btn g sm" href="/play/${g.id}" target="_blank" rel="noopener">Открыть</a>
+      <button class="btn bad sm" data-del="${g.id}">Удалить</button></div></div>`).join('')
+    : '<p class="mut">Пока нет игр. Загрузите первую выше.</p>';
+}
+$('mine').onclick = async (e) => {
+  const id = e.target.dataset.del;
+  if (!id || !confirm('Удалить игру? Это нельзя отменить.')) return;
+  try { await api('DELETE', `/api/games/${id}`); toast('Игра удалена'); loadMine(); } catch (err) { toast(err.message, true); }
+};
+
+// ---------- модерация ----------
+let admStatus = 'pending';
+async function loadQueue() {
+  const { games } = await api('GET', `/api/admin/games?status=${admStatus}`);
+  $('queue').innerHTML = games.length ? games.map((g) => `
+    <div class="row"><div class="t"><b>${esc(g.title)}</b>
+      <span class="mut">${esc(g.genre)} · ${esc(g.author)} (${esc(g.author_email)}) · ${kb(g.size)} · ${date(g.created_at)}</span></div>
+      <div class="acts"><a class="btn g sm" href="/play/${g.id}" target="_blank" rel="noopener">Проверить</a>
+      ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Одобрить</button>` : ''}
+      ${g.status !== 'rejected' ? `<button class="btn bad sm" data-act="reject" data-id="${g.id}">Отклонить</button>` : ''}</div></div>`).join('')
+    : '<p class="mut">Пусто.</p>';
+}
+$('admTabs').onclick = (e) => {
+  if (!e.target.dataset.s) return;
+  admStatus = e.target.dataset.s;
+  document.querySelectorAll('#admTabs .tab').forEach((t) => t.classList.toggle('on', t.dataset.s === admStatus));
+  loadQueue();
+};
+$('queue').onclick = async (e) => {
+  const { act, id } = e.target.dataset;
+  if (!act) return;
+  let reason;
+  if (act === 'reject' && (reason = prompt('Причина отклонения (увидит автор):')) === null) return;
+  try { await api('POST', `/api/admin/games/${id}`, { action: act, reason }); toast(act === 'approve' ? 'Опубликовано' : 'Отклонено'); loadQueue(); }
+  catch (err) { toast(err.message, true); }
+};
+
+// ---------- состояние страницы ----------
+let me = null;
+function show(user) {
+  me = user;
+  $('auth').classList.toggle('hidden', !!user);
+  $('cabinet').classList.toggle('hidden', !user);
+  $('who').classList.toggle('hidden', !user);
+  if (!user) return;
+  $('uname').textContent = user.name;
+  $('admin').classList.toggle('hidden', !user.isAdmin);
+  loadMine();
+  if (user.isAdmin) loadQueue();
+}
+
+api('GET', '/api/genres').then(({ genres }) => {
+  $('genre').innerHTML = genres.map((g) => `<option>${esc(g)}</option>`).join('');
+}).catch(() => {});
+api('GET', '/api/me').then(({ user }) => show(user)).catch(() => {
+  $('auth').classList.remove('hidden');
+  $('authErr').textContent = 'Сервер недоступен. Запустите его: npm start в папке igrodrom.';
+});
+</script>
+</body>
+</html>

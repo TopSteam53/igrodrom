@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Игродром — площадка для инди-игр</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><div class="w"><a class="logo" href="/">Игро<b>дром</b></a>
+<nav><a href="#games">Игры</a><a href="#dev">Разработчикам</a><a href="#calc">Доход</a></nav>
+<a class="btn" id="cab" href="cabinet.html">Кабинет автора</a></div></header>
+
+<section class="hero"><div class="w">
+<h1>Площадка для игр,<br><span>которая платит вам.</span></h1>
+<p>Загрузите HTML5-игру за 2 минуты. Мы покажем её игрокам, подключим рекламу и отдадим вам 70% выручки.</p>
+<div class="stats"><div><b id="cnt">3</b>игр в каталоге</div><div><b>70%</b>доля разработчика</div><div><b>2 мин</b>на публикацию</div></div>
+</div></section>
+
+<section id="games"><div class="w"><h2>Каталог</h2><div class="tabs" id="tabs"></div><div class="grid" id="grid"></div></div></section>
+
+<section id="dev"><div class="w"><h2>Разработчикам</h2><div class="dev">
+<div class="panel"><h3>Как выложить игру</h3>
+<p class="mut">1. Зарегистрируйтесь в кабинете автора.<br>2. Загрузите игру одним .html-файлом (до 5 МБ).<br>3. Модератор проверит её на вирусы и контент.<br>4. После одобрения игра появится в каталоге.</p>
+<a class="btn" href="cabinet.html">Открыть кабинет автора</a></div>
+<div class="panel"><h3>Как делим доход</h3>
+<p class="mut">Перед стартом и между уровнями показывается реклама. Раз в месяц выплачиваем 70% рекламной выручки вашей игры.</p>
+<div class="split"><i style="width:70%;background:var(--ok)"></i><i style="width:30%;background:var(--ac)"></i></div>
+<div class="mut">70% — вам · 30% — платформе (хостинг, модерация, выплаты)</div></div>
+</div></div></section>
+
+<section id="calc"><div class="w"><h2>Сколько можно заработать</h2><div class="panel">
+<label>Игроков в месяц: <b id="v1">50 000</b></label><input type="range" id="r1" min="1000" max="1000000" step="1000" value="50000">
+<label>Рекламных показов на игрока: <b id="v2">6</b></label><input type="range" id="r2" min="1" max="20" value="6">
+<label>Цена 1000 показов (₽): <b id="v3">120</b></label><input type="range" id="r3" min="30" max="400" value="120">
+<div class="res" id="out">0 ₽</div><div class="mut">ваш доход в месяц при доле 70%. Цифры условные — для демонстрации модели.</div>
+</div></div></section>
+
+<footer><div class="w">Игродром — прототип. Игры с пометкой «демо» встроены в сайт, остальные загружены авторами.</div></footer>
+
+<div class="modal" id="m"><div class="box"><div class="bar"><b id="mt"></b><button id="mc" aria-label="Закрыть">✕</button></div>
+<iframe id="fr" sandbox="allow-scripts allow-pointer-lock" title="Игра"></iframe>
+<div class="ad"><div class="slot">Здесь рекламный блок · автор получает 70%</div></div></div></div>
+
+<script>
+const $ = (i) => document.getElementById(i);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const COLORS = ['#312e81', '#14532d', '#4c1d95', '#134e4a', '#7c2d12', '#1e3a8a', '#701a75'];
+const EMOJI = { 'Аркады': '🕹️', 'Головоломки': '🧩', 'Кликеры': '👆', 'Прочее': '🎮' };
+
+const demo = [
+  { id: 'snake', title: 'Змейка', genre: 'Аркады', author: 'демо', e: '🐍', c: '#14532d', src: 'games/snake.html' },
+  { id: 'clicker', title: 'Печенье', genre: 'Кликеры', author: 'демо', e: '🍪', c: '#4c1d95', src: 'games/clicker.html' },
+  { id: 'memory', title: 'Мемори', genre: 'Головоломки', author: 'демо', e: '🦊', c: '#134e4a', src: 'games/memory.html' },
+];
+let games = demo, cur = 'Все';
+
+function render() {
+  $('cnt').textContent = games.length;
+  const genres = ['Все', ...new Set(games.map((g) => g.genre))];
+  $('tabs').innerHTML = genres.map((g) => `<span class="tab ${g === cur ? 'on' : ''}" data-g="${esc(g)}">${esc(g)}</span>`).join('');
+  $('grid').innerHTML = games.filter((g) => cur === 'Все' || g.genre === cur).map((g, i) =>
+    `<div class="gc" data-id="${esc(g.id)}"><div class="th" style="background:${g.c || COLORS[i % COLORS.length]}">${g.e || EMOJI[g.genre] || '🎮'}</div>` +
+    `<div class="i"><b>${esc(g.title)}</b><small>${esc(g.genre)} · ${esc(g.author)}</small></div></div>`).join('');
+}
+
+$('tabs').onclick = (e) => { if (e.target.dataset.g) { cur = e.target.dataset.g; render(); } };
+$('grid').onclick = (e) => {
+  const card = e.target.closest('.gc');
+  if (!card) return;
+  const g = games.find((x) => x.id === card.dataset.id);
+  $('mt').textContent = g.title;
+  $('fr').src = g.src;
+  $('m').classList.add('on');
+};
+$('mc').onclick = () => { $('m').classList.remove('on'); $('fr').src = 'about:blank'; };
+
+// Каталог с сервера. Если страница открыта как файл, остаются только демо-игры.
+fetch('/api/games').then((r) => r.json()).then(({ games: list }) => {
+  games = [...list.map((g) => ({ ...g, src: `/play/${g.id}` })), ...demo];
+  render();
+}).catch(() => {});
+fetch('/api/me').then((r) => r.json()).then(({ user }) => {
+  if (user) $('cab').textContent = user.name;
+}).catch(() => {});
+
+const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
+function calc() {
+  const a = +$('r1').value, b = +$('r2').value, c = +$('r3').value;
+  $('v1').textContent = fmt(a); $('v2').textContent = b; $('v3').textContent = c;
+  $('out').textContent = fmt(a * b / 1000 * c * 0.7) + ' ₽';
+}
+['r1', 'r2', 'r3'].forEach((i) => { $(i).oninput = calc; });
+calc(); render();
+</script>
+</body>
+</html>
