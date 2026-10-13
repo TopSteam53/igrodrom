@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#0f1226;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center}canvas{background:#161a3a;border-radius:12px;max-width:94vw;touch-action:none}#s{margin:8px;font-weight:700}</style>
+<div id="s">Счёт: 0</div><canvas id="c" width="320" height="320"></canvas>
+<script>
+const c=document.getElementById('c'),x=c.getContext('2d'),N=16,S=20;let sn,d,f,sc,t;
+function init(){sn=[{x:8,y:8}];d={x:1,y:0};sc=0;food();clearInterval(t);t=setInterval(step,110)}
+function food(){f={x:Math.random()*N|0,y:Math.random()*N|0}}
+function step(){const h={x:(sn[0].x+d.x+N)%N,y:(sn[0].y+d.y+N)%N};
+if(sn.some(p=>p.x==h.x&&p.y==h.y))return init();sn.unshift(h);
+if(h.x==f.x&&h.y==f.y){sc++;food();document.getElementById('s').textContent='Счёт: '+sc}else sn.pop();
+x.clearRect(0,0,320,320);x.fillStyle='#ff5d73';x.fillRect(f.x*S+2,f.y*S+2,S-4,S-4);
+sn.forEach((p,i)=>{x.fillStyle=i?'#4ade80':'#a7f3d0';x.fillRect(p.x*S+1,p.y*S+1,S-2,S-2)})}
+function dir(a,b){if(d.x!=-a||d.y!=-b)d={x:a,y:b}}
+addEventListener('keydown',e=>({ArrowUp:()=>dir(0,-1),ArrowDown:()=>dir(0,1),ArrowLeft:()=>dir(-1,0),ArrowRight:()=>dir(1,0)})[e.key]?.());
+let sx,sy;c.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY});
+c.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+Math.abs(dx)>Math.abs(dy)?dir(Math.sign(dx),0):dir(0,Math.sign(dy))});init();
+</script>
