@@ -88,6 +88,7 @@ export function openDb(file) {
   addColumn('description', "TEXT NOT NULL DEFAULT ''");
   addColumn('how_to_play', "TEXT NOT NULL DEFAULT ''");
   addColumn('age', "TEXT NOT NULL DEFAULT '0+'");
-  addColumn('cover', 'TEXT'); // имя файла обложки внутри папки игры
+  addColumn('cover', 'TEXT'); // имя файла обложки внутри папки игры (16:9)
+  addColumn('icon', 'TEXT');  // квадратная иконка (1:1) — для маленьких размеров
   return db;
 }

@@ -20,6 +20,7 @@
       live: true,
       src: `/play/${g.id}/`,
       cover_url: g.cover ? `/play/${g.id}/${encodeURIComponent(g.cover)}` : null,
+      icon_url: g.icon ? `/play/${g.id}/${encodeURIComponent(g.icon)}` : null,
     };
   }
   function fromStatic(g) {
@@ -28,6 +29,7 @@
       live: false,
       src: `games/${g.id}/index.html`,
       cover_url: g.cover ? `games/${g.id}/${g.cover}` : null,
+      icon_url: g.icon ? `games/${g.id}/${g.icon}` : null,
       likes: 0, dislikes: 0, plays: 0,
     };
   }
@@ -58,6 +60,15 @@
       `<span class="cover-icon" aria-hidden="true">${icon}</span>` +
       `<span class="age">${esc(g.age || '0+')}</span>` +
       (isNew(g) ? '<span class="flag">Новинка</span>' : '') + '</div>';
+  }
+
+  // Квадратная иконка для маленьких размеров. Нет иконки — центр обложки, нет обложки — значок категории.
+  function iconHTML(g, cls = 'game-icon') {
+    const icon = CATEGORY_ICONS[g.genre] || '🎮';
+    const bg = COVER_BG[[...String(g.id)].reduce((n, c) => n + c.charCodeAt(0), 0) % COVER_BG.length];
+    const src = g.icon_url || g.cover_url;
+    return `<div class="${cls}" style="background:${bg}"><span aria-hidden="true">${icon}</span>` +
+      (src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : '') + '</div>';
   }
 
   function cardHTML(g, i) {
@@ -100,5 +111,5 @@
   const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${g.description || ''}`).includes(norm(q));
 
-  window.Igr = { $, esc, fmt, loadCatalog, rating, isNew, cardHTML, coverHTML, initHeader, toast, matches, CATEGORY_ICONS };
+  window.Igr = { $, esc, fmt, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader, toast, matches, CATEGORY_ICONS };
 })();

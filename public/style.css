@@ -26,7 +26,8 @@ h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.01em;line-h
 /* ---------- шапка ---------- */
 header.top{position:sticky;top:0;z-index:10;background:var(--paper);border-bottom:1px solid var(--line)}
 .top-in{display:flex;align-items:center;gap:20px;height:68px}
-.logo{font:800 20px/1 var(--display);letter-spacing:-.02em;text-decoration:none;white-space:nowrap;color:var(--ink)}
+.logo{display:inline-flex;align-items:center;gap:10px;font:800 22px/1 var(--text);letter-spacing:-.02em;text-decoration:none;white-space:nowrap;color:var(--ink)}
+.logo-mark{width:34px;height:34px;flex:none}
 .search{flex:1;max-width:620px}
 .search input{width:100%;height:44px;background:var(--panel);border:2px solid var(--ink);border-radius:12px;color:var(--ink);padding:0 14px 0 42px;font:16px var(--text);
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%231C2140' stroke-width='2.2'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
@@ -54,13 +55,13 @@ header.top{position:sticky;top:0;z-index:10;background:var(--paper);border-botto
 /* ---------- категории ---------- */
 .chips{display:flex;gap:8px;overflow-x:auto;padding:18px 0 6px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex:none;display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 14px 8px 10px;font:500 15px var(--text);cursor:pointer;text-decoration:none;white-space:nowrap}
+.chip{flex:none;display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:8px 14px;font:500 15px var(--text);cursor:pointer;text-decoration:none;white-space:nowrap}
 .chip:hover{border-color:var(--ink)}
 .chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
 
 /* ---------- разделы ---------- */
 .sec{margin:28px 0}
-.sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
 .sec-head h2{font-size:22px;margin:0}
 .sec-head select{width:auto;background:var(--panel);border:1px solid var(--field);color:var(--ink);border-radius:10px;padding:7px 10px;font:15px var(--text)}
 .row-scroll{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,1fr);gap:20px 16px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}
@@ -68,7 +69,10 @@ header.top{position:sticky;top:0;z-index:10;background:var(--paper);border-botto
 @media(min-width:1100px){.row-scroll{grid-auto-columns:calc((100% - 4*16px)/5)}}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:24px 16px}
 @media(max-width:520px){.grid{grid-template-columns:repeat(2,1fr);gap:18px 12px}.row-scroll{grid-auto-columns:44%}}
-.empty{color:var(--ink-2);padding:40px 0}
+.empty{grid-column:1/-1;color:var(--ink-2);padding:32px 0;max-width:60ch}
+.empty p{margin:0 0 16px}
+.empty-title{color:var(--ink);font-size:24px;margin:0 0 8px}
+.auth-title{font-size:22px;margin:0 0 4px}.auth-sub{margin:0 0 18px}
 
 /* ---------- карточка: обложка и подпись, без рамки и тени ---------- */
 .card{display:block;text-decoration:none;color:var(--ink)}
@@ -85,19 +89,23 @@ header.top{position:sticky;top:0;z-index:10;background:var(--paper);border-botto
 
 /* ---------- страница игры ---------- */
 .game-head{display:flex;gap:16px;align-items:center;margin:24px 0 16px}
-.game-head .cover{width:88px;flex:none;border-radius:10px}.game-head .cover-icon{font-size:28px}.game-head .age,.game-head .flag{display:none}
+/* Квадратная иконка игры: видна от 48 px, поэтому без мелкого текста. */
+.game-icon{position:relative;flex:none;width:72px;aspect-ratio:1;border-radius:22%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:32px}
+.game-icon img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.game-icon.big{width:120px;font-size:56px;box-shadow:0 0 0 3px rgba(255,255,255,.9)}
 .game-head h1{font-size:30px;margin:0 0 4px}
 .game-sub{display:flex;gap:16px;flex-wrap:wrap;color:var(--ink-2);font-size:15px}
 .game-sub a{color:var(--a-ink);text-decoration:none;font-weight:600}.game-sub a:hover{text-decoration:underline}
 .player{position:relative;background:#000;border:3px solid var(--ink);border-radius:16px;overflow:hidden;aspect-ratio:16/9;max-height:72vh;width:100%}
 .player iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
 .player:fullscreen{border:0;border-radius:0;max-height:none}
-.splash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2}
-.splash .cover{position:absolute;inset:0;aspect-ratio:auto;border-radius:0}
-.splash .cover::after{content:"";position:absolute;inset:0;background:rgba(28,33,64,.45);z-index:1}
-.splash .cover-icon{font-size:80px}.splash .age,.splash .flag{display:none}
-.splash .play-btn{position:relative;z-index:3}
-@media(max-width:640px){.player{aspect-ratio:3/4;max-height:78vh}.game-head h1{font-size:24px}.game-head .cover{width:64px}}
+.splash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;background:var(--ink)}
+/* Обложка — только фон: размытая и затемнённая, чтобы иконка, название и кнопка читались на любой картинке. */
+.splash-bg{position:absolute;inset:0;overflow:hidden}
+.splash-bg img{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;filter:blur(22px) brightness(.5) saturate(1.2)}
+.splash-in{position:relative;display:flex;flex-direction:column;align-items:center;gap:18px;padding:24px;text-align:center}
+.splash-title{margin:0;color:#fff;font:700 26px/1.2 var(--display);max-width:22ch}
+@media(max-width:640px){.player{aspect-ratio:3/4;max-height:78vh}.game-head h1{font-size:24px}.game-head .game-icon{width:56px;font-size:26px}.splash-title{font-size:22px}}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0 4px}
 .toolbar .spacer{flex:1}
 .info{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-top:20px}

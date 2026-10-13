@@ -9,7 +9,7 @@
 </head>
 <body>
 <header class="top"><div class="w top-in">
-  <a class="logo" href="index.html">Игродром</a>
+  <a class="logo" href="index.html" aria-label="Игродром, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1C2140"/><circle cx="16" cy="16" r="10.5" fill="#FFC531"/><path d="M13.2 10.9 21.6 16l-8.4 5.1z" fill="#1C2140"/></svg><span>Игродром</span></a>
   <form class="search" id="searchForm" action="index.html" role="search">
     <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
   </form>
@@ -47,7 +47,7 @@
 
 <script src="app.js"></script>
 <script>
-const { $, esc, loadCatalog, rating, isNew, cardHTML, initHeader, matches, CATEGORY_ICONS } = Igr;
+const { $, esc, loadCatalog, rating, isNew, cardHTML, initHeader, matches } = Igr;
 const params = new URLSearchParams(location.search);
 let state = { q: params.get('q') || '', cat: params.get('category') || '', sort: 'popular' };
 let games = [];
@@ -63,7 +63,7 @@ function render() {
   // Категории — только те, в которых есть игры.
   const cats = [...new Set(games.map((g) => g.genre))].sort((a, b) => a.localeCompare(b, 'ru'));
   $('chips').innerHTML = [`<a class="chip ${state.cat ? '' : 'on'}" href="index.html" data-cat="">Все игры</a>`,
-    ...cats.map((c) => `<a class="chip ${c === state.cat ? 'on' : ''}" href="index.html?category=${encodeURIComponent(c)}" data-cat="${esc(c)}">${CATEGORY_ICONS[c] || '🎮'} ${esc(c)}</a>`)].join('');
+    ...cats.map((c) => `<a class="chip ${c === state.cat ? 'on' : ''}" href="index.html?category=${encodeURIComponent(c)}" data-cat="${esc(c)}">${esc(c)}</a>`)].join('');
 
   const filtering = state.q || state.cat;
   $('home').classList.toggle('hidden', !!filtering);
@@ -81,7 +81,8 @@ function render() {
   $('allTitle').textContent = state.q ? `Поиск: «${state.q}»` : state.cat || 'Все игры';
   document.title = state.q || state.cat ? `${state.q ? `«${state.q}»` : state.cat} — Игродром` : 'Игродром — бесплатные игры онлайн';
   $('grid').innerHTML = list.length ? list.map(cardHTML).join('')
-    : `<p class="empty">Ничего не нашлось. Попробуйте другое название или <a href="index.html">посмотрите все игры</a>.</p>`;
+    : `<div class="empty"><p>По запросу «${esc(state.q)}» игр нет${state.cat ? ` в категории «${esc(state.cat)}»` : ''}. Проверьте написание или выберите игру из всего каталога.</p>
+       <a class="btn" href="index.html">Показать все игры</a></div>`;
 }
 
 function setState(patch) {

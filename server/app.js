@@ -17,6 +17,7 @@ export const GENRES = CATEGORIES; // старое имя
 export const AGES = ['0+', '6+', '12+', '16+', '18+'];
 const STUDIO_EMAIL = 'studio@igrodrom.local'; // владелец демо-игр
 const COVER_FILES = ['cover.png', 'cover.jpg', 'cover.jpeg', 'cover.webp', 'cover.svg'];
+const ICON_FILES = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.webp', 'icon.svg'];
 const RATING_SQL = `(SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = 1) AS likes,
                     (SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = -1) AS dislikes,
                     (SELECT COALESCE(SUM(plays), 0) FROM play_daily d WHERE d.game_id = g.id) AS plays`;
@@ -73,16 +74,16 @@ export function createApp({
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
-    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, u.name AS author, g.created_at, ${RATING_SQL},
+    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, u.name AS author, g.created_at, ${RATING_SQL},
                                u.email = '${STUDIO_EMAIL}' AS demo
                              FROM games g JOIN users u ON u.id = g.author_id
                              WHERE g.status = 'approved' ORDER BY g.created_at DESC LIMIT 500`),
-    publicGame: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.description, g.how_to_play,
+    publicGame: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, g.description, g.how_to_play,
                               u.name AS author, g.created_at, g.updated_at, ${RATING_SQL},
                               u.email = '${STUDIO_EMAIL}' AS demo
                             FROM games g JOIN users u ON u.id = g.author_id
                             WHERE g.id = ? AND g.status = 'approved'`),
-    myGames: db.prepare(`SELECT id, title, genre, age, cover, description, how_to_play, status, reject_reason,
+    myGames: db.prepare(`SELECT id, title, genre, age, cover, icon, description, how_to_play, status, reject_reason,
                            size, file_count, created_at
                          FROM games WHERE author_id = ? ORDER BY created_at DESC`),
     updateMeta: db.prepare(`UPDATE games SET title = ?, genre = ?, age = ?, description = ?, how_to_play = ?, updated_at = ?
@@ -100,8 +101,8 @@ export function createApp({
                                FROM games g JOIN users u ON u.id = g.author_id
                                WHERE g.status = ? ORDER BY g.created_at ASC LIMIT 200`),
     game: db.prepare('SELECT * FROM games WHERE id = ?'),
-    insertGame: db.prepare(`INSERT INTO games (id, author_id, title, genre, status, size, file_count, cover, created_at, updated_at)
-                            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)`),
+    insertGame: db.prepare(`INSERT INTO games (id, author_id, title, genre, status, size, file_count, cover, icon, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`),
     setStatus: db.prepare('UPDATE games SET status = ?, reject_reason = ?, updated_at = ? WHERE id = ?'),
     deleteGame: db.prepare('DELETE FROM games WHERE id = ?'),
   };
@@ -132,16 +133,17 @@ export function createApp({
       const genre = CATEGORIES.includes(meta.category) ? meta.category : 'Прочее';
       const age = AGES.includes(meta.age) ? meta.age : '0+';
       const cover = COVER_FILES.find((f) => fs.existsSync(path.join(src, f))) || null;
+      const icon = ICON_FILES.find((f) => fs.existsSync(path.join(src, f))) || null;
       const files = fs.readdirSync(src, { recursive: true }).filter((f) => fs.statSync(path.join(src, f)).isFile());
       const size = files.reduce((n, f) => n + fs.statSync(path.join(src, f)).size, 0);
       if (!q.game.get(id)) {
         const t = Date.now();
-        q.insertGame.run(id, studio.id, meta.title || slug, genre, size, files.length, cover, t, t);
+        q.insertGame.run(id, studio.id, meta.title || slug, genre, size, files.length, cover, icon, t, t);
         q.setStatus.run('approved', null, t, id);
       }
       q.updateMeta.run(String(meta.title || slug).slice(0, 60), genre, age,
         String(meta.description || '').slice(0, 1500), String(meta.how_to_play || '').slice(0, 600), Date.now(), id);
-      db.prepare('UPDATE games SET cover = ?, size = ?, file_count = ? WHERE id = ?').run(cover, size, files.length, id);
+      db.prepare('UPDATE games SET cover = ?, icon = ?, size = ?, file_count = ? WHERE id = ?').run(cover, icon, size, files.length, id);
     }
   }
 
@@ -349,10 +351,11 @@ export function createApp({
     const size = files.reduce((n, f) => n + f.data.length, 0);
     const now = Date.now();
     const cover = COVER_FILES.find((name) => files.some((f) => f.path === name)) || null;
-    q.insertGame.run(id, user.id, title, genre, size, files.length, cover, now, now);
+    const icon = ICON_FILES.find((name) => files.some((f) => f.path === name)) || null;
+    q.insertGame.run(id, user.id, title, genre, size, files.length, cover, icon, now, now);
     send(res, 201, {
       game: {
-        id, title, genre, cover, status: 'pending', size, file_count: files.length, created_at: now, preview_url: previewUrl(id),
+        id, title, genre, cover, icon, status: 'pending', size, file_count: files.length, created_at: now, preview_url: previewUrl(id),
       },
     });
   }

@@ -8,7 +8,7 @@
 </head>
 <body>
 <header class="top"><div class="w top-in">
-  <a class="logo" href="index.html">Игродром</a>
+  <a class="logo" href="index.html" aria-label="Игродром, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1C2140"/><circle cx="16" cy="16" r="10.5" fill="#FFC531"/><path d="M13.2 10.9 21.6 16l-8.4 5.1z" fill="#1C2140"/></svg><span>Игродром</span></a>
   <form class="search" id="searchForm" action="index.html" role="search">
     <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
   </form>
@@ -16,7 +16,7 @@
 </div></header>
 
 <main class="w" id="page">
-  <p class="empty" id="loading">Загрузка…</p>
+  <div class="empty" id="loading">Загрузка…</div>
 
   <article id="game" class="hidden">
     <div class="game-head">
@@ -28,7 +28,14 @@
     </div>
 
     <div class="player" id="player">
-      <div class="splash" id="splash"><div id="splashCover"></div><button class="btn play-btn" id="play">Играть</button></div>
+      <div class="splash" id="splash">
+        <div class="splash-bg" id="splashBg"></div>
+        <div class="splash-in">
+          <div id="splashIcon"></div>
+          <p class="splash-title" id="splashTitle"></p>
+          <button class="btn play-btn" id="play">Играть</button>
+        </div>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -64,14 +71,15 @@
 <script src="app.js"></script>
 <script src="sdk-host.js"></script>
 <script>
-const { $, esc, fmt, loadCatalog, rating, cardHTML, coverHTML, initHeader, toast, CATEGORY_ICONS } = Igr;
+const { $, esc, fmt, loadCatalog, rating, cardHTML, iconHTML, initHeader, toast } = Igr;
 const id = new URLSearchParams(location.search).get('id');
 initHeader();
 
 let game, live;
 
 function notFound() {
-  $('loading').innerHTML = 'Игра не найдена. <a href="index.html">Вернуться в каталог</a>';
+  $('loading').innerHTML = `<h1 class="empty-title">Такой игры нет в каталоге</h1>
+    <p>Возможно, её сняли с публикации или в ссылке опечатка.</p><a class="btn primary" href="index.html">Открыть каталог</a>`;
 }
 
 async function load() {
@@ -93,12 +101,15 @@ function render(all) {
   document.title = `${game.title} — играть онлайн бесплатно | Игродром`;
   $('loading').classList.add('hidden');
   $('game').classList.remove('hidden');
-  $('icon').innerHTML = coverHTML(game);
+  $('icon').innerHTML = iconHTML(game);
   $('title').textContent = game.title;
   $('author').textContent = game.author || '';
-  $('category').textContent = `${CATEGORY_ICONS[game.genre] || '🎮'} ${game.genre}`;
+  $('category').textContent = game.genre;
   $('category').href = `index.html?category=${encodeURIComponent(game.genre)}`;
-  $('splashCover').innerHTML = coverHTML(game);
+  // Заставка: размытая обложка фоном, поверх — иконка, название и «Играть».
+  if (game.cover_url) $('splashBg').innerHTML = `<img src="${esc(game.cover_url)}" alt="" onerror="this.remove()">`;
+  $('splashIcon').innerHTML = iconHTML(game, 'game-icon big');
+  $('splashTitle').textContent = game.title;
   $('desc').textContent = game.description || 'Описание пока не добавлено.';
   $('howto').textContent = game.how_to_play || 'Правила пока не добавлены.';
   renderScore();

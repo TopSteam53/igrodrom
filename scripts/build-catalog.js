@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'games');
 const COVERS = ['cover.png', 'cover.jpg', 'cover.jpeg', 'cover.webp', 'cover.svg'];
+const ICONS = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.webp', 'icon.svg'];
 
 export function buildCatalog() {
   const games = fs.readdirSync(root)
@@ -23,6 +24,7 @@ export function buildCatalog() {
         how_to_play: meta.how_to_play || '',
         author: 'Игродром',
         cover: COVERS.find((f) => fs.existsSync(path.join(root, slug, f))) || null,
+        icon: ICONS.find((f) => fs.existsSync(path.join(root, slug, f))) || null,
       };
     });
   return `${JSON.stringify({ games }, null, 2)}\n`;

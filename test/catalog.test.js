@@ -16,6 +16,7 @@ before(async () => {
     fs.writeFileSync(path.join(publicDir, 'games', slug, 'index.html'), `<html>${slug}</html>`);
     fs.writeFileSync(path.join(publicDir, 'games', slug, 'meta.json'), JSON.stringify(meta));
     if (cover) fs.writeFileSync(path.join(publicDir, 'games', slug, 'cover.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    if (cover) fs.writeFileSync(path.join(publicDir, 'games', slug, 'icon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
   };
   mk('alpha', { title: 'Альфа', category: 'Аркады', description: 'Про альфу', how_to_play: 'Жми', age: '6+' }, true);
   mk('beta', { title: 'Бета', category: 'Несуществующая', age: '99+' }, false);
@@ -59,12 +60,14 @@ test('демо-игры заводятся в каталог из meta.json', as
   assert.equal(alpha.genre, 'Аркады');
   assert.equal(alpha.age, '6+');
   assert.equal(alpha.cover, 'cover.svg');
+  assert.equal(alpha.icon, 'icon.svg');
   assert.equal(alpha.author, 'Игродром');
   assert.equal(alpha.demo, 1, 'демо-игры помечены — «Новинкой» они не показываются');
   const beta = games.find((g) => g.title === 'Бета');
   assert.equal(beta.genre, 'Прочее', 'неизвестная категория → Прочее');
   assert.equal(beta.age, '0+', 'неизвестный возраст → 0+');
   assert.equal(beta.cover, null);
+  assert.equal(beta.icon, null);
 
   const page = await fetch(`${base}/play/${alpha.id}/`);
   assert.equal(await page.text(), '<html>alpha</html>');
