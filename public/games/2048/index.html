@@ -50,17 +50,15 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
   <div id="ov"><div id="ovT"></div><div id="ovS"></div><div class="btns"><button id="contBtn" class="alt">Продолжить</button><button id="againBtn">Ещё раз</button></div></div>
 </div>
 <div id="hint">Стрелки, WASD или свайп</div>
+<script src="../../sdk/v1.js"></script>
 <script>
 (function(){
 'use strict';
 var N=4,root=document.documentElement,board=document.getElementById('board');
 var scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),scoreBox=document.getElementById('scoreBox');
 var ov=document.getElementById('ov'),ovT=document.getElementById('ovT'),ovS=document.getElementById('ovS'),contBtn=document.getElementById('contBtn');
-var mem={};
-function sget(k){try{var v=window.localStorage.getItem(k);return v==null?(mem[k]||null):v}catch(e){return mem[k]||null}}
-function sset(k,v){mem[k]=v;try{window.localStorage.setItem(k,v)}catch(e){}}
 var COLORS={2:['#eef1ff','#2b3170'],4:['#cfd7ff','#2b3170'],8:['#ffb347','#fff'],16:['#ff8c42','#fff'],32:['#ff6159','#fff'],64:['#ff2e5b','#fff'],128:['#ffd23f','#5a3a00'],256:['#ffc312','#5a3a00'],512:['#5be37d','#08391a'],1024:['#2ed3d3','#053a3d'],2048:['#b56bff','#fff']};
-var grid,score,best=+(sget('2048-best')||0),won,keep,over,pending=null,size=300,tsz=60,gap=8;
+var grid,score,best=0,won,keep,over,pending=null,size=300,tsz=60,gap=8,touched=false;
 
 function layout(){
   var W=window.innerWidth,H=window.innerHeight;
@@ -98,9 +96,44 @@ function newGame(){
   grid=new Array(N*N).fill(null);score=0;won=false;keep=false;over=false;
   addRandom();addRandom();updScore(0);hideOv();
 }
+function userNewGame(){touched=true;newGame();save()}
+
+// Сохранение через Игродром SDK: рекорд и незаконченная партия (поле, счёт, победа/продолжение).
+// sdk присваиваем только после чтения сохранения, иначе ранний ход затрёт старую партию.
+var sdk=null;
+function save(){
+  if(!sdk)return;
+  var game=over?null:{cells:grid.map(function(t){return t?t.v:0}),score:score,won:won,keep:keep};
+  sdk.data.set({v:1,best:best,game:game}).catch(function(){});
+}
+function validGame(g){
+  if(!g||typeof g!=='object'||!Array.isArray(g.cells)||g.cells.length!==N*N)return false;
+  if(typeof g.score!=='number'||!isFinite(g.score)||g.score<0)return false;
+  var tiles=0;
+  for(var i=0;i<N*N;i++){
+    var v=g.cells[i];
+    if(v===0)continue;
+    if(typeof v!=='number'||v<2||v>131072||(v&(v-1))!==0)return false;
+    tiles++;
+  }
+  return tiles>0;
+}
+function restore(g){
+  flush();
+  board.querySelectorAll('.tile').forEach(function(e){e.remove()});
+  grid=g.cells.map(function(v,i){return v?makeTile(i/N|0,i%N,v,true):null});
+  score=Math.floor(g.score);won=g.won===true;keep=g.keep===true||won;over=false;
+  updScore(0);hideOv();
+  if(!canMove())newGame();
+}
+function applySave(d){
+  if(!d||typeof d!=='object'||d.v!==1)return;
+  if(typeof d.best==='number'&&isFinite(d.best)&&d.best>best){best=Math.floor(d.best);bestEl.textContent=best}
+  if(!touched&&validGame(d.game))restore(d.game);
+}
 function updScore(add){
   scoreEl.textContent=score;
-  if(score>best){best=score;sset('2048-best',String(best))}
+  if(score>best)best=score;
   bestEl.textContent=best;
   if(add>0){var p=document.createElement('div');p.className='plus';p.textContent='+'+add;scoreBox.appendChild(p);setTimeout(function(){p.remove()},700)}
 }
@@ -143,19 +176,20 @@ function move(d){
   updScore(add);
   if(won&&!keep){keep=true;setTimeout(function(){showOv('Победа!','Вы собрали 2048. Счёт: '+score,true)},250)}
   else if(!canMove()){over=true;setTimeout(function(){showOv('Ходов нет','Счёт: '+score+(score>=best&&score>0?' — новый рекорд!':''),false)},350)}
+  touched=true;save();
 }
 function showOv(t,s,cont){ovT.textContent=t;ovS.textContent=s;contBtn.style.display=cont?'':'none';ov.classList.add('show')}
 function hideOv(){ov.classList.remove('show')}
-document.getElementById('againBtn').addEventListener('click',newGame);
+document.getElementById('againBtn').addEventListener('click',userNewGame);
 contBtn.addEventListener('click',hideOv);
-document.getElementById('newBtn').addEventListener('click',function(e){newGame();e.currentTarget.blur()});
+document.getElementById('newBtn').addEventListener('click',function(e){userNewGame();e.currentTarget.blur()});
 
 var KEYS={ArrowUp:0,KeyW:0,ArrowRight:1,KeyD:1,ArrowDown:2,KeyS:2,ArrowLeft:3,KeyA:3};
 window.addEventListener('keydown',function(e){
   var d=KEYS[e.code];if(d===undefined)d=KEYS[e.key];
   if(d!==undefined){e.preventDefault();move(d)}
-  else if(e.code==='KeyR'||e.code==='KeyN'){newGame()}
-  else if((e.code==='Enter'||e.code==='Space')&&ov.classList.contains('show')){e.preventDefault();if(over)newGame();else hideOv()}
+  else if(e.code==='KeyR'||e.code==='KeyN'){userNewGame()}
+  else if((e.code==='Enter'||e.code==='Space')&&ov.classList.contains('show')){e.preventDefault();if(over)userNewGame();else hideOv()}
 });
 var sx=null,sy=0,pid=null;
 document.addEventListener('pointerdown',function(e){if(e.target.closest('button'))return;sx=e.clientX;sy=e.clientY;pid=e.pointerId});
@@ -172,6 +206,12 @@ document.addEventListener('contextmenu',function(e){e.preventDefault()});
 for(var i=0;i<N*N;i++){var c=document.createElement('div');c.className='cell';board.insertBefore(c,ov)}
 window.addEventListener('resize',layout);
 layout();newGame();
+if(window.Igrodrom)Igrodrom.init().then(function(s){
+  return s.data.get().catch(function(){return null}).then(function(d){
+    sdk=s;applySave(d);
+    if(touched)save(); // игрок успел походить до загрузки — сохраняем его партию и максимальный рекорд
+  });
+}).catch(function(){});
 try{window.focus()}catch(e){}
 window.__game={get score(){return score},get board(){return grid.map(function(t){return t?t.v:0})}};
 })();

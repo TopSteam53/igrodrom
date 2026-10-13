@@ -77,6 +77,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:radial-gradient(ellips
     <svg id="strike" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="0" x2="0" y2="0"/></svg>
   </div>
 </div>
+<script src="../../sdk/v1.js"></script>
 <script>
 (() => {
 'use strict';
@@ -87,8 +88,31 @@ const SVG_X = '<svg viewBox="0 0 100 100"><path class="mk" d="M18 18L82 82"/><pa
 const SVG_O = '<svg viewBox="0 0 100 100"><circle class="mk" cx="50" cy="50" r="36"/></svg>';
 
 let mode = 'ai', diff = 'easy';
-let board = Array(9).fill(null), turn = 'X', over = false, starter = 'X', busy = false, aiTimer = 0, gameId = 0;
-const scores = { ai: { X: 0, O: 0, D: 0 }, pvp: { X: 0, O: 0, D: 0 } };
+let board = Array(9).fill(null), turn = 'X', over = false, starter = 'X', busy = false, aiTimer = 0, gameId = 0, lastWin = null;
+// Счёт ведётся отдельно для каждого режима: с компьютером (легко/сложно) и вдвоём.
+const scores = { easy: { X: 0, O: 0, D: 0 }, hard: { X: 0, O: 0, D: 0 }, pvp: { X: 0, O: 0, D: 0 } };
+const bucket = () => (mode === 'ai' ? diff : 'pvp');
+
+// ---------- сохранение через Игродром SDK: счёт по режимам и выбранный режим ----------
+// sdk присваиваем только после чтения, иначе ранняя партия затрёт сохранённый счёт.
+let sdk = null, touched = false;
+function save() { if (sdk) sdk.data.set({ v: 1, mode, diff, scores }).catch(() => {}); }
+const cnt = v => (typeof v === 'number' && isFinite(v) && v > 0 ? Math.floor(v) : 0);
+function applySave(d) {
+  if (!d || typeof d !== 'object' || d.v !== 1) return;
+  if (d.scores && typeof d.scores === 'object') {
+    for (const k of Object.keys(scores)) {
+      const src = d.scores[k];
+      if (!src || typeof src !== 'object') continue;
+      // до загрузки могли успеть сыграть: прибавляем, а не заменяем
+      for (const p of ['X', 'O', 'D']) scores[k][p] += cnt(src[p]);
+    }
+  }
+  if (!touched && (d.mode === 'ai' || d.mode === 'pvp') && (d.diff === 'easy' || d.diff === 'hard')) {
+    if (d.mode !== mode || d.diff !== diff) { mode = d.mode; diff = d.diff; newGame(true); return; }
+  }
+  render(over ? lastWin : undefined);
+}
 
 // ---------- поле ----------
 const cells = [];
@@ -153,7 +177,7 @@ function easyMove(bd, me) {
 
 // ---------- ход игры ----------
 function place(i) {
-  board[i] = turn;
+  board[i] = turn; touched = true;
   const c = cells[i];
   c.classList.add(turn.toLowerCase());
   c.innerHTML = turn === 'X' ? SVG_X : SVG_O;
@@ -185,8 +209,9 @@ function aiTurn() {
 
 function finish(w) {
   over = true;
-  const s = scores[mode];
+  const s = scores[bucket()];
   if (w.p === 'D') s.D++; else s[w.p]++;
+  lastWin = w; touched = true; save();
   if (w.line) {
     w.line.forEach(i => cells[i].classList.add('hit'));
     const pos = i => [(i % 3) * 34.33 + 15.67, Math.floor(i / 3) * 34.33 + 15.67];
@@ -213,7 +238,7 @@ function newGame(resetStarter) {
 }
 
 function render(w) {
-  const s = scores[mode];
+  const s = scores[bucket()];
   $('sx').textContent = s.X; $('so').textContent = s.O; $('sd').textContent = s.D;
   const ai = mode === 'ai';
   $('lx').textContent = ai ? 'Вы ✕' : 'Крестики ✕';
@@ -239,11 +264,11 @@ function render(w) {
 // ---------- управление ----------
 document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
   if (mode === b.dataset.mode) return;
-  mode = b.dataset.mode; newGame(true);
+  mode = b.dataset.mode; touched = true; newGame(true); save();
 }));
 document.querySelectorAll('[data-diff]').forEach(b => b.addEventListener('click', () => {
   if (diff === b.dataset.diff) return;
-  diff = b.dataset.diff; newGame(true);
+  diff = b.dataset.diff; touched = true; newGame(true); save();
 }));
 $('new').addEventListener('click', () => newGame(false));
 
@@ -284,6 +309,12 @@ window.__game = { get state() { return { mode, diff, board: board.slice(), turn,
 
 newGame(true);
 layout();
+if (window.Igrodrom) Igrodrom.init().then(async (sd) => {
+  const d = await sd.data.get().catch(() => null);
+  sdk = sd;
+  applySave(d);
+  if (touched) save(); // игрок успел сыграть или сменить режим до загрузки — сохраняем общий итог
+}).catch(() => {});
 })();
 </script>
 </body>

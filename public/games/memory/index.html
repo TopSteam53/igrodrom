@@ -1,13 +1,25 @@
 <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>html,body{margin:0;height:100%;background:#102a2b;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center}
 #g{display:grid;grid-template-columns:repeat(4,70px);gap:8px}.k{height:70px;border-radius:10px;background:#1f4a4c;font-size:34px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.k.o{background:#fde68a}.k.m{background:#4ade80}#i{margin:10px;font-weight:700}</style>
-<div id="i">Ходов: 0</div><div id="g"></div>
+.k.o{background:#fde68a}.k.m{background:#4ade80}#i{margin:10px 10px 4px;font-weight:700}#b{margin:0 10px 10px;font-size:14px;color:#a7d8d4;min-height:18px}</style>
+<div id="i">Ходов: 0</div><div id="b"></div><div id="g"></div>
+<script src="../../sdk/v1.js"></script>
 <script>
-const e='🦊🐼🐸🦉🐙🦄🐝🐳'.match(/./gu),a=[...e,...e].sort(()=>Math.random()-.5);let o=[],m=0,done=0;
+const e='🦊🐼🐸🦉🐙🦄🐝🐳'.match(/./gu),a=[...e,...e].sort(()=>Math.random()-.5);let o=[],m=0,done=0,best=0;
+// Лучший результат (наименьшее число ходов) хранится через Игродром SDK; пишем только после чтения.
+let sdk=null;
+const moves=n=>n+' '+(n%10==1&&n%100!=11?'ход':n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'хода':'ходов');
+function showBest(){document.getElementById('b').textContent=best?'Лучший результат: '+moves(best):''}
+function save(){if(sdk)sdk.data.set({v:1,best}).catch(()=>{})}
+if(window.Igrodrom)Igrodrom.init().then(async s=>{
+  const sv=await s.data.get().catch(()=>null);sdk=s;
+  const b=sv&&typeof sv.best==='number'&&isFinite(sv.best)&&sv.best>=8?Math.floor(sv.best):0;
+  if(b&&(!best||b<best)){best=b;showBest()}else if(best)save();
+}).catch(()=>{});
 const g=document.getElementById('g');a.forEach((v,i)=>{const d=document.createElement('div');d.className='k';d.onclick=()=>{
 if(o.length>1||d.classList.contains('o')||d.classList.contains('m'))return;d.textContent=v;d.classList.add('o');o.push([d,v]);
 if(o.length==2){m++;document.getElementById('i').textContent='Ходов: '+m;const[[x,vx],[y,vy]]=o;
-if(vx==vy){x.className=y.className='k m';o=[];if(++done==8)document.getElementById('i').textContent='Победа за '+m+' ходов! 🎉'}
+if(vx==vy){x.className=y.className='k m';o=[];if(++done==8){const rec=!best||m<best;
+document.getElementById('i').textContent='Победа за '+moves(m)+'!'+(rec?' Новый рекорд!':'')+' 🎉';if(rec){best=m;showBest();save()}}}
 else setTimeout(()=>{x.className=y.className='k';x.textContent=y.textContent='';o=[]},650)}};g.appendChild(d)});
 </script>

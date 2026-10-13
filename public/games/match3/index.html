@@ -42,6 +42,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none;cursor:pointer}
   <div id="ov"><div id="ovT">Ходы закончились</div><div id="ovS">0</div><div id="ovB"></div><button id="again">Ещё раз</button></div>
 </div>
 <div id="hint">Меняйте соседние камни: клик или свайп</div>
+<script src="../../sdk/v1.js"></script>
 <script>
 (function(){
 'use strict';
@@ -49,11 +50,8 @@ var N=8,T=6,MOVES=30,SPEED=9,GRAV=40;
 var root=document.documentElement,cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 var scoreEl=document.getElementById('score'),movesEl=document.getElementById('moves'),bestEl=document.getElementById('best'),bar=document.getElementById('bar'),movesBox=document.getElementById('movesBox');
 var ov=document.getElementById('ov'),ovS=document.getElementById('ovS'),ovB=document.getElementById('ovB');
-var mem={};
-function sget(k){try{var v=window.localStorage.getItem(k);return v==null?(mem[k]||null):v}catch(e){return mem[k]||null}}
-function sset(k,v){mem[k]=v;try{window.localStorage.setItem(k,v)}catch(e){}}
 var COL=[['#ff4d6d','#a80f2c','#ffd6de'],['#ff9a3c','#b84a06','#ffe3c4'],['#ffe14d','#b88a00','#fffbd6'],['#3fe08a','#0b8442','#d6ffe7'],['#4db8ff','#0f56b8','#daf1ff'],['#c070ff','#5f17b8','#f2e0ff']];
-var grid,fx=[],parts=[],texts=[],waiters=[],state='idle',sel=-1,cur=-1,score=0,moves=MOVES,best=+(sget('m3-best')||0),gen=0,over=false;
+var grid,fx=[],parts=[],texts=[],waiters=[],state='idle',sel=-1,cur=-1,score=0,moves=MOVES,best=0,gen=0,over=false;
 var S=300,P=6,CS=36,dpr=1,sprites=[],hintPair=null,hintAt=0,drag=null;
 
 function rnd(n){return Math.random()*n|0}
@@ -129,6 +127,16 @@ function upd(){
   scoreEl.textContent=score;movesEl.textContent=moves;bestEl.textContent=best;
   bar.style.width=(moves/MOVES*100)+'%';movesBox.classList.toggle('low',moves<=5&&!over);
 }
+// Рекорд хранится через Игродром SDK; писать начинаем только после чтения, чтобы не затереть старый рекорд.
+var sdk=null;
+function save(){if(sdk)sdk.data.set({v:1,best:best}).catch(function(){})}
+if(window.Igrodrom)Igrodrom.init().then(function(s){
+  return s.data.get().catch(function(){return null}).then(function(d){
+    sdk=s;
+    if(d&&typeof d==='object'&&typeof d.best==='number'&&isFinite(d.best)&&d.best>best){best=Math.floor(d.best);upd()}
+    else if(best>0)save();
+  });
+}).catch(function(){});
 function resetHint(){hintPair=null;hintAt=performance.now()+6000}
 function newGame(){
   gen++;state='idle';sel=-1;score=0;moves=MOVES;over=false;fx=[];parts=[];texts=[];drag=null;
@@ -149,7 +157,7 @@ function clearMatches(m,combo){
     grid[r][c]=null;
   });
   score+=gained;
-  if(score>best){best=score;sset('m3-best',String(best))}
+  if(score>best){best=score;save()}
   upd();
 }
 function gravity(){

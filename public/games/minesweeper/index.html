@@ -58,7 +58,8 @@ button{font:inherit;cursor:pointer;border:0;color:#fff;padding:0}
   <div id="board"></div>
   <div id="ov"><div id="ovT"></div><div id="ovS"></div><button id="again">Ещё раз</button></div>
 </div>
-<div id="hint">ПКМ или долгое нажатие — флажок</div>
+<div id="hint">ПКМ или долгое нажатие — флажок<span id="bestT"></span></div>
+<script src="../../sdk/v1.js"></script>
 <script>
 (function(){
 'use strict';
@@ -66,10 +67,7 @@ var W=9,H=9,M=10,root=document.documentElement;
 var boardEl=document.getElementById('board'),leftEl=document.getElementById('left'),timerEl=document.getElementById('timer');
 var ov=document.getElementById('ov'),ovT=document.getElementById('ovT'),ovS=document.getElementById('ovS');
 var flagBtn=document.getElementById('flagBtn'),mouth=document.getElementById('mouth'),eyes=document.getElementById('eyes');
-var mem={};
-function sget(k){try{var v=window.localStorage.getItem(k);return v==null?(mem[k]||null):v}catch(e){return mem[k]||null}}
-function sset(k,v){mem[k]=v;try{window.localStorage.setItem(k,v)}catch(e){}}
-var cells=[],mine,open,flag,adj,started,ended,flags,opened,t0,timerId,secs,flagMode=false,cur=-1,best=+(sget('ms-best')||0);
+var cells=[],mine,open,flag,adj,started,ended,flags,opened,t0,timerId,secs,flagMode=false,cur=-1,best=0;
 var FLAG='<svg viewBox="0 0 24 24"><use href="#flag"/></svg>',MINE='<svg viewBox="0 0 24 24"><use href="#mine"/></svg>';
 
 for(var i=0;i<W*H;i++){var d=document.createElement('div');d.className='c';d.dataset.i=i;boardEl.appendChild(d);cells.push(d)}
@@ -147,9 +145,20 @@ function win(){
   ended=true;clearInterval(timerId);secs=Math.max(1,Math.floor((Date.now()-t0)/1000));timerEl.textContent=Math.min(999,secs);
   for(var j=0;j<W*H;j++)if(mine[j]&&!flag[j]){flag[j]=true;draw(j)}
   flags=M;updLeft();face('win');
-  var rec=!best||secs<best;if(rec){best=secs;sset('ms-best',String(best))}
+  var rec=!best||secs<best;if(rec){best=secs;showBest();save()}
   setTimeout(function(){show('Победа!','Время: '+secs+' с'+(rec?' — новый рекорд!':' · рекорд: '+best+' с'))},300);
 }
+// Рекорд (лучшее время победы) хранится через Игродром SDK; писать начинаем только после чтения.
+var sdk=null,bestT=document.getElementById('bestT');
+function showBest(){bestT.textContent=best?' · рекорд: '+best+' с':''}
+function save(){if(sdk)sdk.data.set({v:1,best:best}).catch(function(){})}
+if(window.Igrodrom)Igrodrom.init().then(function(s){
+  return s.data.get().catch(function(){return null}).then(function(d){
+    sdk=s;
+    var b=d&&typeof d==='object'&&typeof d.best==='number'&&isFinite(d.best)&&d.best>=1?Math.floor(d.best):0;
+    if(b&&(!best||b<best)){best=b;showBest()}else if(best)save();
+  });
+}).catch(function(){});
 function show(t,s){ovT.textContent=t;ovS.textContent=s;ov.classList.add('show')}
 
 // pointer input

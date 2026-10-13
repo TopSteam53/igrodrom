@@ -35,6 +35,7 @@ canvas{display:block;touch-action:none;outline:none;border-radius:10px;cursor:po
     </div>
   </div>
 </div>
+<script src="../../sdk/v1.js"></script>
 <script>
 (() => {
 'use strict';
@@ -42,18 +43,24 @@ const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const wrap = document.getElementById('wrap'), overEl = document.getElementById('over');
 const $ = id => document.getElementById(id);
 
-const mem = {};
-const store = {
-  get(k) { try { const v = window.localStorage.getItem(k); return v === null ? (mem[k] ?? null) : v; } catch (e) { return mem[k] ?? null; } },
-  set(k, v) { mem[k] = String(v); try { window.localStorage.setItem(k, String(v)); } catch (e) { /* нет доступа */ } }
-};
+// ---------- рекорд через Игродром SDK ----------
+// sdk присваиваем только после чтения, чтобы ранняя попытка не затёрла старый рекорд.
+let sdk = null;
+function save() { if (sdk) sdk.data.set({ v: 1, best }).catch(() => {}); }
+if (window.Igrodrom) Igrodrom.init().then(async (s) => {
+  const d = await s.data.get().catch(() => null);
+  sdk = s;
+  const b = d && typeof d === 'object' && typeof d.best === 'number' && isFinite(d.best) ? Math.floor(d.best) : 0;
+  if (b > best) { best = b; if (state === 'over') $('bs').textContent = best; }
+  else if (best > 0) save();
+}).catch(() => {});
 
 // ---------- мир ----------
 const H = 512, GROUND = 64, GY = H - GROUND;
 const G = 1500, FLAP = -430, MAXV = 640, PW = 62;
 let W = 400, scale = 1, dpr = 1;
 const bird = { x: 120, y: H / 2, vy: 0, r: 13, rot: 0, wing: 0 };
-let pipes = [], state = 'ready', score = 0, best = parseInt(store.get('flappy-best') || '0', 10) || 0;
+let pipes = [], state = 'ready', score = 0, best = 0;
 let time = 0, groundOff = 0, farOff = 0, flash = 0, overAt = 0, newBest = false;
 
 // звёзды и силуэт города (детерминированно)
@@ -93,7 +100,7 @@ function die() {
   if (state !== 'play') return;
   state = 'dead'; flash = 0.25;
   if (bird.vy < 0) bird.vy = 0;
-  if (score > best) { best = score; newBest = true; store.set('flappy-best', best); }
+  if (score > best) { best = score; newBest = true; save(); }
 }
 
 function showOver() {

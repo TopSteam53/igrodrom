@@ -1,13 +1,23 @@
 <!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body{margin:0;height:100%;background:#0f1226;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center}canvas{background:#161a3a;border-radius:12px;max-width:94vw;touch-action:none}#s{margin:8px;font-weight:700}</style>
-<div id="s">Счёт: 0</div><canvas id="c" width="320" height="320"></canvas>
+<style>html,body{margin:0;height:100%;background:#0f1226;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center}canvas{background:#161a3a;border-radius:12px;max-width:94vw;touch-action:none}#s{margin:8px;font-weight:700}#b{color:#a3abe0}</style>
+<div id="s">Счёт: 0 · <span id="b">Рекорд: 0</span></div><canvas id="c" width="320" height="320"></canvas>
+<script src="../../sdk/v1.js"></script>
 <script>
-const c=document.getElementById('c'),x=c.getContext('2d'),N=16,S=20;let sn,d,f,sc,t;
-function init(){sn=[{x:8,y:8}];d={x:1,y:0};sc=0;food();clearInterval(t);t=setInterval(step,110)}
+const c=document.getElementById('c'),x=c.getContext('2d'),N=16,S=20;let sn,d,f,sc,t,best=0;
+// Рекорд хранится через Игродром SDK. Писать начинаем только после чтения, чтобы не затереть старый рекорд.
+let sdk=null;
+function save(){if(sdk)sdk.data.set({v:1,best}).catch(()=>{})}
+function hud(){document.getElementById('s').firstChild.textContent='Счёт: '+sc+' · ';document.getElementById('b').textContent='Рекорд: '+best}
+if(window.Igrodrom)Igrodrom.init().then(async s=>{
+  const sv=await s.data.get().catch(()=>null);sdk=s;
+  if(sv&&typeof sv.best==="number"&&isFinite(sv.best)&&sv.best>best){best=Math.floor(sv.best);hud()}
+  else if(best>0)save();
+}).catch(()=>{});
+function init(){sn=[{x:8,y:8}];d={x:1,y:0};sc=0;food();hud();clearInterval(t);t=setInterval(step,110)}
 function food(){f={x:Math.random()*N|0,y:Math.random()*N|0}}
 function step(){const h={x:(sn[0].x+d.x+N)%N,y:(sn[0].y+d.y+N)%N};
 if(sn.some(p=>p.x==h.x&&p.y==h.y))return init();sn.unshift(h);
-if(h.x==f.x&&h.y==f.y){sc++;food();document.getElementById('s').textContent='Счёт: '+sc}else sn.pop();
+if(h.x==f.x&&h.y==f.y){sc++;food();if(sc>best){best=sc;save()}hud()}else sn.pop();
 x.clearRect(0,0,320,320);x.fillStyle='#ff5d73';x.fillRect(f.x*S+2,f.y*S+2,S-4,S-4);
 sn.forEach((p,i)=>{x.fillStyle=i?'#4ade80':'#a7f3d0';x.fillRect(p.x*S+1,p.y*S+1,S-2,S-2)})}
 function dir(a,b){if(d.x!=-a||d.y!=-b)d={x:a,y:b}}

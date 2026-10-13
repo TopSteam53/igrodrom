@@ -13,18 +13,12 @@ canvas.free{cursor:pointer}
 </head>
 <body>
 <canvas id="c" tabindex="0" aria-label="Арканоид: игровое поле"></canvas>
+<script src="../../sdk/v1.js"></script>
 <script>
 (() => {
 'use strict';
 const cv = document.getElementById('c');
 const ctx = cv.getContext('2d');
-
-// ---------- безопасное хранилище (в песочнице localStorage бросает исключение) ----------
-const mem = {};
-const store = {
-  get(k) { try { const v = window.localStorage.getItem(k); return v === null ? (mem[k] ?? null) : v; } catch (e) { return mem[k] ?? null; } },
-  set(k, v) { mem[k] = String(v); try { window.localStorage.setItem(k, String(v)); } catch (e) { /* нет доступа */ } }
-};
 
 // ---------- мир ----------
 const W = 480, HUD = 34, COLS = 8, BW = 52, BH = 18, GAP = 6;
@@ -36,9 +30,25 @@ const paddle = { x: W / 2, y: H - 36, w: 86, h: 12 };
 const ball = { x: W / 2, y: 0, vx: 0, vy: 0, r: 7 };
 let bricks = [], parts = [];
 let state = 'ready'; // ready | play | pause | over
-let score = 0, lives = 3, level = 1, best = parseInt(store.get('breakout-best') || '0', 10) || 0;
+let score = 0, lives = 3, level = 1, best = 0, maxLevel = 1;
 let banner = 'start'; // start | level | life
 let targetX = null, keyL = false, keyR = false, newBest = false, flash = 0;
+
+// ---------- сохранение через Игродром SDK: рекорд и лучший уровень ----------
+// sdk присваиваем только после чтения, чтобы ранняя игра не затёрла старый рекорд.
+let sdk = null;
+function save() { if (sdk) sdk.data.set({ v: 1, best, maxLevel }).catch(() => {}); }
+const num = (v, min) => (typeof v === 'number' && isFinite(v) && v >= min ? Math.floor(v) : 0);
+if (window.Igrodrom) Igrodrom.init().then(async (s) => {
+  const d = await s.data.get().catch(() => null);
+  sdk = s;
+  const ok = d && typeof d === 'object';
+  const b = ok ? num(d.best, 0) : 0, l = ok ? num(d.maxLevel, 1) : 0;
+  const mine = best > b || maxLevel > l;
+  best = Math.max(best, b); maxLevel = Math.max(maxLevel, l);
+  if (mine) save();
+}).catch(() => {});
+function recordLine() { return best > 0 || maxLevel > 1 ? 'Рекорд: ' + best + ' · лучший уровень: ' + maxLevel : null; }
 
 function speed() { return Math.min(290 * (1 + 0.08 * (level - 1)), 520); }
 
@@ -210,10 +220,11 @@ function update(dt) {
     stepBall(dt / n);
     if (bricks.length === 0) break;
   }
-  if (score > best) { best = score; newBest = true; store.set('breakout-best', best); }
+  if (score > best) { best = score; newBest = true; save(); }
 
   if (bricks.length === 0) {
     level++; buildLevel(); banner = 'level'; state = 'ready'; resetBall(); flash = 0.4;
+    if (level > maxLevel) { maxLevel = level; save(); }
     return;
   }
   if (ball.y - ball.r > H) {
@@ -251,19 +262,21 @@ function drawBrick(b) {
   }
 }
 
-function overlay(title, sub, hint, button) {
+function overlay(title, sub, hint, button, extra) {
   let cy;
   if (button) cy = (HUD + H) / 2 - 30;
   else {
     let bottom = HUD + 30;
     for (const b of bricks) bottom = Math.max(bottom, b.y + b.h);
     cy = Math.min(paddle.y - 52, Math.max(bottom + 52, H * 0.56));
+    if (extra) cy = Math.min(cy, paddle.y - 74);
   }
   if (button) { ctx.fillStyle = 'rgba(10,8,30,.8)'; ctx.fillRect(0, HUD, W, H - HUD); }
   ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.8)'; ctx.shadowBlur = 8;
   text(title, W / 2, cy - 26, 30, '#fff', 800);
   if (sub) text(sub, W / 2, cy + 8, 16, '#ffd166', 700);
   if (hint) text(hint, W / 2, cy + 32, 14, '#c9c6ff', 500);
+  if (extra && !button) text(extra, W / 2, cy + 54, 14, '#9fe3ff', 600);
   ctx.restore();
   if (button) {
     const bw = 150, bh = 42, bx = W / 2 - bw / 2, by = cy + 52;
@@ -321,13 +334,13 @@ function draw() {
   if (flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (flash * 0.5) + ')'; ctx.fillRect(0, 0, W, H); }
 
   if (state === 'ready') {
-    if (banner === 'start') overlay('Арканоид', 'Тап, клик или «Пробел» — запуск', 'Платформа: мышь, палец или стрелки', null);
+    if (banner === 'start') overlay('Арканоид', 'Тап, клик или «Пробел» — запуск', 'Платформа: мышь, палец или стрелки', null, recordLine());
     else if (banner === 'level') overlay('Уровень ' + level, 'Мяч стал быстрее!', 'Тап, клик или «Пробел» — продолжить', null);
     else overlay('Мяч потерян', 'Осталось жизней: ' + lives, 'Тап, клик или «Пробел» — продолжить', null);
   } else if (state === 'pause') {
     overlay('Пауза', 'Тап или «Пробел» — продолжить', null, 'Играть');
   } else if (state === 'over') {
-    overlay('Игра окончена', 'Счёт: ' + score + (newBest ? ' — новый рекорд!' : ''), 'Рекорд: ' + best, 'Ещё раз');
+    overlay('Игра окончена', 'Счёт: ' + score + (newBest ? ' — новый рекорд!' : ''), recordLine(), 'Ещё раз');
   }
   cv.classList.toggle('free', state !== 'play');
 }
@@ -342,7 +355,7 @@ function frame(t) {
 }
 
 // для автоматических проверок
-window.__game = { get state() { return { state, score, lives, level, bricks: bricks.length, paddleX: paddle.x, ballX: ball.x, ballY: ball.y, H, best }; } };
+window.__game = { get state() { return { state, score, lives, level, bricks: bricks.length, paddleX: paddle.x, ballX: ball.x, ballY: ball.y, H, best, maxLevel }; } };
 
 newGame();
 resize();
