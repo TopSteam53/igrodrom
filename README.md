@@ -14,6 +14,9 @@
 | `scripts/build-catalog.js` | собирает `public/games/catalog.json` для статической версии |
 | `test/` | тесты (`npm test`) |
 | `Dockerfile`, `docker-compose.yml`, `Caddyfile` | деплой |
+| `DESIGN.md` | дизайн-система: цвета, шрифты, раскладка, принципы — сверяйтесь при изменениях интерфейса |
+| `.claude/skills/frontend-design/` | навык Anthropic для Claude Code: как не делать шаблонный «ИИ-дизайн» (Apache 2.0) |
+| `public/fonts/` | шрифты Unbounded и Onest (кириллица и латиница), лицензия OFL |
 
 ## Локальный запуск
 

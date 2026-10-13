@@ -8,9 +8,9 @@
 </head>
 <body>
 <header class="top"><div class="w top-in">
-  <a class="logo" href="index.html">Игро<b>дром</b></a>
+  <a class="logo" href="index.html">Игродром</a>
   <span class="mut" style="margin-left:auto">Кабинет автора</span>
-  <div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><span id="uname"></span><button class="btn g sm" id="logout">Выйти</button></div>
+  <div id="who" class="hidden" style="display:flex;gap:10px;align-items:center"><span id="uname"></span><button class="btn sm" id="logout">Выйти</button></div>
 </div></header>
 
 <!-- Вход / регистрация -->
@@ -21,7 +21,7 @@
     <label for="email">Email</label><input id="email" type="email" required autocomplete="email">
     <label for="password">Пароль (от 8 символов)</label><input id="password" type="password" required minlength="8" autocomplete="current-password">
     <div class="err-text" id="authErr"></div>
-    <button class="btn" id="authBtn" style="width:100%;margin-top:6px">Войти</button>
+    <button class="btn primary" id="authBtn" style="width:100%;margin-top:6px">Войти</button>
   </form>
 </div></main>
 
@@ -64,7 +64,7 @@
       скрипты подключайте относительными путями (<code>img/hero.png</code>, а не <code>/img/hero.png</code>).
       Распакованный размер — до 50 МБ, до 1000 файлов.</p>
     <div class="err-text" id="upErr"></div>
-    <button class="btn" id="upBtn">Отправить на модерацию</button>
+    <button class="btn primary" id="upBtn">Отправить на модерацию</button>
   </form></div>
 
   <h2>Мои игры</h2>
@@ -162,12 +162,12 @@ async function loadMine() {
   const { games } = await api('GET', '/api/my/games');
   $('mine').innerHTML = games.length ? games.map((g) => `
     <div class="row"><div class="t"><b>${esc(g.title)}</b>
-      <span class="mut">${esc(g.genre)} · ${files(g.file_count)} · ${kb(g.size)} · ${date(g.created_at)}</span>
+      <span class="facts-line"><span>${esc(g.genre)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${date(g.created_at)}</span></span>
       ${g.status === 'rejected' ? `<div class="mut" style="color:var(--bad)">Причина: ${esc(g.reject_reason || '')}</div>` : ''}</div>
       <span class="badge ${g.status}">${STATUS[g.status]}</span>
-      <div class="acts">${g.status === 'approved' ? `<a class="btn g sm" href="game.html?id=${g.id}">Страница игры</a>` : ''}
-      <a class="btn g sm" href="${g.status === 'approved' ? `/play/${g.id}/` : g.preview_url}" target="_blank" rel="noopener">Открыть</a>
-      <button class="btn g sm" data-edit="${g.id}">Изменить</button>
+      <div class="acts">${g.status === 'approved' ? `<a class="btn sm" href="game.html?id=${g.id}">Страница игры</a>` : ''}
+      <a class="btn sm" href="${g.status === 'approved' ? `/play/${g.id}/` : g.preview_url}" target="_blank" rel="noopener">Открыть</a>
+      <button class="btn sm" data-edit="${g.id}">Изменить</button>
       <button class="btn bad sm" data-del="${g.id}">Удалить</button></div>
       <form class="edit hidden" data-form="${g.id}">
         <div class="form-row">
@@ -177,7 +177,7 @@ async function loadMine() {
         </div>
         <label>Об игре</label><textarea name="description" maxlength="1500">${esc(g.description)}</textarea>
         <label>Как играть</label><textarea name="how_to_play" maxlength="600">${esc(g.how_to_play)}</textarea>
-        <div style="margin-top:10px"><button class="btn sm">Сохранить</button></div>
+        <div style="margin-top:12px"><button class="btn primary sm">Сохранить</button></div>
       </form></div>`).join('')
     : '<p class="mut">Пока нет игр. Загрузите первую выше.</p>';
 }
@@ -207,8 +207,8 @@ async function loadQueue() {
   const { games } = await api('GET', `/api/admin/games?status=${admStatus}`);
   $('queue').innerHTML = games.length ? games.map((g) => `
     <div class="row"><div class="t"><b>${esc(g.title)}</b>
-      <span class="mut">${esc(g.genre)} · ${esc(g.author)} (${esc(g.author_email)}) · ${files(g.file_count)} · ${kb(g.size)} · ${date(g.created_at)}</span></div>
-      <div class="acts"><a class="btn g sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить</a>
+      <span class="facts-line"><span>${esc(g.genre)}</span><span>${esc(g.author)}, ${esc(g.author_email)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${date(g.created_at)}</span></span></div>
+      <div class="acts"><a class="btn sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить</a>
       ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Одобрить</button>` : ''}
       ${g.status !== 'rejected' ? `<button class="btn bad sm" data-act="reject" data-id="${g.id}">Отклонить</button>` : ''}</div></div>`).join('')
     : '<p class="mut">Пусто.</p>';
@@ -355,7 +355,7 @@ api('GET', '/api/me').then(({ user }) => show(user)).catch(() => {
   $('auth').querySelector('.panel').innerHTML = `<h3>Кабинет автора недоступен в демо-версии</h3>
     <p class="mut">Эта копия сайта статическая: здесь работают витрина и демо-игры. Регистрация, загрузка игр,
     модерация и статистика работают в полной версии на сервере (инструкция по запуску — в README репозитория).</p>
-    <a class="btn" href="index.html">← К каталогу игр</a>`;
+    <a class="btn primary" href="index.html">Открыть каталог</a>`;
 });
 </script>
 </body>
