@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 464 261" width="464" height="261">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a2a1a"/><stop offset=".55" stop-color="#561811"/><stop offset="1" stop-color="#26090a"/></linearGradient>
+<radialGradient id="gl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffb347" stop-opacity=".5"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>
+<radialGradient id="gl2" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ff5a3c" stop-opacity=".35"/><stop offset="1" stop-color="#ff5a3c" stop-opacity="0"/></radialGradient>
+<linearGradient id="fr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9a5a2c"/><stop offset=".5" stop-color="#5e2f15"/><stop offset="1" stop-color="#3d1d0c"/></linearGradient>
+<radialGradient id="pw" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#fffef8"/><stop offset=".45" stop-color="#f1e6c8"/><stop offset="1" stop-color="#c2a874"/></radialGradient>
+<radialGradient id="pb" cx=".36" cy=".3" r=".8"><stop offset="0" stop-color="#70707c"/><stop offset=".5" stop-color="#2b2b33"/><stop offset="1" stop-color="#0c0c10"/></radialGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0a0"/><stop offset=".5" stop-color="#ffcf3a"/><stop offset="1" stop-color="#e08e0b"/></linearGradient>
+<linearGradient id="tt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff4cf"/><stop offset=".5" stop-color="#ffcf5a"/><stop offset="1" stop-color="#ff8a2a"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#000" flood-opacity=".55"/></filter>
+<filter id="ps" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#000" flood-opacity=".55"/></filter>
+<filter id="tsh" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#1a0503" flood-opacity=".85"/></filter>
+<g id="cw"><circle r="15" fill="url(#pw)"/><circle r="11" fill="none" stroke="#9c8250" stroke-opacity=".5" stroke-width="1.6"/><circle r="6.5" fill="none" stroke="#9c8250" stroke-opacity=".35" stroke-width="1.4"/></g>
+<g id="cb"><circle r="15" fill="url(#pb)"/><circle r="11" fill="none" stroke="#fff" stroke-opacity=".12" stroke-width="1.6"/><circle r="6.5" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width="1.4"/></g>
+</defs>
+<rect width="464" height="261" fill="url(#bg)"/>
+<circle cx="330" cy="120" r="170" fill="url(#gl)"/>
+<circle cx="60" cy="230" r="120" fill="url(#gl2)"/>
+<g transform="translate(334 131) rotate(-12) scale(.86)" filter="url(#sh)">
+<rect x="-128" y="-128" width="256" height="256" rx="14" fill="url(#fr)"/>
+
+<rect x="-120" y="-120" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-90" y="-120" width="30" height="30" fill="#a8683a"/>
+<rect x="-60" y="-120" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-30" y="-120" width="30" height="30" fill="#a8683a"/>
+<rect x="0" y="-120" width="30" height="30" fill="#f3dfb8"/>
+<rect x="30" y="-120" width="30" height="30" fill="#a8683a"/>
+<rect x="60" y="-120" width="30" height="30" fill="#f3dfb8"/>
+<rect x="90" y="-120" width="30" height="30" fill="#a8683a"/>
+<rect x="-120" y="-90" width="30" height="30" fill="#a8683a"/>
+<rect x="-90" y="-90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-60" y="-90" width="30" height="30" fill="#a8683a"/>
+<rect x="-30" y="-90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="0" y="-90" width="30" height="30" fill="#a8683a"/>
+<rect x="30" y="-90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="60" y="-90" width="30" height="30" fill="#a8683a"/>
+<rect x="90" y="-90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-120" y="-60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-90" y="-60" width="30" height="30" fill="#a8683a"/>
+<rect x="-60" y="-60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-30" y="-60" width="30" height="30" fill="#a8683a"/>
+<rect x="0" y="-60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="30" y="-60" width="30" height="30" fill="#a8683a"/>
+<rect x="60" y="-60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="90" y="-60" width="30" height="30" fill="#a8683a"/>
+<rect x="-120" y="-30" width="30" height="30" fill="#a8683a"/>
+<rect x="-90" y="-30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-60" y="-30" width="30" height="30" fill="#a8683a"/>
+<rect x="-30" y="-30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="0" y="-30" width="30" height="30" fill="#a8683a"/>
+<rect x="30" y="-30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="60" y="-30" width="30" height="30" fill="#a8683a"/>
+<rect x="90" y="-30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-120" y="0" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-90" y="0" width="30" height="30" fill="#a8683a"/>
+<rect x="-60" y="0" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-30" y="0" width="30" height="30" fill="#a8683a"/>
+<rect x="0" y="0" width="30" height="30" fill="#f3dfb8"/>
+<rect x="30" y="0" width="30" height="30" fill="#a8683a"/>
+<rect x="60" y="0" width="30" height="30" fill="#f3dfb8"/>
+<rect x="90" y="0" width="30" height="30" fill="#a8683a"/>
+<rect x="-120" y="30" width="30" height="30" fill="#a8683a"/>
+<rect x="-90" y="30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-60" y="30" width="30" height="30" fill="#a8683a"/>
+<rect x="-30" y="30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="0" y="30" width="30" height="30" fill="#a8683a"/>
+<rect x="30" y="30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="60" y="30" width="30" height="30" fill="#a8683a"/>
+<rect x="90" y="30" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-120" y="60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-90" y="60" width="30" height="30" fill="#a8683a"/>
+<rect x="-60" y="60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-30" y="60" width="30" height="30" fill="#a8683a"/>
+<rect x="0" y="60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="30" y="60" width="30" height="30" fill="#a8683a"/>
+<rect x="60" y="60" width="30" height="30" fill="#f3dfb8"/>
+<rect x="90" y="60" width="30" height="30" fill="#a8683a"/>
+<rect x="-120" y="90" width="30" height="30" fill="#a8683a"/>
+<rect x="-90" y="90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-60" y="90" width="30" height="30" fill="#a8683a"/>
+<rect x="-30" y="90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="0" y="90" width="30" height="30" fill="#a8683a"/>
+<rect x="30" y="90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="60" y="90" width="30" height="30" fill="#a8683a"/>
+<rect x="90" y="90" width="30" height="30" fill="#f3dfb8"/>
+<rect x="-120" y="-120" width="240" height="240" fill="none" stroke="#2a1206" stroke-opacity=".6" stroke-width="2"/>
+<rect x="-30" y="0" width="30" height="30" fill="#ffd646" opacity=".45"/><rect x="30" y="-60" width="30" height="30" fill="#ffd646" opacity=".45"/>
+<g filter="url(#ps)">
+<use href="#cb" x="-75.0" y="-105.0"/>
+<use href="#cb" x="45.0" y="-105.0"/>
+<use href="#cb" x="-45.0" y="-75.0"/>
+<use href="#cb" x="75.0" y="-75.0"/>
+<use href="#cb" x="-75.0" y="-45.0"/>
+<use href="#cb" x="75.0" y="-15.0"/>
+<use href="#cb" x="105.0" y="-45.0"/>
+<use href="#cw" x="-105.0" y="45.0"/>
+<use href="#cw" x="15.0" y="45.0"/>
+<use href="#cw" x="-75.0" y="75.0"/>
+<use href="#cw" x="45.0" y="75.0"/>
+<use href="#cw" x="-45.0" y="105.0"/>
+<use href="#cw" x="75.0" y="105.0"/>
+<use href="#cw" x="-15.0" y="15.0"/>
+<use href="#cw" x="75.0" y="45.0"/>
+</g>
+<path d="M-15.0 15.0L39.0 -39.0" stroke="#7cf09a" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 9" opacity=".9"/>
+</g>
+<g transform="translate(150 166) scale(.95)" filter="url(#sh)">
+<ellipse cx="0" cy="40" rx="50" ry="20" fill="#8f7646"/><rect x="-50" y="24" width="100" height="16" fill="#a88f5c"/>
+<ellipse cx="0" cy="24" rx="50" ry="20" fill="url(#pw)"/>
+<ellipse cx="0" cy="14" rx="50" ry="20" fill="#a88f5c"/><rect x="-50" y="-2" width="100" height="16" fill="#b9a06b"/>
+<ellipse cx="0" cy="-2" rx="50" ry="20" fill="url(#pw)"/><ellipse cx="0" cy="-2" rx="36" ry="14" fill="none" stroke="#9c8250" stroke-opacity=".5" stroke-width="3"/>
+<path d="M-30 -4L-34 -40L-16 -24L0 -48L16 -24L34 -40L30 -4Z" fill="url(#gold)" stroke="#9a5a00" stroke-width="3" stroke-linejoin="round"/>
+<circle cx="-34" cy="-42" r="5" fill="url(#gold)" stroke="#9a5a00" stroke-width="2.5"/><circle cx="0" cy="-50" r="6" fill="url(#gold)" stroke="#9a5a00" stroke-width="2.5"/><circle cx="34" cy="-42" r="5" fill="url(#gold)" stroke="#9a5a00" stroke-width="2.5"/>
+</g>
+<path d="M40 31Q40 40 49 40Q40 40 40 49Q40 40 31 40Q40 40 40 31Z" fill="#ffe9a8" opacity=".9"/><path d="M196 22Q196 29 203 29Q196 29 196 36Q196 29 189 29Q196 29 196 22Z" fill="#ffe9a8" opacity=".75"/><path d="M110 92Q110 97 115 97Q110 97 110 102Q110 97 105 97Q110 97 110 92Z" fill="#ffe9a8" opacity=".6"/>
+<g filter="url(#tsh)"><text x="22" y="86" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="64" letter-spacing="-1.5" fill="url(#tt)" stroke="#4a1203" stroke-opacity=".6" stroke-width="3" paint-order="stroke">Шашки</text></g>
+</svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 464 261" width="464" height="261">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16875a"/><stop offset=".55" stop-color="#0d6141"/><stop offset="1" stop-color="#073b28"/></linearGradient>
+<radialGradient id="gl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe27a" stop-opacity=".42"/><stop offset="1" stop-color="#ffe27a" stop-opacity="0"/></radialGradient>
+<radialGradient id="vig" cx=".5" cy=".5" r=".75"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></radialGradient>
+<linearGradient id="face" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eeead9"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff6d6"/><stop offset=".6" stop-color="#f3d77e"/><stop offset="1" stop-color="#e2b23f"/></linearGradient>
+<radialGradient id="backg" cx=".5" cy=".38" r=".7"><stop offset="0" stop-color="#ef5a4a"/><stop offset=".65" stop-color="#b21f30"/><stop offset="1" stop-color="#7d1022"/></radialGradient>
+<pattern id="lat" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" fill="none"/><rect width="2" height="9" fill="#fff" opacity=".14"/><rect width="9" height="2" fill="#fff" opacity=".14"/></pattern>
+<linearGradient id="tt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7c2"/><stop offset=".5" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff9f1c"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".45"/></filter>
+<filter id="tsh" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#032617" flood-opacity=".8"/></filter>
+<path id="spade" d="M50 5C41 22 10 38 10 61C10 75 21 83 32 83C39 83 44 80 47 75C46 84 42 90 35 95H65C58 90 54 84 53 75C56 80 61 83 68 83C79 83 90 75 90 61C90 38 59 22 50 5Z"/>
+<path id="heart" d="M50 90C46 86 7 60 7 33C7 18 18 9 30 9C39 9 46 14 50 22C54 14 61 9 70 9C82 9 93 18 93 33C93 60 54 86 50 90Z"/>
+<path id="diamond" d="M50 4Q67 30 88 50Q67 70 50 96Q33 70 12 50Q33 30 50 4Z"/>
+<g id="club"><circle cx="50" cy="29" r="19"/><circle cx="28" cy="59" r="19"/><circle cx="72" cy="59" r="19"/><circle cx="50" cy="52" r="11"/><path d="M45 50H55C55 72 58 86 66 95H34C42 86 45 72 45 50Z"/></g>
+<g id="blank"><rect width="96" height="134" rx="10" fill="url(#face)"/><rect width="96" height="134" rx="10" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="1.5"/></g>
+</defs>
+<rect width="464" height="261" fill="url(#bg)"/>
+<circle cx="340" cy="105" r="170" fill="url(#gl)"/>
+<rect width="464" height="261" fill="url(#vig)"/>
+<g opacity=".14" fill="#fff">
+<use xlink:href="#spade" transform="translate(22 18) scale(.34)"/>
+<use xlink:href="#heart" transform="translate(150 12) scale(.26)"/>
+<use xlink:href="#diamond" transform="translate(84 92) scale(.3)"/>
+<use xlink:href="#club" transform="translate(196 84) scale(.24)"/>
+<use xlink:href="#heart" transform="translate(30 116) scale(.2)"/>
+</g>
+<g filter="url(#sh)" transform="translate(298 112) scale(.95)">
+<g transform="rotate(-32 0 170) translate(-48 -57)"><rect width="96" height="134" rx="10" fill="url(#backg)"/><rect width="96" height="134" rx="10" fill="url(#lat)"/><rect x="3" y="3" width="90" height="128" rx="8" fill="none" stroke="#fdf8ee" stroke-width="5"/><rect x="36" y="55" width="24" height="24" rx="4" transform="rotate(45 48 67)" fill="#ffc94a"/></g>
+<g transform="rotate(-16 0 170) translate(-48 -63)"><use xlink:href="#blank"/><text x="8" y="31" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="30" fill="#1b2133" letter-spacing="-2">Q</text><use xlink:href="#club" fill="#1b2133" transform="translate(66 8) scale(.22)"/><rect x="13" y="42" width="70" height="84" rx="7" fill="url(#gold)" stroke="#a0690a" stroke-opacity=".5" stroke-width="2.5"/><text x="48" y="96" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="42" fill="#1b2133">Q</text><use xlink:href="#club" fill="#1b2133" transform="translate(37 100) scale(.22)"/></g>
+<g transform="rotate(0 0 170) translate(-48 -67)"><use xlink:href="#blank"/><text x="8" y="31" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="30" fill="#d3243b" letter-spacing="-2">K</text><use xlink:href="#heart" fill="#d3243b" transform="translate(66 8) scale(.22)"/><rect x="13" y="42" width="70" height="84" rx="7" fill="url(#gold)" stroke="#a0690a" stroke-opacity=".5" stroke-width="2.5"/><text x="48" y="96" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="42" fill="#d3243b">K</text><use xlink:href="#heart" fill="#d3243b" transform="translate(37 100) scale(.22)"/></g>
+<g transform="rotate(16 0 170) translate(-48 -63)"><use xlink:href="#blank"/><text x="8" y="31" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="30" fill="#d3243b" letter-spacing="-2">10</text><use xlink:href="#diamond" fill="#d3243b" transform="translate(66 8) scale(.22)"/><use xlink:href="#diamond" fill="#d3243b" transform="translate(23 52) scale(.5)"/></g>
+<g transform="rotate(32 0 170) translate(-48 -57)"><use xlink:href="#blank"/><text x="8" y="31" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="30" fill="#1b2133">A</text><use xlink:href="#spade" fill="#1b2133" transform="translate(66 8) scale(.22)"/><use xlink:href="#spade" fill="#1b2133" transform="translate(16 46) scale(.64)"/></g>
+</g>
+<path d="M40 31Q40 40 49 40Q40 40 40 49Q40 40 31 40Q40 40 40 31Z" fill="#fff3b0" opacity=".9"/><path d="M262 22Q262 29 269 29Q262 29 262 36Q262 29 255 29Q262 29 262 22Z" fill="#fff3b0" opacity=".8"/><path d="M442 214Q442 221 449 221Q442 221 442 228Q442 221 435 221Q442 221 442 214Z" fill="#fff3b0" opacity=".75"/><path d="M230 152Q230 157 235 157Q230 157 230 162Q230 157 225 157Q230 157 230 152Z" fill="#fff3b0" opacity=".6"/>
+<g filter="url(#tsh)"><text x="26" y="222" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="62" letter-spacing="-1.5" fill="url(#tt)" stroke="#5a2a00" stroke-opacity=".55" stroke-width="3" paint-order="stroke">Косынка</text></g>
+</svg>

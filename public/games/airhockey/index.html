@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Аэрохоккей</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#070b1c;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+canvas{position:fixed;left:0;top:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.hudbtn{position:fixed;top:8px;width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:rgba(20,30,70,.72);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:20;padding:0}
+.hudbtn:active{transform:translateY(2px)}
+.hudbtn svg{width:22px;height:22px}
+#pauseBtn{right:8px}
+#muteBtn{right:56px}
+.hidden{display:none!important}
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(5,9,26,.74);z-index:10;padding:12px;box-sizing:border-box}
+.panel{width:min(370px,100%);max-height:100%;overflow:auto;background:linear-gradient(180deg,#1c2858,#111836);border:2px solid rgba(255,255,255,.12);border-radius:20px;padding:20px 18px;box-sizing:border-box;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.logo{width:76px;height:76px;margin:0 auto 4px;display:block}
+h1{margin:0;font-size:32px;font-weight:900;letter-spacing:-.5px;line-height:1.1}
+.sub{margin:6px 0 0;color:#a9b8ee;font-size:15px}
+.label{margin-top:16px;font-size:13px;color:#a9b8ee;font-weight:700}
+.seg{display:flex;gap:6px;margin-top:8px}
+.seg button{flex:1;padding:9px 2px;border-radius:12px;border:2px solid rgba(255,255,255,.16);background:transparent;color:#d5ddff;font:700 14px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;cursor:pointer}
+.seg button.on{background:#fff;color:#14204a;border-color:#fff}
+.btn{display:block;width:100%;padding:14px 12px;margin-top:12px;border-radius:12px;border:0;font:800 17px/1.15 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;cursor:pointer;background:linear-gradient(180deg,#ff5d78,#e3264a);box-shadow:0 4px 0 #85102a}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #85102a}
+.btn.blue{background:linear-gradient(180deg,#4aa0ff,#1f6fe0);box-shadow:0 4px 0 #0d3a85}
+.btn.blue:active{box-shadow:0 1px 0 #0d3a85}
+.btn.ghost{background:rgba(255,255,255,.1);box-shadow:0 4px 0 rgba(0,0,0,.4)}
+.btn.ghost:active{box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.btn:disabled{opacity:.6;cursor:default}
+.stats{font-size:13px;color:#a9b8ee;margin-top:14px;line-height:1.45}
+.stats b{color:#fff}
+.hint{font-size:12px;color:#8090c8;margin-top:10px;line-height:1.45}
+.bigscore{font-size:54px;font-weight:900;margin:8px 0 2px;letter-spacing:2px}
+.bigscore .r{color:#ff5d78}.bigscore .b{color:#4aa0ff}.bigscore .c{color:#8090c8;margin:0 6px}
+@media (max-height:480px){.panel{padding:12px 14px}.logo{display:none}h1{font-size:26px}.btn{padding:11px 10px;margin-top:9px;font-size:16px}.label{margin-top:10px}.hint{display:none}.bigscore{font-size:40px}}
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="Аэрохоккей: игровой стол"></canvas>
+<button class="hudbtn hidden" id="muteBtn" aria-label="Звук">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path id="cross" d="M16 9l6 6M22 9l-6 6" style="display:none"/></svg>
+</button>
+<button class="hudbtn hidden" id="pauseBtn" aria-label="Пауза">
+  <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>
+</button>
+
+<div class="overlay" id="menu"><div class="panel">
+  <svg class="logo" viewBox="0 0 80 80" aria-hidden="true"><defs><radialGradient id="lm" cx=".38" cy=".35" r=".7"><stop offset="0" stop-color="#ffb0bd"/><stop offset=".5" stop-color="#ff3b5c"/><stop offset="1" stop-color="#9c1030"/></radialGradient></defs><ellipse cx="44" cy="62" rx="24" ry="7" fill="#000" opacity=".3"/><circle cx="54" cy="52" r="11" fill="#1b1f2e" stroke="#4a5170" stroke-width="2"/><circle cx="34" cy="34" r="24" fill="url(#lm)"/><circle cx="34" cy="34" r="16" fill="none" stroke="#7a0b24" stroke-opacity=".5" stroke-width="2.5"/><circle cx="34" cy="34" r="10" fill="#ff6b84"/><circle cx="31" cy="30" r="4" fill="#fff" opacity=".55"/></svg>
+  <h1>Аэрохоккей</h1>
+  <p class="sub">Кто первым забьёт 7 голов, тот и победил</p>
+  <div class="label">Сложность компьютера</div>
+  <div class="seg" id="diffSeg"><button data-d="0">Лёгкий</button><button data-d="1">Средний</button><button data-d="2">Сложный</button></div>
+  <button class="btn" id="cpuBtn">Играть с компьютером</button>
+  <button class="btn blue" id="pvpBtn">Вдвоём на одном устройстве</button>
+  <div class="stats" id="stats"></div>
+  <div class="hint">Бита движется за мышью или пальцем. Вдвоём на телефоне каждый ведёт свою биту в своей половине стола, на компьютере второй игрок играет клавишами WASD или стрелками.</div>
+</div></div>
+
+<div class="overlay hidden" id="pause"><div class="panel">
+  <h1>Пауза</h1>
+  <p class="sub" id="pauseScore"></p>
+  <button class="btn" id="resumeBtn">Продолжить</button>
+  <button class="btn ghost" id="restartBtn">Начать заново</button>
+  <button class="btn ghost" id="toMenuBtn">В меню</button>
+</div></div>
+
+<div class="overlay hidden" id="over"><div class="panel">
+  <h1 id="overTitle">Победа!</h1>
+  <div class="bigscore" id="overScore"></div>
+  <p class="sub" id="overSub"></p>
+  <button class="btn" id="againBtn">Ещё раз</button>
+  <button class="btn ghost" id="overMenuBtn">В меню</button>
+</div></div>
+
+<script src="../../sdk/v1.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+const bg = document.createElement('canvas'), bctx = bg.getContext('2d');
+
+// ---------- мир (вертикальный стол; в альбомной ориентации он поворачивается) ----------
+const TW = 400, TH = 720, GOAL = 132, GL = (TW - GOAL) / 2, GR = GL + GOAL, RAIL = 18;
+const PR = 19, MR = 30, WIN = 7, MAXV = 1750, FRICTION = 0.28, E_WALL = 0.86, E_MAL = 0.92;
+const COL = [null,
+  { main: '#ff3b5c', dark: '#9c1030', light: '#ffb0bd', glow: 'rgba(255,59,92,' },
+  { main: '#2f8cff', dark: '#0d3f9e', light: '#a9d0ff', glow: 'rgba(47,140,255,' }];
+const AI = [
+  { spd: 470, react: 0.26, err: 44, aim: 0.2, homeY: 76, predict: 0.2 },
+  { spd: 900, react: 0.1, err: 14, aim: 0.55, homeY: 70, predict: 0.75 },
+  { spd: 1380, react: 0.04, err: 4, aim: 0.9, homeY: 64, predict: 1 }];
+const DIFF_NAMES = ['лёгкий', 'средний', 'сложный'];
+
+let vw = 0, vh = 0, dpr = 1, land = false, s = 1, ox = 0, oy = 0;
+
+const puck = { x: TW / 2, y: TH / 2, vx: 0, vy: 0, last: 0, hidden: false };
+const m1 = { x: TW / 2, y: TH - 90, vx: 0, vy: 0, tx: TW / 2, ty: TH - 90 };
+const m2 = { x: TW / 2, y: 90, vx: 0, vy: 0, tx: TW / 2, ty: 90 };
+let trail = [], parts = [];
+let mode = 'cpu', diff = 1, score = [0, 0, 0];
+let state = 'menu'; // menu | serve | play | goal | pause | over
+let timer = 0, scorer = 0, shake = 0, flash = 0, pausedFrom = 'play';
+let adBusy = false, adPaused = false;
+const ai = { t: 0, x: TW / 2, y: 70, aimX: TW / 2 };
+
+// ---------- сохранение: победы, настройки ----------
+let sdk = null;
+let stats = { wins: [0, 0, 0], losses: [0, 0, 0], pvp: 0 };
+let muted = false, settingsTouched = false, playedLocal = false;
+function save() {
+  if (sdk) sdk.data.set({ v: 1, diff, muted, wins: stats.wins, losses: stats.losses, pvp: stats.pvp }).catch(() => {});
+}
+const n0 = v => (typeof v === 'number' && isFinite(v) && v >= 0 ? Math.floor(v) : 0);
+if (window.Igrodrom) {
+  Igrodrom.init().then(async (sd) => {
+    const d = await sd.data.get().catch(() => null);
+    sdk = sd;
+    if (d && typeof d === 'object') {
+      for (let i = 0; i < 3; i++) {
+        stats.wins[i] += Array.isArray(d.wins) ? n0(d.wins[i]) : 0;
+        stats.losses[i] += Array.isArray(d.losses) ? n0(d.losses[i]) : 0;
+      }
+      stats.pvp += n0(d.pvp);
+      if (!settingsTouched) {
+        if (d.diff === 0 || d.diff === 1 || d.diff === 2) diff = d.diff;
+        muted = !!d.muted;
+      }
+    }
+    if (playedLocal || settingsTouched) save();
+    applyMute(); renderMenu();
+    sd.on('pause', () => { adPaused = true; if (actx) actx.suspend().catch(() => {}); if (state === 'play' || state === 'serve' || state === 'goal') doPause(); });
+    sd.on('resume', () => { adPaused = false; if (actx && !document.hidden) actx.resume().catch(() => {}); });
+    sd.game.ready();
+  }).catch(() => {});
+}
+
+// ---------- звук (WebAudio, всё генерируется) ----------
+let actx = null, master = null, noiseBuf = null, lastHit = 0, lastWall = 0;
+function audio() {
+  if (!actx) {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      actx = new AC();
+      master = actx.createGain(); master.gain.value = muted ? 0 : 0.55; master.connect(actx.destination);
+      noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.5, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { actx = null; return; }
+  }
+  if (actx.state === 'suspended' && !adPaused && !document.hidden) actx.resume().catch(() => {});
+}
+function tone(f, dur, type, vol, f2, delay) {
+  if (!actx || muted || actx.state !== 'running') return;
+  const t = actx.currentTime + (delay || 0);
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+  if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+}
+function noise(dur, vol, freq, q) {
+  if (!actx || muted || actx.state !== 'running') return;
+  const t = actx.currentTime;
+  const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  src.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q || 1;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f); f.connect(g); g.connect(master); src.start(t); src.stop(t + dur + 0.02);
+}
+const sfx = {
+  hit(v) { const n = performance.now(); if (n - lastHit < 45) return; lastHit = n; const k = Math.min(1, v / 1400);
+    tone(420 + k * 500, 0.07, 'triangle', 0.18 + k * 0.3, 220); noise(0.05, 0.12 + k * 0.25, 2600, 1.2); },
+  wall(v) { const n = performance.now(); if (n - lastWall < 50 || v < 60) return; lastWall = n; const k = Math.min(1, v / 1400);
+    tone(190 + k * 80, 0.09, 'sine', 0.12 + k * 0.25, 110); noise(0.04, 0.06 + k * 0.12, 900, 0.8); },
+  goal(good) {
+    const seq = good ? [523, 659, 784, 1047] : [392, 330, 262];
+    seq.forEach((f, i) => tone(f, 0.22, good ? 'square' : 'triangle', 0.09, null, i * 0.09));
+    noise(0.5, 0.18, 500, 0.5);
+  },
+  win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.25, 'square', 0.08, null, i * 0.12)); },
+  lose() { [392, 349, 311, 262].forEach((f, i) => tone(f, 0.3, 'triangle', 0.12, null, i * 0.16)); },
+  click() { tone(660, 0.05, 'triangle', 0.1); },
+};
+function applyMute() {
+  if (master) master.gain.value = muted ? 0 : 0.55;
+  $('wave').style.display = muted ? 'none' : '';
+  $('cross').style.display = muted ? '' : 'none';
+  $('muteBtn').setAttribute('aria-label', muted ? 'Включить звук' : 'Выключить звук');
+}
+function toggleMute() { muted = !muted; settingsTouched = true; audio(); applyMute(); save(); }
+
+// ---------- геометрия экрана ----------
+function worldTransform(c) {
+  if (land) c.setTransform(0, s * dpr, -s * dpr, 0, (ox + TH * s) * dpr, oy * dpr);
+  else c.setTransform(s * dpr, 0, 0, s * dpr, ox * dpr, oy * dpr);
+}
+function w2s(x, y) { return land ? [ox + (TH - y) * s, oy + x * s] : [ox + x * s, oy + y * s]; }
+function s2w(sx, sy) { return land ? [(sy - oy) / s, TH - (sx - ox) / s] : [(sx - ox) / s, (sy - oy) / s]; }
+// экранное смещение (dx, dy) в мировые координаты: для теней и клавиш
+function sdir(dx, dy) { return land ? [dy, -dx] : [dx, dy]; }
+
+function resize() {
+  vw = Math.max(200, window.innerWidth); vh = Math.max(200, window.innerHeight);
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
+  bg.width = cv.width; bg.height = cv.height;
+  land = vw > vh * 1.05;
+  const top = 54, m = 10;
+  const fw = TW + RAIL * 2, fh = TH + RAIL * 2;
+  const cx = vw / 2, cy = (top + vh - m) / 2;
+  if (land) {
+    s = Math.min((vw - m * 2) / fh, (vh - top - m) / fw);
+    ox = cx - TH * s / 2; oy = cy - TW * s / 2;
+  } else {
+    s = Math.min((vw - m * 2) / fw, (vh - top - m) / fh);
+    ox = cx - TW * s / 2; oy = cy - TH * s / 2;
+  }
+  drawTable();
+}
+
+function rr(c, x, y, w, h, r) {
+  c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+  c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
+}
+function circle(c, x, y, r) { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); }
+
+function drawTable() {
+  const c = bctx;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const g = c.createRadialGradient(vw / 2, vh / 2, 0, vw / 2, vh / 2, Math.max(vw, vh) * 0.75);
+  g.addColorStop(0, '#1d2c66'); g.addColorStop(1, '#060a1a');
+  c.fillStyle = g; c.fillRect(0, 0, vw, vh);
+  c.fillStyle = 'rgba(255,255,255,.03)';
+  for (let x = 12; x < vw; x += 28) for (let y = 12; y < vh; y += 28) c.fillRect(x, y, 2, 2);
+
+  worldTransform(c);
+  // тень под столом
+  c.save(); c.shadowColor = 'rgba(0,0,0,.65)'; c.shadowBlur = 40 * dpr; c.shadowOffsetY = 14 * dpr;
+  rr(c, -RAIL, -RAIL, TW + RAIL * 2, TH + RAIL * 2, 40); c.fillStyle = '#141a3a'; c.fill(); c.restore();
+  // борт
+  const rg = c.createLinearGradient(-RAIL, 0, TW + RAIL, 0);
+  rg.addColorStop(0, '#2a3478'); rg.addColorStop(0.5, '#3a47a0'); rg.addColorStop(1, '#2a3478');
+  rr(c, -RAIL, -RAIL, TW + RAIL * 2, TH + RAIL * 2, 40); c.fillStyle = rg; c.fill();
+  rr(c, -RAIL + 3, -RAIL + 3, TW + RAIL * 2 - 6, TH + RAIL * 2 - 6, 37);
+  c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 2; c.stroke();
+  // ворота-прорези в борту
+  for (const top of [true, false]) {
+    const y0 = top ? -RAIL - 2 : TH;
+    const col = top ? COL[2] : COL[1];
+    c.save(); c.shadowColor = col.main; c.shadowBlur = 18 * dpr;
+    rr(c, GL - 4, y0, GOAL + 8, RAIL + 2, 6); c.fillStyle = col.main; c.fill(); c.restore();
+    rr(c, GL, top ? -RAIL + 2 : TH, GOAL, RAIL - 2, 4); c.fillStyle = '#04060f'; c.fill();
+  }
+  // поверхность
+  c.save();
+  rr(c, 0, 0, TW, TH, 18); c.clip();
+  const sg = c.createRadialGradient(TW / 2, TH / 2, 40, TW / 2, TH / 2, TH * 0.65);
+  sg.addColorStop(0, '#ffffff'); sg.addColorStop(0.6, '#e8f2ff'); sg.addColorStop(1, '#c4d8f2');
+  c.fillStyle = sg; c.fillRect(0, 0, TW, TH);
+  // дырочки для воздуха
+  c.fillStyle = 'rgba(40,70,130,.16)';
+  for (let x = 14; x < TW; x += 18) for (let y = 14; y < TH; y += 18) { c.beginPath(); c.arc(x, y, 1.3, 0, 6.283); c.fill(); }
+  // разметка
+  c.lineCap = 'round';
+  c.strokeStyle = 'rgba(255,59,92,.75)'; c.lineWidth = 5;
+  c.beginPath(); c.moveTo(0, TH / 2); c.lineTo(TW, TH / 2); c.stroke();
+  c.lineWidth = 3; circle(c, TW / 2, TH / 2, 62); c.stroke();
+  c.fillStyle = 'rgba(255,59,92,.75)'; circle(c, TW / 2, TH / 2, 6); c.fill();
+  c.strokeStyle = 'rgba(47,140,255,.35)'; c.lineWidth = 3;
+  for (const y of [TH * 0.25, TH * 0.75]) { c.beginPath(); c.moveTo(0, y); c.lineTo(TW, y); c.stroke(); }
+  for (const top of [true, false]) {
+    const col = top ? COL[2] : COL[1];
+    c.strokeStyle = col.glow + '.55)'; c.lineWidth = 4;
+    c.beginPath(); c.arc(TW / 2, top ? 0 : TH, 84, top ? 0 : Math.PI, top ? Math.PI : Math.PI * 2); c.stroke();
+    c.fillStyle = col.glow + '.08)'; c.fill();
+  }
+  // блик
+  const hg = c.createLinearGradient(0, 0, TW, TH);
+  hg.addColorStop(0, 'rgba(255,255,255,.35)'); hg.addColorStop(0.4, 'rgba(255,255,255,0)');
+  c.fillStyle = hg; c.fillRect(0, 0, TW, TH);
+  c.restore();
+  rr(c, 0, 0, TW, TH, 18); c.strokeStyle = 'rgba(10,16,50,.45)'; c.lineWidth = 3; c.stroke();
+}
+
+// ---------- игра ----------
+function placePuck(side) { // side: 0 — центр, 1/2 — на половине этого игрока
+  puck.x = TW / 2; puck.vx = 0; puck.vy = 0; puck.hidden = false; puck.last = 0;
+  puck.y = side === 1 ? TH * 0.68 : side === 2 ? TH * 0.32 : TH / 2;
+  trail = [];
+}
+function resetMallets() {
+  m1.x = m1.tx = TW / 2; m1.y = m1.ty = TH - 90; m1.vx = m1.vy = 0;
+  m2.x = m2.tx = TW / 2; m2.y = m2.ty = 90; m2.vx = m2.vy = 0;
+  ai.x = TW / 2; ai.y = 70; ai.t = 0;
+}
+function startMatch(m) {
+  if (m) mode = m;
+  score = [0, 0, 0]; parts = []; shake = 0; flash = 0;
+  resetMallets(); placePuck(0);
+  state = 'serve'; timer = 1.1;
+  show(null);
+  if (sdk) sdk.game.start();
+  cv.focus({ preventScroll: true });
+}
+function show(id) {
+  for (const o of ['menu', 'pause', 'over']) $(o).classList.toggle('hidden', o !== id);
+  const inGame = id === null;
+  $('pauseBtn').classList.toggle('hidden', !inGame);
+  $('muteBtn').classList.toggle('hidden', false);
+}
+function doPause() {
+  if (state !== 'play' && state !== 'serve' && state !== 'goal') return;
+  pausedFrom = state; state = 'pause'; pointers.clear(); keys.clear();
+  $('pauseScore').textContent = scoreLine();
+  show('pause');
+}
+function doResume() {
+  if (state !== 'pause') return;
+  state = pausedFrom; show(null); audio(); cv.focus({ preventScroll: true });
+}
+function scoreLine() {
+  return mode === 'cpu' ? 'Вы ' + score[1] + ' : ' + score[2] + ' Компьютер' : 'Красный ' + score[1] + ' : ' + score[2] + ' Синий';
+}
+function goal(who) {
+  score[who]++; scorer = who; state = 'goal'; timer = 1.5; shake = 0.45; flash = 1; puck.hidden = true;
+  const gy = who === 1 ? 0 : TH;
+  const col = COL[who];
+  for (let i = 0; i < 70; i++) {
+    const a = (who === 1 ? Math.PI / 2 : -Math.PI / 2) + (Math.random() - 0.5) * 2.6, sp = 120 + Math.random() * 520;
+    parts.push({ x: TW / 2 + (Math.random() - 0.5) * GOAL, y: gy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      t: 0, life: 0.7 + Math.random() * 0.7, c: Math.random() < 0.3 ? '#ffd23f' : Math.random() < 0.5 ? col.light : col.main, r: 2 + Math.random() * 4 });
+  }
+  sfx.goal(mode === '2p' || who === 1);
+}
+function endMatch() {
+  state = 'over';
+  const w = score[1] >= WIN ? 1 : 2;
+  if (mode === 'cpu') {
+    if (w === 1) stats.wins[diff]++; else stats.losses[diff]++;
+    $('overTitle').textContent = w === 1 ? 'Победа!' : 'Поражение';
+    $('overSub').textContent = w === 1 ? 'Вы обыграли компьютер (' + DIFF_NAMES[diff] + ' уровень). Побед на этом уровне: ' + stats.wins[diff]
+      : 'Компьютер оказался сильнее. Попробуйте ещё раз!';
+    (w === 1 ? sfx.win : sfx.lose)();
+  } else {
+    stats.pvp++;
+    $('overTitle').textContent = w === 1 ? 'Победил красный!' : 'Победил синий!';
+    $('overSub').textContent = 'Сыграно матчей вдвоём: ' + stats.pvp;
+    sfx.win();
+  }
+  $('overScore').innerHTML = '<span class="r">' + score[1] + '</span><span class="c">:</span><span class="b">' + score[2] + '</span>';
+  playedLocal = true; save(); renderMenu();
+  if (sdk) sdk.game.stop();
+  show('over');
+}
+// Реклама — только в паузе между матчами: после окончания, перед следующим.
+async function breakAd() {
+  if (!sdk || adBusy) return;
+  adBusy = true;
+  $('againBtn').disabled = $('overMenuBtn').disabled = true;
+  try { await sdk.ads.fullscreen(); } catch (e) {}
+  adBusy = false;
+  $('againBtn').disabled = $('overMenuBtn').disabled = false;
+}
+
+// ---------- физика ----------
+function clampMallet(m, who, x, y) {
+  x = Math.max(MR, Math.min(TW - MR, x));
+  y = who === 1 ? Math.max(TH / 2 + MR * 0.2, Math.min(TH - MR, y)) : Math.max(MR, Math.min(TH / 2 - MR * 0.2, y));
+  return [x, y];
+}
+function collideMallet(m) {
+  let dx = puck.x - m.x, dy = puck.y - m.y;
+  let d = Math.hypot(dx, dy);
+  const min = MR + PR;
+  if (d >= min) return;
+  if (d < 0.001) { dx = 0; dy = m === m1 ? -1 : 1; d = 1; }
+  const nx = dx / d, ny = dy / d;
+  puck.x = m.x + nx * min; puck.y = m.y + ny * min;
+  const rvx = puck.vx - m.vx, rvy = puck.vy - m.vy;
+  const vn = rvx * nx + rvy * ny;
+  if (vn < 0) {
+    puck.vx -= (1 + E_MAL) * vn * nx; puck.vy -= (1 + E_MAL) * vn * ny;
+    puck.last = m === m1 ? 1 : 2;
+    if (state === 'serve') state = 'play';
+    sfx.hit(-vn);
+  }
+  // шайба прижата к борту — бита упирается в неё и останавливается
+  const px = puck.x, py = puck.y;
+  wallClamp();
+  if (puck.x !== px || puck.y !== py) {
+    const who = m === m1 ? 1 : 2;
+    const [cx, cy] = clampMallet(m, who, puck.x - nx * (min + 0.5), puck.y - ny * (min + 0.5));
+    m.x = m.sx = m.ex = cx; m.y = m.sy = m.ey = cy;
+  }
+}
+function wallClamp() { // только положение, без отскока
+  if (puck.x < PR) puck.x = PR;
+  if (puck.x > TW - PR) puck.x = TW - PR;
+  const inMouth = puck.x > GL && puck.x < GR;
+  if (!inMouth) { if (puck.y < PR) puck.y = PR; if (puck.y > TH - PR) puck.y = TH - PR; }
+}
+function post(px, py) {
+  const dx = puck.x - px, dy = puck.y - py, d = Math.hypot(dx, dy);
+  if (d >= PR || d < 0.001) return;
+  const nx = dx / d, ny = dy / d;
+  puck.x = px + nx * PR; puck.y = py + ny * PR;
+  const vn = puck.vx * nx + puck.vy * ny;
+  if (vn < 0) { puck.vx -= (1 + E_WALL) * vn * nx; puck.vy -= (1 + E_WALL) * vn * ny; sfx.wall(-vn); }
+}
+function collideWalls() {
+  if (puck.x < PR) { puck.x = PR; if (puck.vx < 0) { sfx.wall(-puck.vx); puck.vx = -puck.vx * E_WALL; } }
+  if (puck.x > TW - PR) { puck.x = TW - PR; if (puck.vx > 0) { sfx.wall(puck.vx); puck.vx = -puck.vx * E_WALL; } }
+  const inMouth = puck.x > GL && puck.x < GR;
+  if (!inMouth) {
+    if (puck.y < PR) { puck.y = PR; if (puck.vy < 0) { sfx.wall(-puck.vy); puck.vy = -puck.vy * E_WALL; } }
+    if (puck.y > TH - PR) { puck.y = TH - PR; if (puck.vy > 0) { sfx.wall(puck.vy); puck.vy = -puck.vy * E_WALL; } }
+  } else if (puck.y < PR || puck.y > TH - PR) {
+    // в створе ворот: штанги и боковины прорези
+    post(GL, 0); post(GR, 0); post(GL, TH); post(GR, TH);
+    if (puck.y < 0 || puck.y > TH) {
+      if (puck.x < GL + PR) { puck.x = GL + PR; puck.vx = Math.abs(puck.vx) * 0.5; }
+      if (puck.x > GR - PR) { puck.x = GR - PR; puck.vx = -Math.abs(puck.vx) * 0.5; }
+    }
+  }
+}
+function moveTowards(m, tx, ty, maxSpd, dt) {
+  const dx = tx - m.x, dy = ty - m.y, d = Math.hypot(dx, dy), lim = maxSpd * dt;
+  if (d <= lim) return [tx, ty];
+  return [m.x + dx / d * lim, m.y + dy / d * lim];
+}
+
+function physics(dt) {
+  // новые положения бит
+  const [t1x, t1y] = clampMallet(m1, 1, m1.tx, m1.ty);
+  let [e1x, e1y] = moveTowards(m1, t1x, t1y, 4200, dt);
+  let e2x, e2y;
+  if (mode === 'cpu') { aiThink(dt); const [ax, ay] = clampMallet(m2, 2, ai.x, ai.y); [e2x, e2y] = moveTowards(m2, ax, ay, AI[diff].spd, dt); }
+  else { const [t2x, t2y] = clampMallet(m2, 2, m2.tx, m2.ty); [e2x, e2y] = moveTowards(m2, t2x, t2y, 4200, dt); }
+  for (const [m, ex, ey] of [[m1, e1x, e1y], [m2, e2x, e2y]]) {
+    m.sx = m.x; m.sy = m.y; m.ex = ex; m.ey = ey;
+    const vx = (ex - m.x) / dt, vy = (ey - m.y) / dt;
+    m.vx = m.vx * 0.3 + vx * 0.7; m.vy = m.vy * 0.3 + vy * 0.7;
+  }
+  const move = Math.max(Math.hypot(puck.vx, puck.vy), Math.hypot(m1.vx, m1.vy), Math.hypot(m2.vx, m2.vy)) * dt;
+  const n = Math.min(40, Math.max(1, Math.ceil(move / 5)));
+  const h = dt / n;
+  for (let i = 1; i <= n; i++) {
+    for (const m of [m1, m2]) { m.x = m.sx + (m.ex - m.sx) * i / n; m.y = m.sy + (m.ey - m.sy) * i / n; }
+    if (state === 'play') { puck.x += puck.vx * h; puck.y += puck.vy * h; }
+    collideMallet(m1); collideMallet(m2); collideWalls();
+    if (state === 'play') {
+      if (puck.y < -PR * 0.6) { goal(1); return; }
+      if (puck.y > TH + PR * 0.6) { goal(2); return; }
+    }
+  }
+  if (state !== 'play') { puck.vx = puck.vy = 0; return; }
+  const k = Math.exp(-FRICTION * dt);
+  puck.vx *= k; puck.vy *= k;
+  const sp = Math.hypot(puck.vx, puck.vy);
+  if (sp > MAXV) { puck.vx *= MAXV / sp; puck.vy *= MAXV / sp; }
+  if (sp < 3) { puck.vx = puck.vy = 0; }
+}
+
+// ---------- компьютер ----------
+function predictX(yLine) {
+  if (puck.vy >= -1) return puck.x;
+  const t = (puck.y - yLine) / -puck.vy;
+  let x = puck.x + puck.vx * t;
+  const lo = PR, span = TW - 2 * PR;
+  let u = (x - lo) % (2 * span); if (u < 0) u += 2 * span;
+  return lo + (u > span ? 2 * span - u : u);
+}
+function aiThink(dt) {
+  const c = AI[diff];
+  ai.t -= dt;
+  if (ai.t > 0) return;
+  ai.t = c.react * (0.7 + Math.random() * 0.6);
+  const err = () => (Math.random() - 0.5) * 2 * c.err;
+  const inMyHalf = puck.y < TH / 2 + PR * 0.5;
+  const fastToMe = puck.vy < -380;
+  if (inMyHalf && !(fastToMe && puck.y > m2.y + 60)) {
+    if (puck.y > m2.y + 6) {
+      // атака: зайти за шайбу и ударить в сторону ворот соперника
+      const tx = TW / 2 + (Math.random() < c.aim ? (Math.random() - 0.5) * GOAL * 0.7 : (Math.random() - 0.5) * TW * 0.9);
+      let dx = tx - puck.x, dy = TH - puck.y; const d = Math.hypot(dx, dy); dx /= d; dy /= d;
+      ai.x = puck.x + dx * 26 + err() * 0.4; ai.y = puck.y + dy * 26;
+      if (Math.hypot(m2.x - puck.x, m2.y - puck.y) > MR + PR + 50) { ai.x = puck.x - dx * (MR + PR - 6); ai.y = puck.y - dy * (MR + PR - 6); }
+    } else {
+      // шайба позади биты — объехать сбоку, не загоняя её в свои ворота
+      const side = puck.x < TW / 2 ? 1 : -1;
+      ai.x = puck.x + side * (MR + PR + 14); ai.y = Math.max(MR, puck.y - MR - 6);
+    }
+  } else {
+    // защита: встать между шайбой и своими воротами
+    const px = predictX(c.homeY);
+    const guess = puck.x + (px - puck.x) * c.predict;
+    const bias = TW / 2 + (guess - TW / 2) * 0.55;
+    ai.x = Math.max(GL - 16, Math.min(GR + 16, bias + err()));
+    ai.y = c.homeY + (puck.vy > 0 ? 30 : 0);
+  }
+}
+
+// ---------- ввод ----------
+const pointers = new Map(); // pointerId -> игрок
+const keys = new Set();
+function setTarget(who, wx, wy) { const m = who === 1 ? m1 : m2; m.tx = wx; m.ty = wy; }
+function playing() { return state === 'play' || state === 'serve' || state === 'goal'; }
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault(); audio();
+  cv.focus({ preventScroll: true });
+  if (!playing()) return;
+  const [wx, wy] = s2w(e.clientX, e.clientY);
+  const who = e.pointerType === 'mouse' || mode === 'cpu' ? 1 : (wy > TH / 2 ? 1 : 2);
+  pointers.set(e.pointerId, who);
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  setTarget(who, wx, wy);
+});
+cv.addEventListener('pointermove', e => {
+  if (!playing()) return;
+  const [wx, wy] = s2w(e.clientX, e.clientY);
+  if (e.pointerType === 'mouse') { setTarget(1, wx, wy); return; }
+  const who = pointers.get(e.pointerId);
+  if (who) setTarget(who, wx, wy);
+});
+const endPtr = e => pointers.delete(e.pointerId);
+cv.addEventListener('pointerup', endPtr);
+cv.addEventListener('pointercancel', endPtr);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+const KEYMAP = { ArrowLeft: 'l', ArrowRight: 'r', ArrowUp: 'u', ArrowDown: 'd', KeyA: 'l', KeyD: 'r', KeyW: 'u', KeyS: 'd' };
+window.addEventListener('keydown', e => {
+  audio();
+  const k = KEYMAP[e.code];
+  if (k) { keys.add(k); e.preventDefault(); return; }
+  if (e.code === 'Space' || e.code === 'Escape' || e.code === 'KeyP') {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (state === 'pause') doResume(); else if (playing()) doPause();
+    else if (state === 'menu' && e.code === 'Space') startMatch('cpu');
+    else if (state === 'over' && e.code === 'Space' && !adBusy) $('againBtn').click();
+  } else if (e.code === 'KeyM') toggleMute();
+});
+window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys.delete(k); });
+function keyControl(dt) {
+  if (!keys.size) return;
+  const who = mode === 'cpu' ? 1 : 2;
+  const m = who === 1 ? m1 : m2;
+  let dx = (keys.has('r') ? 1 : 0) - (keys.has('l') ? 1 : 0), dy = (keys.has('d') ? 1 : 0) - (keys.has('u') ? 1 : 0);
+  if (!dx && !dy) return;
+  const l = Math.hypot(dx, dy); dx /= l; dy /= l;
+  const [wx, wy] = sdir(dx, dy);
+  if (Math.hypot(m.tx - m.x, m.ty - m.y) > 40) { m.tx = m.x; m.ty = m.y; }
+  const [cx, cy] = clampMallet(m, who, m.tx + wx * 760 * dt, m.ty + wy * 760 * dt);
+  m.tx = cx; m.ty = cy;
+}
+
+const autoPause = () => { if (playing()) doPause(); };
+window.addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { autoPause(); if (actx) actx.suspend().catch(() => {}); }
+  else if (actx && !adPaused) actx.resume().catch(() => {});
+});
+window.addEventListener('resize', resize);
+
+// ---------- меню ----------
+function renderMenu() {
+  for (const b of $('diffSeg').children) b.classList.toggle('on', +b.dataset.d === diff);
+  const w = stats.wins;
+  $('stats').innerHTML = 'Побед над компьютером: <b>' + w[0] + '</b> на лёгком, <b>' + w[1] + '</b> на среднем, <b>' + w[2] + '</b> на сложном' +
+    (stats.pvp ? '<br>Матчей вдвоём: <b>' + stats.pvp + '</b>' : '');
+}
+$('diffSeg').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  diff = +b.dataset.d; settingsTouched = true; audio(); sfx.click(); renderMenu(); save();
+});
+$('cpuBtn').onclick = () => { audio(); startMatch('cpu'); };
+$('pvpBtn').onclick = () => { audio(); startMatch('2p'); };
+$('pauseBtn').onclick = () => { audio(); doPause(); };
+$('muteBtn').onclick = () => toggleMute();
+$('resumeBtn').onclick = () => doResume();
+$('restartBtn').onclick = () => { if (sdk) sdk.game.stop(); startMatch(); };
+$('toMenuBtn').onclick = () => { if (sdk) sdk.game.stop(); state = 'menu'; renderMenu(); show('menu'); };
+$('againBtn').onclick = async () => { if (adBusy) return; audio(); await breakAd(); startMatch(); };
+$('overMenuBtn').onclick = async () => { if (adBusy) return; await breakAd(); state = 'menu'; renderMenu(); show('menu'); };
+for (const b of document.querySelectorAll('.btn')) b.addEventListener('pointerdown', () => { audio(); });
+
+// ---------- отрисовка ----------
+function drawMallet(m, col) {
+  const c = ctx, [sx, sy] = sdir(4, 7), [hx, hy] = sdir(-9, -11);
+  c.fillStyle = 'rgba(10,20,60,.28)'; circle(c, m.x + sx, m.y + sy, MR + 1); c.fill();
+  const g = c.createRadialGradient(m.x + hx, m.y + hy, 3, m.x, m.y, MR);
+  g.addColorStop(0, col.light); g.addColorStop(0.45, col.main); g.addColorStop(1, col.dark);
+  circle(c, m.x, m.y, MR); c.fillStyle = g; c.fill();
+  c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 2.5; circle(c, m.x, m.y, MR * 0.7); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.35)'; c.lineWidth = 1.5; circle(c, m.x, m.y, MR - 1.5); c.stroke();
+  // ручка
+  c.fillStyle = 'rgba(0,0,0,.25)'; circle(c, m.x + sx * 0.4, m.y + sy * 0.4, MR * 0.44); c.fill();
+  const g2 = c.createRadialGradient(m.x + hx * 0.5, m.y + hy * 0.5, 1, m.x, m.y, MR * 0.42);
+  g2.addColorStop(0, '#fff'); g2.addColorStop(0.35, col.light); g2.addColorStop(1, col.main);
+  circle(c, m.x, m.y, MR * 0.42); c.fillStyle = g2; c.fill();
+}
+function drawPuck() {
+  const c = ctx, sp = Math.hypot(puck.vx, puck.vy);
+  if (trail.length > 1) {
+    const col = puck.last ? COL[puck.last].glow : 'rgba(40,50,90,';
+    for (let i = 0; i < trail.length; i++) {
+      const p = trail[i], a = (i + 1) / trail.length;
+      c.fillStyle = col + (a * 0.22).toFixed(3) + ')'; circle(c, p.x, p.y, PR * (0.45 + a * 0.5)); c.fill();
+    }
+  }
+  const [sx, sy] = sdir(3, 5), [hx, hy] = sdir(-6, -7);
+  c.fillStyle = 'rgba(10,20,60,.3)'; circle(c, puck.x + sx, puck.y + sy, PR + 1); c.fill();
+  if (sp > 900 && puck.last) { c.save(); c.shadowColor = COL[puck.last].main; c.shadowBlur = 16 * dpr * s; circle(c, puck.x, puck.y, PR); c.fillStyle = '#1b1f2e'; c.fill(); c.restore(); }
+  const g = c.createRadialGradient(puck.x + hx, puck.y + hy, 2, puck.x, puck.y, PR);
+  g.addColorStop(0, '#5a6283'); g.addColorStop(0.5, '#232839'); g.addColorStop(1, '#0d0f18');
+  circle(c, puck.x, puck.y, PR); c.fillStyle = g; c.fill();
+  c.strokeStyle = 'rgba(255,210,63,.85)'; c.lineWidth = 2.2; circle(c, puck.x, puck.y, PR * 0.62); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1.2; circle(c, puck.x, puck.y, PR - 1); c.stroke();
+}
+function txt(str, x, y, size, color, weight, rot, outline) {
+  ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot);
+  ctx.font = (weight || 800) + ' ' + size + 'px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (outline) { ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, size * 0.16); ctx.strokeStyle = outline; ctx.strokeText(str, 0, 0); }
+  ctx.fillStyle = color; ctx.fillText(str, 0, 0); ctx.restore();
+}
+function drawScores() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const size = Math.max(26, 66 * s), small = Math.max(10, 15 * s);
+  const n = mode === 'cpu' ? [null, 'Вы', 'Компьютер'] : [null, 'Красный', 'Синий'];
+  for (const who of [1, 2]) {
+    const sg = who === 1 ? 1 : -1;
+    const rot = !land && who === 2 && mode === '2p' ? Math.PI : 0;
+    const [x, y] = w2s(TW - 48, TH / 2 + sg * (land ? 72 : 60));
+    txt(String(score[who]), x, y, size, COL[who].glow + '.34)', 900, rot);
+    const [lx, ly] = land ? w2s(TW - 15, TH / 2 + sg * 72) : w2s(TW - 48, TH / 2 + sg * 104);
+    txt(n[who], lx, ly, small, COL[who].glow + '.7)', 800, rot);
+  }
+}
+function draw(dt) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  let shx = 0, shy = 0;
+  if (shake > 0) { const a = shake * 14 * dpr; shx = (Math.random() - 0.5) * a; shy = (Math.random() - 0.5) * a; }
+  ctx.drawImage(bg, shx, shy);
+  ox += shx / dpr; oy += shy / dpr;
+  worldTransform(ctx);
+  // пятна под воротами при голе
+  if (state === 'goal') {
+    const gy = scorer === 1 ? 0 : TH, col = COL[scorer];
+    const g = ctx.createRadialGradient(TW / 2, gy, 0, TW / 2, gy, 260);
+    g.addColorStop(0, col.glow + (0.45 * flash).toFixed(3) + ')'); g.addColorStop(1, col.glow + '0)');
+    ctx.save(); rr(ctx, 0, 0, TW, TH, 18); ctx.clip(); ctx.fillStyle = g; ctx.fillRect(0, 0, TW, TH); ctx.restore();
+  }
+  drawScores(); worldTransform(ctx);
+  if (!puck.hidden) drawPuck();
+  drawMallet(m2, COL[2]);
+  drawMallet(m1, COL[1]);
+  for (const p of parts) {
+    ctx.globalAlpha = Math.max(0, 1 - p.t / p.life); ctx.fillStyle = p.c;
+    circle(ctx, p.x, p.y, p.r); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ox -= shx / dpr; oy -= shy / dpr;
+
+  // надписи поверх
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = land ? ox + TH * s / 2 : ox + TW * s / 2, cy = oy + (land ? TW : TH) * s / 2;
+  const big = Math.max(46, Math.min(120, (land ? TW : TW) * s * 0.3));
+  if (state === 'goal') {
+    const t = 1.5 - timer, k = Math.min(1, t / 0.18), pop = 1 + 0.35 * Math.max(0, 1 - t / 0.25);
+    ctx.save(); ctx.globalAlpha = Math.min(1, timer / 0.25);
+    const rot = !land && mode === '2p' && scorer === 2 ? Math.PI : 0;
+    ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(k * pop, k * pop);
+    txt('ГОЛ!', 0, -big * 0.15, big, COL[scorer].main, 900, 0, '#fff');
+    const sub = mode === 'cpu' ? (scorer === 1 ? 'Вы забили' : 'Компьютер забил') : (scorer === 1 ? 'Забил красный' : 'Забил синий');
+    txt(sub, 0, big * 0.6, Math.max(15, big * 0.28), '#14204a', 800, 0, 'rgba(255,255,255,.9)');
+    ctx.restore();
+  } else if (state === 'serve') {
+    ctx.save(); ctx.globalAlpha = Math.min(1, timer / 0.3);
+    const label = score[1] + score[2] === 0 ? 'Игра до ' + WIN + ' голов' : 'Вбрасывание';
+    txt(label, cx, cy - big * 0.8, Math.max(16, big * 0.32), '#14204a', 800, 0, 'rgba(255,255,255,.9)');
+    ctx.restore();
+  }
+  if (flash > 0 && state === 'goal') {
+    ctx.fillStyle = COL[scorer].glow + (flash * 0.18).toFixed(3) + ')'; ctx.fillRect(0, 0, vw, vh);
+  }
+}
+
+// ---------- цикл ----------
+function update(dt) {
+  if (shake > 0) shake = Math.max(0, shake - dt);
+  if (flash > 0) flash = Math.max(0, flash - dt * 1.4);
+  for (const p of parts) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; }
+  parts = parts.filter(p => p.t < p.life);
+  if (state === 'menu') { // демонстрация на фоне меню
+    const t = performance.now() / 1000;
+    m1.tx = TW / 2 + Math.sin(t * 0.9) * 110; m1.ty = TH - 110 + Math.cos(t * 1.3) * 30;
+    m2.tx = TW / 2 + Math.sin(t * 0.8 + 2) * 110; m2.ty = 110 + Math.cos(t * 1.1) * 30;
+    for (const m of [m1, m2]) { m.x += (m.tx - m.x) * Math.min(1, dt * 3); m.y += (m.ty - m.y) * Math.min(1, dt * 3); }
+    puck.x = TW / 2 + Math.sin(t * 1.7) * 60; puck.y = TH / 2 + Math.sin(t * 1.2) * 80;
+    return;
+  }
+  if (state === 'pause' || state === 'over') return;
+  keyControl(dt);
+  if (state === 'serve') { timer -= dt; physics(dt); if (timer <= 0) state = 'play'; return; }
+  if (state === 'goal') {
+    timer -= dt; physics(dt);
+    if (timer <= 0) {
+      if (score[1] >= WIN || score[2] >= WIN) endMatch();
+      else { placePuck(scorer === 1 ? 2 : 1); state = 'serve'; timer = 0.7; }
+    }
+    return;
+  }
+  physics(dt);
+  if (state === 'play') {
+    trail.push({ x: puck.x, y: puck.y });
+    const sp = Math.hypot(puck.vx, puck.vy);
+    const maxT = sp > 500 ? 9 : sp > 250 ? 4 : 0;
+    while (trail.length > maxT) trail.shift();
+  }
+}
+let last = 0;
+function frame(t) {
+  const dt = last ? Math.min((t - last) / 1000, 0.04) : 0;
+  last = t;
+  if (!adPaused && dt > 0) update(dt);
+  draw(dt);
+  requestAnimationFrame(frame);
+}
+
+// для автоматических проверок
+window.__game = { get state() { return { state, mode, diff, score: score.slice(1), puck: { x: puck.x, y: puck.y, vx: puck.vx, vy: puck.vy }, m1: { x: m1.x, y: m1.y }, m2: { x: m2.x, y: m2.y }, land, stats, muted, geo: { s, ox, oy, TW, TH } }; } };
+
+renderMenu(); applyMute(); show('menu');
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

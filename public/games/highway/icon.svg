@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#ff5a2a"/></linearGradient>
+<linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4f5c"/><stop offset="1" stop-color="#2b2e37"/></linearGradient>
+<linearGradient id="body" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a77800"/><stop offset=".2" stop-color="#ffd21f"/><stop offset=".5" stop-color="#fff0a0"/><stop offset=".8" stop-color="#ffd21f"/><stop offset="1" stop-color="#a77800"/></linearGradient>
+<linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6b8bb0"/><stop offset=".5" stop-color="#1d2b40"/><stop offset="1" stop-color="#101824"/></linearGradient>
+</defs>
+<rect width="256" height="256" fill="url(#bg)"/>
+<rect x="40" y="0" width="176" height="256" fill="url(#road)"/>
+<rect x="30" y="0" width="10" height="256" fill="#fff"/><rect x="216" y="0" width="10" height="256" fill="#fff"/>
+<g fill="#e53935"><rect x="30" y="0" width="10" height="24"/><rect x="30" y="48" width="10" height="24"/><rect x="30" y="96" width="10" height="24"/><rect x="30" y="144" width="10" height="24"/><rect x="30" y="192" width="10" height="24"/><rect x="30" y="240" width="10" height="16"/>
+<rect x="216" y="24" width="10" height="24"/><rect x="216" y="72" width="10" height="24"/><rect x="216" y="120" width="10" height="24"/><rect x="216" y="168" width="10" height="24"/><rect x="216" y="216" width="10" height="24"/></g>
+<g fill="#fff" opacity=".85"><rect x="125" y="-10" width="6" height="34"/><rect x="125" y="230" width="6" height="34"/></g>
+<g transform="translate(128 130)">
+<rect x="-44" y="-84" width="88" height="180" rx="22" fill="#000" opacity=".35" transform="translate(8 10)"/>
+<rect x="-48" y="-56" width="16" height="34" rx="5" fill="#15171c"/><rect x="32" y="-56" width="16" height="34" rx="5" fill="#15171c"/>
+<rect x="-48" y="36" width="16" height="34" rx="5" fill="#15171c"/><rect x="32" y="36" width="16" height="34" rx="5" fill="#15171c"/>
+<path d="M-22 -92 L22 -92 C44 -92 44 -70 44 -48 L44 80 Q44 92 32 92 L-32 92 Q-44 92 -44 80 L-44 -48 C-44 -70 -44 -92 -22 -92Z" fill="url(#body)"/>
+<rect x="-9" y="-92" width="18" height="184" fill="#1d1d1d"/>
+<path d="M-36 -14 L36 -14 L29 8 L-29 8Z" fill="url(#glass)"/>
+<rect x="-29" y="8" width="58" height="26" rx="5" fill="#ffe35a"/><rect x="-9" y="8" width="18" height="26" fill="#1d1d1d"/>
+<path d="M-29 34 L29 34 L32 48 L-32 48Z" fill="url(#glass)"/>
+<rect x="-50" y="76" width="100" height="12" rx="4" fill="#8a6400"/>
+<rect x="-40" y="-90" width="16" height="7" rx="3" fill="#fffbe0"/><rect x="24" y="-90" width="16" height="7" rx="3" fill="#fffbe0"/>
+</g>
+</svg>

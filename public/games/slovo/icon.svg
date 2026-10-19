@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#145350"/><stop offset=".55" stop-color="#0d3438"/><stop offset="1" stop-color="#0a2430"/></linearGradient>
+<radialGradient id="gl" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#3fe08d" stop-opacity=".45"/><stop offset="1" stop-color="#3fe08d" stop-opacity="0"/></radialGradient>
+<linearGradient id="gc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5aec99"/><stop offset="1" stop-color="#13a055"/></linearGradient>
+<linearGradient id="gp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffdc6c"/><stop offset="1" stop-color="#f0a022"/></linearGradient>
+</defs>
+<rect width="256" height="256" fill="url(#bg)"/>
+<circle cx="128" cy="128" r="128" fill="url(#gl)"/>
+<g transform="rotate(-10 176 92)"><rect x="132" y="50" width="88" height="88" rx="16" fill="#000" opacity=".3" transform="translate(0 6)"/><rect x="132" y="50" width="88" height="88" rx="16" fill="url(#gp)"/><path d="M148 50h56a16 16 0 0 1 16 16v8h-88v-8a16 16 0 0 1 16-16z" fill="#fff" opacity=".22"/></g>
+<rect x="40" y="70" width="150" height="150" rx="28" fill="#000" opacity=".3" transform="translate(0 8)"/>
+<rect x="40" y="70" width="150" height="150" rx="28" fill="url(#gc)"/>
+<path d="M68 70h94a28 28 0 0 1 28 28v12H40V98a28 28 0 0 1 28-28z" fill="#fff" opacity=".2"/>
+<rect x="48" y="206" width="134" height="8" rx="4" fill="#000" opacity=".15"/>
+<text x="115" y="187" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="118" fill="#fff" stroke="#0a6a36" stroke-opacity=".35" stroke-width="3" paint-order="stroke">С</text>
+</svg>

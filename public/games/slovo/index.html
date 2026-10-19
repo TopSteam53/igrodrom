@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<!--
+  Слова для игры отобраны из списка Russian-Nouns (https://github.com/Harrix/Russian-Nouns),
+  распространяется по лицензии MIT. Copyright © 2018-present Sergienko Anton.
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+  documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+  the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright
+  notice and this permission notice shall be included in all copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Слово дня</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:radial-gradient(ellipse at 50% -20%,#22605b 0%,#133d40 45%,#0a2127 100%);color:#eafaf6;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;border:0;color:inherit;padding:0;background:none}
+#top{width:var(--tw);height:var(--hh);margin-top:var(--pad);display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none}
+.ib{height:100%;aspect-ratio:1;border-radius:12px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -3px 0 rgba(0,0,0,.25);transition:background .15s,transform .1s}
+.ib:hover{background:rgba(255,255,255,.14)}
+.ib:active{transform:translateY(2px)}
+.ib svg{width:52%;height:52%}
+#seg{height:100%;display:flex;background:rgba(0,0,0,.25);border-radius:999px;padding:4px;gap:2px;box-shadow:inset 0 2px 6px rgba(0,0,0,.3)}
+#seg button{border-radius:999px;padding:0 calc(var(--hh)*.32);font-weight:800;font-size:calc(var(--hh)*.33);color:#9cc9c2;white-space:nowrap;transition:color .2s,background .2s}
+#seg button.on{background:linear-gradient(135deg,#3fe08d,#14a7a0);color:#062b25;box-shadow:0 3px 10px rgba(30,220,150,.35),inset 0 -2px 0 rgba(0,0,0,.18)}
+#main{flex:1;display:flex;align-items:center;justify-content:center;gap:var(--gap2);width:100%;min-height:0}
+#main.land{flex-direction:row}
+#main.port{flex-direction:column;justify-content:space-between;padding:var(--pad) 0}
+#gridWrap{position:relative;flex:none}
+#main.port #gridWrap{flex:1;display:flex;align-items:center;justify-content:center;min-height:0}
+#grid{display:grid;grid-template-columns:repeat(5,var(--tile));grid-auto-rows:var(--tile);gap:var(--tg)}
+.t{position:relative;border-radius:calc(var(--tile)*.14);perspective:400px}
+.t .f{position:absolute;inset:0;border-radius:inherit;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:calc(var(--tile)*.52);text-transform:uppercase;background:rgba(255,255,255,.035);border:2px solid rgba(255,255,255,.13);transition:border-color .1s}
+.t.fill .f{border-color:rgba(190,255,240,.5);background:rgba(255,255,255,.08)}
+.t.pop .f{animation:pop .12s ease-out}
+@keyframes pop{50%{transform:scale(1.12)}}
+.t.c .f,.t.p .f,.t.a .f{border-color:transparent;box-shadow:inset 0 calc(var(--tile)*-.07) 0 rgba(0,0,0,.18)}
+.t.c .f{background:linear-gradient(160deg,#4fe58f,#17a85a);color:#fff;text-shadow:0 2px 0 rgba(0,70,30,.35)}
+.t.p .f{background:linear-gradient(160deg,#ffd866,#f2a524);color:#4a2a00}
+.t.a .f{background:linear-gradient(160deg,#4a5d66,#36474f);color:#c9d6db}
+.t.flip .f{animation:flip .5s ease-in-out}
+@keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+.t.win .f{animation:bounce .5s ease-out}
+@keyframes bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-35%)}70%{transform:translateY(6%)}}
+.row-shake{animation:shake .45s}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+#toast{position:fixed;left:50%;top:calc(var(--hh) + var(--pad)*3 + var(--tile)*.3);z-index:30;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:max-content;max-width:90vw}
+.msg{background:#f4fffb;color:#0b2a26;font-weight:800;font-size:15px;padding:10px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:tin .2s ease-out;text-align:center}
+.msg.out{opacity:0;transition:opacity .3s}
+@keyframes tin{from{transform:translateY(-8px);opacity:0}}
+#kb{position:relative;width:var(--kbw);display:flex;flex-direction:column;gap:var(--kg);flex:none}
+.kr{display:flex;justify-content:center;gap:var(--kg)}
+.k{width:var(--kw);height:var(--kh);border-radius:calc(var(--kw)*.18);background:linear-gradient(180deg,#5f8a8d,#4b7376);color:#fff;font-weight:800;font-size:calc(min(var(--kw)*.5,var(--kh)*.42));text-transform:uppercase;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22);transition:background .25s,transform .06s}
+.k:active,.k.down{transform:translateY(2px);box-shadow:inset 0 -1px 0 rgba(0,0,0,.22)}
+.k.w{width:calc(var(--kw)*1.5 + var(--kg)*.5);font-size:calc(min(var(--kw)*.34,var(--kh)*.3))}
+.k.w svg{width:55%;height:55%}
+.k.c{background:linear-gradient(180deg,#43dc85,#18a85a)}
+.k.p{background:linear-gradient(180deg,#ffd257,#efa223);color:#4a2a00}
+.k.a{background:linear-gradient(180deg,#34444b,#2a383e);color:#7f949b}
+#done{position:absolute;inset:-4px;border-radius:16px;background:rgba(8,30,34,.86);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:none;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--kh)*.22);text-align:center;z-index:3;animation:fade .3s}
+#done.show{display:flex}
+#doneT{font-weight:900;font-size:calc(var(--kh)*.44)}
+#doneS{font-size:calc(var(--kh)*.3);color:#a9d5cd;font-variant-numeric:tabular-nums}
+.btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bt{padding:0 20px;height:calc(max(40px,min(var(--kh)*.95,52px)));border-radius:999px;font-weight:800;font-size:16px;background:linear-gradient(135deg,#3fe08d,#14a7a0);color:#06302a;box-shadow:0 4px 0 #0b6f5e;transition:transform .08s,box-shadow .08s;white-space:nowrap}
+.bt:active{transform:translateY(3px);box-shadow:0 1px 0 #0b6f5e}
+.bt.alt{background:#2f5458;color:#e6fffa;box-shadow:0 4px 0 #173235}
+.bt.alt:active{box-shadow:0 1px 0 #173235}
+@keyframes fade{from{opacity:0}}
+#modal{position:fixed;inset:0;background:rgba(4,18,22,.72);display:none;align-items:center;justify-content:center;z-index:10;padding:12px;animation:fade .25s}
+#modal.show{display:flex}
+#card{position:relative;width:min(420px,100%);max-height:100%;overflow:auto;background:linear-gradient(170deg,#1d4f50,#123638);border-radius:20px;padding:20px 20px 18px;box-shadow:0 20px 60px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.08);animation:rise .3s cubic-bezier(.2,1.4,.4,1);touch-action:pan-y}
+@keyframes rise{from{transform:translateY(20px) scale(.96);opacity:0}}
+#card h2{margin:0 0 12px;font-size:22px;font-weight:900;text-align:center}
+#card p{margin:0 0 10px;font-size:15px;line-height:1.45;color:#cdebe5}
+#x{position:absolute;right:10px;top:10px;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center}
+#x svg{width:16px;height:16px}
+.ex{display:flex;gap:5px;margin:4px 0 6px}
+.ex .t{--tile:38px;width:38px;height:38px}
+.ex .t .f{font-size:20px}
+.word{text-align:center;margin:-4px 0 14px;font-size:15px;color:#a9d5cd}
+.word b{display:inline-block;margin-left:6px;padding:3px 10px;border-radius:8px;background:linear-gradient(135deg,#ffd866,#f2a524);color:#4a2a00;font-size:18px;letter-spacing:.12em;text-transform:uppercase}
+.nums{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;margin-bottom:14px}
+.nums b{display:block;font-size:28px;font-weight:900;line-height:1.1;font-variant-numeric:tabular-nums}
+.nums small{font-size:12px;color:#a9d5cd;line-height:1.2;display:block}
+.dist{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.dist h3{margin:0 0 4px;font-size:14px;color:#a9d5cd;font-weight:700}
+.dr{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px}
+.dr span{width:12px;text-align:right}
+.bar{height:22px;min-width:26px;border-radius:6px;background:#335e61;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;font-size:13px;transform-origin:left;animation:grow .5s ease-out backwards}
+.bar.hl{background:linear-gradient(90deg,#17a85a,#4fe58f)}
+@keyframes grow{from{transform:scaleX(0)}}
+.next{text-align:center;font-size:14px;color:#a9d5cd;margin-bottom:12px;font-variant-numeric:tabular-nums}
+.next b{color:#fff;font-size:18px}
+#shareTxt{width:100%;height:110px;margin-top:12px;border-radius:10px;border:2px solid #3fe08d;background:#0b2629;color:#eafaf6;padding:8px;font:14px/1.3 system-ui,sans-serif;resize:none;-webkit-user-select:text;user-select:text}
+.conf{position:fixed;width:9px;height:14px;border-radius:2px;z-index:20;pointer-events:none;animation:conf 1.4s ease-in forwards}
+@keyframes conf{to{transform:translate(var(--dx),var(--dy)) rotate(var(--r));opacity:0}}
+</style>
+</head>
+<body>
+<div id="top">
+  <button class="ib" id="helpBtn" title="Как играть" aria-label="Как играть"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 9a3 3 0 1 1 4.3 2.7c-.9.5-1.5 1.2-1.5 2.3v.5"/><circle cx="12" cy="18.6" r=".6" fill="#fff"/></svg></button>
+  <div id="seg"><button id="mDaily" class="on">Слово дня</button><button id="mFree">Ещё слово</button></div>
+  <button class="ib" id="statsBtn" title="Статистика" aria-label="Статистика"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg></button>
+</div>
+<div id="main">
+  <div id="gridWrap"><div id="grid"></div><div id="toast"></div></div>
+  <div id="kb">
+    <div id="done"><div id="doneT"></div><div id="doneS"></div><div class="btns"><button class="bt alt" id="doneStats">Результат</button><button class="bt" id="doneNext">Ещё слово</button></div></div>
+  </div>
+</div>
+<div id="modal"><div id="card"></div></div>
+<script src="../../sdk/v1.js"></script>
+<script>
+(function(){
+'use strict';
+// Ответы — частые существительные; EXTRA — остальные допустимые слова для попыток.
+var ANSWERS='сачок голос песец порыв озеро колба искра кубок закат пудра грань пирог поэма хорек маляр шпион визит кукла гений шапка терем пучок парик рамка право чашка кадка жених огонь клерк факир цифра кокон шайба рельс астра жердь смысл рубка табун вишня канал акула лодка амбар центр зубец школа норма нация голод учеба сироп туман весна взлет ванна дождь лотос комод шпага дрозд пепел спина столб удача мэрия метро повод сабля глыба плита отряд афиша мечта штора атака атлас мираж фагот завод обрыв аллея парта бочка кефир невод лоток повар слюна пчела чирок сосед кочан гость труба манка сонет блеск пачка конек стопа порох егерь оазис блюдо лампа масло рояль битва суфле сквер лужок табло покой хвост флора сосна лапша фронт сфера радар нитка седло тайга дятел крона горка кость показ жесть судья драма ладья лапка ствол опора мотив минус камыш тулуп автор живот смерч гамак песок экран волна копье стадо сезон изгиб осина марля трава дымка метла хутор вафля полет волос азарт миска схема сумка штиль щетка бисер вечер обувь бетон ложка тираж дрель палка земля белка облик штамп бутон налог жираф пульс пьеса кросс серия радио стенд племя кисть тепло шорох чудак весть опрос страж вожак комар пушка уксус стиль знамя губка камин стриж принц мысль банка фикус сарай олень кошка навык север арбуз пицца зебра слеза пожар ветер баржа табак рулон полка какао батон спица панда купон пешка обзор дебют ребус обмен звено слава птица цапля ларец койка катер лимон зефир среда пират котел талия проза гараж обруч песня газон почта хорда салон нерпа тумба доска сеанс башня мишка линза орган шуруп шахта мотор скала класс шатер лидер декор конец отвар нефть халва сетка идеал улица тропа щенок пасть салют кулак лопух форум верба багаж посох шашка дверь ножик линия чижик пушок треск гонка район парад марка скрип адрес ангел вахта ручей редис сотня маска фишка химия чабан виток кулон холод рысак мешок порог отзыв свеча каюта театр кобра вывод сапог шарик булка мороз пятно дудка лента парус слива папка пауза взрыв борец карта фокус насос осень рыбка мелок жажда тайна укроп тыква эпоха овраг рожок сокол тариф агент норка хобот герой запах носок число гуашь скунс касса щепка якорь смена напор сапер тапир петух веник жатва конус шланг уступ пиала замок будка сцена локон грудь народ клоун лилия финик олово туфля лавка кегля смола сумма тюбик эскиз склад щегол русло сахар глина ласка банан баран мачта вагон котик тачка город шутка лунка валун букет чехол ферзь крыло пункт успех кокос струя купол опера отдых говор мячик судно буфет базар скука выход блоха запас бугор пакет шторм манеж ягуар орден шмель сдача штурм заряд хруст дуэль сауна закон сенат магия семья хомяк фасад хурма окунь перец вуаль робот халат титул чайка бухта жилет короб старт плата пурга крест наряд салат глава балет волан тоска донор вальс горох весло сушка палец армия бокал отказ масса пенал шпиль домик вихрь самбо ролик кепка выбор омлет рулет арена склон топор ребро шпала запад каток зерно хобби мусор отель сталь гроза свист ягода книга гусар сосуд эклер колос кухня штраф приют мышка рубин финиш крыша музей мумия билет девиз рынок моряк сыщик фазан ранец уголь рубль кофта спуск игрок молот текст залив вирус инжир налим тесто паста устав поток корка бычок образ зверь тубус кабан крупа поезд бобер питон груша бровь фраза океан роман выдра фляга жилье ковер точка плато стена вилка страх вождь печка ворон охота рыбак спорт дочка чутье комок майка козел танец калач венок кулич ферма дупло капот мойка абзац полюс ветка обход капля пилот форма круиз осетр бедро кусок режим плечо загар товар слово толпа пламя забор жетон дымок пенка фрукт сырок ярлык лемур алмаз манго лучик буква фильм юноша каноэ шалаш ручка кубик индюк купец'.split(' ');
+var EXTRA='абака аббат абвер аборт абрек абрис абхаз абцуг абшид аванс авгит авгур авеню авизо авось аврал автол агава агама агами агнат агнец аграф адепт адряс ажгон азиат айван аймак айран айсор акажу акант акрил аксон актер актив акциз акция аларм алеут алиби аллюр алтей алтын алчба алыча альфа амбра амбре амвон амеба аминь ампер ампир ангар анион анкер анонс антик антре анчар аншеф аорта апорт апрош аргон аргус ареал арека арест ариец аркан армяк архар архив аршин аскер аскет аспид астат астма асцит атлет атолл аттик афера ацтек аэроб аэрон бабка бабье багги багет багор бадан бадья базис байга байда байка бакан бакен бакун балда балка балок балык банда барак бареж барий барин барит барич барка бармы барон барыш баска басма баснь басня басок басон батат батог батут батыр бахта бахча бачок башка бегун безик бейка бекар бекас бекон белек белец белок белье беляк беляш бердо берег берет бивак бидон бизон билль бином биржа бирка бирюк бирюч биток битум битье битюг благо блажь бланк блато близь блинт блуза бляха бобик бобок богач бодяк божба божок бойня болид бомба бонза бонмо бонна бордо борей боров борок борть босяк ботва ботик бочаг бочар бочок браво брага брада брань брасс бремя брешь бридж брика бриль бритт бронх броня брошь брыжи брыла брюки брюхо бубен бубна бубон бугай будра будяк букан букле букля букса булат булга булла бурав бурак буран бурат бурда бурка бурса бурун бурят бутан бутса бутуз буфер былка былье бытие бытье бювар бювет бюкса вабик вазон вакса валах валеж валек валер валет валец валик валка валок валуй валух ванта варан варка варок варяг ватин ватка вдова ведро ведун вежда векша велюр венгр венец вепрь вервь веред верес верея верки верфь верша весок ветвь ветла вешка вещун взбег взвар взвод вздор вздох взлом взмах взмет взмыв взнос взрез взрыд взыск видео видик видок визаж визир вилла вилок винцо виола вираж вирша виски висок вития витье вихор вклад влага власы внука вобла вогул вожжа возик возка возня возок война вокал волок волхв вольт вопль ворог ворот ворох ворье вотум вотяк вошка вояка впуск враки враль врата время вруша вспых всход втора въезд выбой вывал вывес вывих вывоз выгар выгиб выгон выгул выдел выдох выдув выезд выжиг выжим вызов выкат выкол выкос выкуп выкус вылаз вылет вылов вылом вымах вымор вынос выпад выпал выпар выпас выпор выпот вырез выруб высев вытье вычет вышка вьюга вязка вязок вятич вятка гавот гагат газик газок гайка галка галоп галун гамма ганец ганза ганка гарда гарем гарус гаусс гвалт гейша гелий гемма герма гетра гетто гжель гибка гидра гиена гиляк гинея гипюр гирло гитан гитов гичка главк гладь глист глубь глушь глясе гнейс гниль гнома гнусь гобой гогот годик годок голец голик голыш гольд голье гольф голяк гомон гонец гонор гопак горец горло горно горюн гофре граве грамм гранд графа гребь греза грена греча грива гридь гриль грипп грозд гросс груда грунт грыжа гряда грязь гуано губан гугня гудок гужик гузка гузно гуляш гумма гумми гумно гумус гуран гурда гурия гусак гусек гусит гусли гуцул гюрза давка дадан дамба дамка дачка дебет дебит дебош дебри девон дедка дедок дежка деизм деист декан дележ делец демон демос денди денек дерби дерен дерма дерть десна десть детва детка дефис джига джинн дзета дзюдо диван диета динар динго дичок длань длина днище добор довод догма дожим дозор дойка дойна дойра докер домек домен домер домна домра донец донка донна донос донце донья дорка досев досол досуг досыл досье дофин доход дошка драга драже драка дрань древо дрейф дрема дрена дробь дрова дрога дрожь дрофа друза друид дрянь дубец дубка дубль дубок дубье дувал дудак дудук дужка дукат думец думка дунец дунит дунст дурка дурра дурро дутар дутик дутыш дутье духан душка душок дщерь дылда дырка дышло дюбек дюкер дюшес евнух еврей егоза ежиха ездка ездок елина ересь ерник ершик есаул ехида жакан жакет жакоб жамка жарка жарок жатка жевок желна желоб желть желчь женка жеода жерех жерло живец живье жизнь жилец жилка жинка жирок житие житье жменя жнива жниво жница жокей жрица жулан жулик жулье жупан жупел журка жучка жучок забег забой завал завет завоз завуч загиб загон загул задел задик задок задор заеда заезд зажим зажин зажор зазор зазыв заика зайка заказ закал закол закуп закут залет зализ залог залом замах замер замес замет замор замша занос запал запев запой запон запор зарез зарод зарок засев засов засол засос засыл затек затес затея заток затон затор заумь заход зацеп зачес зачет зачин защип звень зевок зелье зельц земец зенит зенки зернь зипун злато злоба злюка знать зобик золка зомби зраза зубик зубок зулус зурна зыбка зыбун зятек зятик иваси ивина ивняк иврит игиль игрек игрун идиом иерей ижица избач извет извив извод извоз изгой излет излом измол измор износ изъян изыск изюбр икона икота илька ильма имидж инвар ингуш индий индус инока интим инула иприт ирбис ирмос искус ислам испод испуг иссоп истец истод исток исход иудей ишиас кабак кабил кавун кагал каган кагат кагор кадет кадий кадык казак казан казах казна казнь казус кайен кайла кайло кайма кайра калан калий калиф калла калым камас камея камка камса камус камча канат канва канон канун канюк капер капок капор каппа карат карга карда карел кариб карст каска каста катар катет катод катыш качка кашка кашне кашпо кащей квант кварк кварц квота кегль кекур кельт келья кенар кенаф кивер кивок кизил кизяк кинза киник киоск кипер кирза кирка кирха кисет кисея киска киста кифоз кичка кишка кладь клака клект клест клеть клика клико клипс клише клуня клупп клуша клюка кляча кнель кнехт кникс кница князь коала кобза кобыз ковач ковка кожан кожух кожье кознь козон койне койот кокет кокор колер колет колея колик колит колка колли колоб колок колон колун колча колье кольт комик комми коник конка конюх копал копач копер копир копия копка копна копра копун копыл корда кореш корча корчь корье коряк косач косец космы косок косье косяк коток кофей кофий кочет кочка кошма кощей крага кража краля крапп краса кредо креол крепь кресс криль крица кроат кровь кроки кроль кроха кроше круть круча кручь крыса кубло кудлы кудри кузен кузня кузов кукан кукиш кукша кулан кулек кулеш кулик культ кумач кумжа кумир кумык кумыс кунак купаж купля кураж курай курец курия курка курок курья кутас кутеж куток кутум кутья кухва кухта кучер кучка кушак кхмер кювет кюрий кюрин лабаз лабет лаваш лавра лагун ладан лазер лазея лазка лазок лайба лайда лайка лакей ламут ландо ланды ланка лапта ларго ларек лассо латка латук латыш лафет лафит лачка лбина лбище левак левит левша легат ледок лежак лежка лейка лемеш лемма ленок ленто ленца лепет лепка лепра лепта лерка леска лесок лесть летка леток летун лешак леший лещик лиана ливер лизин лизис лизол лизун ликер лилея лиман лимит лимфа линек липец липка липси лирик лиска литер литий лития литка литье лихач лихва лицей лишай лишек лобан лобби лобик лобок ловец ловля логик ложок ломик ломка лонжа лоция лошак лубок лузга лунит лупка лучок лыжня лысун лытка лычко льяло любка люнет люпин люпус люрик лютик лютня люффа лючок лягва ляжка лямка ляпис лярва ляссе ляшка магик магма мадам маета мажор мазар мазер мазик мазка мазло мазня мазок мазур мазут майна майор макао макет макси малек малец малка малый малыш малье маман мамба мамбо мамка манер мание мания манко манна манок манси манто манул маори марал маран масон масть матка матюг матюк мафия махан махра медик медок медяк мезга мезон мекка мелос менка мерин мерка месса место месть месье месяц метан метил метис метка метод метол меццо мигач мидия мизер микст милка милок мильт мимик минер минор миома мираб мирза мирок мирон мирра мирта митоз митра мишук млеко могар могол модий модус мойва мокко мокой мокша молва молвь молка молох молян моляр монах мопед морда морок морцо мосол мосье мотет мотка мотня моток мотто мохер мохна мохны мочка мошка мошна муаре мужик музга мулла муляж мумие мураш мурза мурин мурья мутон муфта муфти муцин мучка мушар мушка мысик мысок мытье мычка мышей мышца мюзет мюрид мякиш мялка мямля мянда мясцо мятеж мятье набат набег набоб набор навал навар навес навет навис навоз навой наган нагар нагиб нагон нагул надел надир надой надув наезд нажиг нажим нажин назем наказ накал накат накол накра налеп налет налив налой намаз намек намет намин намол намыв нанду нанка нанос напев напой нарез нарта нарыв насад насып натек натес натяг наука нафта нахал наход начес начет начин наяда невер негус недра недуг немец немка ненец ненка нерка нетяг нечет нивка низка низок нилот нимфа ничья новик ножка ножны нойон нолик номад номер нонет нория норов носач носик носка нотис нотка ночка нудга нужда нукер нулик нутро нырец нырок нытик нытье нюанс обвал обвес обвод обвоз обгон обдел обдир обдув обжиг обжим обжин обжог обида обкат обком обкос облет облов облог облом обман обмер обмет обмин обмол обмыв обнос ободь обрат обрез оброк обруб обряд обсев обуза обчет объем обыск овсец овсюг овчар огрех одежа одурь ожина озимь озноб ойрот окись окиян оклад оклик окоем окрас окрик окрол округ октет олеин олеум олива олимп олифа ольха омега омела омуль онагр оникс онуча опала опара опека опись оплот оплыв опоек опока оптик орава орала орало орарь оргия ордер ореол оржад оркан орлан орлец орлик орляк оршад осада оскал ослик осляк осман осмий осмол осмос особа особь осоед осока остит остов остюк остяк осыпь отава отара отбив отбой отбор отвал отвес ответ отвод отвоз отгиб отгон отгул отдел отдух отжиг отжим отзол откат откол откос откуп откус отлет отлив отлов отлог отлуп отмах отмол относ отпад отпал отпор отрез отрог отрок отруб отрыв отсев отсек отток отход отцеп отчал отчет отчим отъем офеня офорт офсет охват очерк ошеек ошкуй ощупь падеж падог падуб падун пайва пайза пайка пакля палас палач палаш палех палея палия палуб пампа панаш панер панна панно панты панье панья папах папеж параф парез пария парка парок паром парун парча парша пасма пасмо пасха пасюк патан патер патио патлы патуа пафос пахви пахвы пахит пахта пацан пашня паяло певец певун пегаш пекан пекло пемза пенек пение пенни пенье пепси перга перка перло перст перье песик песнь петит петля пешец пешня пещер пещур пиано пивко пигус пижма пижон пиита пикан пикап пикер пикет пикон пикша пилав пилка пилон пиния пинна пинок пинта пипка пирит пирке пирок пироп писец питок питье пифос пихта пищик плавь пласт плаун плаха плебс плева плеер плена плеск плесо плеть плешь плица плоть плюха пнище побег побои повал повет повой погон подий подог подой подол поедь пожня пожог позем позер позор позыв позык поиск пойка пойма покат покер покос покус полба полив полип полис полог полоз полой полок полом полон поляк поляш помет помин помои помол помор помпа понос пончо понюх попас попик попса порез порей порка порок порто поруб порча посад посев посол посул посыл поташ потек потир потоп потяг поход почва почет почин почка пошиб пошив праща прель пресс прием прима приор причт проба проем пропс просо проух профи прусс прыск прыть прядь пряжа пряха псарь псина псица псише птаха пуант пугач пудик пузан пукля пульт пунец пупок пурин пурка путец путик пуфик пучка пшено пыжик пырей пытка пышка пьеза пялка пясть пятак пятка пяток раджа радий радон разик разок разор разум раина ракия ракша рампа ранет ранка растр ратай ратин раунд рафия рахит рацея рация рачок рвань рвота рдест ребаб ревун регби редан редут резак резец резка резня резон рейка ремез ремиз ренет рений рента репей репер репка репье речка решка ржавь ржица ржище ризки рикша ринит рипус риска ритор рифма ришта ровик ровня рогач рогоз родий родич родня рожак рожон розан розга рознь ройба ройка рокер рокот ромец ромок ромша рондо ронжа ропак ропот ростр ротик роток ротор рохля ртище ртуть рубеж рубец ругня рудяк ружье руина рукав румба румын рупия рупор русак русин рутил рыбец рывок рыжак рыжик рында рысца рытье рычаг рэкет рюмка рюшка рябец рябик рябок рядно рядок ряска рясна саами сабан сабеи сабей сабза сабур саван сагиб садик садно садок сазан сайга сайда сайка сайра саква сакля салма салол салоп саман самба самец самка самум санки сапка сапун саржа сарыч сатин сатир сбора сброд сброс сбруя свара сваха свиль свита свора свояк связа связь сглаз сдвиг сдоба севба севок седок сеево сезам сейид сейша секач секта селен семга семит сенцо сенцы сепия серка серко серна серсо серум сеунч сечка сиаль сивер сивка сивко сивуч сигма сидор сиена сижок сизяк силач силка силок силон силос силур сильф симка синап синец синод синус синяк сипай сирин систр ситар ситец ситро ситце сифон скало скань скарб скарн скаут скачь скейт скена скепт скетч скирд склеп склиз скоба скопа скора скорм скотч скрап скреп скуди скудо скула слайд слань слега сленг слизь слуга слуда слука слюда смазь смерд смесь смета смоль смотр смрад смута смуть снедь сноха сныть собор совет совик совка совок согды согра созыв сойка сойма сойот солея солка солод соляр сомик сомье сопка сопло сопля сопун сорго сорит сорок сором сорус сосец соска сосок сосун сотка софит сохач сошка спазм спесь спирт сплав сплин спора спрей спрос спрут спурт ссора ссуда станс старь створ стега стезя стека стела стень степс степь стило стоик столп стояк страз строй строп струг струп стужа ступь стыдь стынь суаре судак судок суета сукно сулея сулой супер супец супин суржа сурик сурна сурок сусак сусек сусло сутаж сутки сучок схима съезд сынок сыпец сырец сырть сырца сырье сычуг сюжет сюита сябер сяжок табор тавот тавро таган тазик такса такси такыр талер талес талик талон талыш тальк тамга танго танин танок тапер тапка таран тарын таска татка тафта тафья тахта тацет ташка твист тезис тезка теизм теист телец телик телок тембр темка тенек тенор терка термы терно тесак теска тесло тесть тетка теург течка тешка тиара тигра тимол типаж типец типик типун тиран тиски титан титло тифон тифус ткань тлень тодес тойон токай толай толща томан томат томик тондо тоник тонна тонус топаз топик топка топот торба торец торий торит торос тотем тохар тракт транс транш трапп трасс трата траур треба трель трест треть треух трефа триас триба триер трико триод тромб тромп труха трюмо туаль тугай тугун тузик тукан тулес тулий тулук тулун тулья тумак тунец тупей тупец тупик турач турка турне турок тутор тутти тучка тушка тщета тынок тырло тырса тычок тюник тюрбе тюрбо тюрик тютюн тюфяк тючок тябло тягач тягло тяжба тяпка уазик уброд убрус убыль увраж угода угорь угрев удаль удерж удило удэге удэхе узбек узина узник уйгур уклад уклея уклон укрюк улика улита улыба умбра умище умник умора униат уника унион унтер унция упрек упырь ураза урема урина урман усина усище ускок устой устье утеря утеха утиль утица ухарь ухват ухожь ушица ушкан ушкуй ушник ущерб фабра фавор фавус фадом фазис факел фалда фальц фанат фарад фарси фасет фаска фасон фатум фатюй фауна фация фаянс фелон фенол феска фетиш фетюк фиакр фибра фижмы физик физия филей филер филин фильц финал финка фиорд фирма фитин фланг фланк флейт флейц флешь флинт флирт флокс флюид фобия фолио фомка форте фоска фотон фофан франк франт фрахт фреза френч фугас фужер фузея фукус фуляр фураж фурия фурма фурор футер футор фуэте фьорд хабар хаджи хадис хазар хакас хакер халда халиф хамит хамка хамса хамье ханжа ханша хапун харчо хасид хатка хашиш хвала хворь хедер хедив херес херик хиазм хиляк химик хинди хинду хинин хиппи хитин хитон хлест хлупь хлыст хлюст хлябь хмара хмарь хмель хмурь ходок ходун холка холоп холст холуй хомут хорал хорей хорея хохма хохот хряпа хряск хряст хунта хурал цадик цанга цапка цапун цапфа царек цацка цевка цевье цедра цезий целик цехин цикля цинга циник циста цитра цокот цукат цуцик цыбик цыган цыпка чабер чадра чакан чалка чалма чарка часик часок часть чебак чебот чекан челка чемер чепан чепец черва червь черед черен череп чернь черта ческа честь четка чечен чечет чешка чешуя чибис чилим чинар чирей чирик чирус чиряк читка чомга чрево чреда чтиво чтица чубик чубук чувал чуваш чувяк чугун чудик чужак чуйка чулан чулок чумак чурек чушка шабат шабер шабли шабот шабур шавка шажок шайка шакал шалон шалун шаман шамот шанец шанкр шасла шассе шасси шатен шатия шатун шафер шванк шверт шевро шейка шелеп шелом шельф шемая шепот шериф шибер шиизм шимми шинок шипок шипун ширма шитво шитик шитье шифер шифон шихта шишак шишка шкала шквал шкерт шкода шкура шлейф шлица шляпа шмоль шнапс шнека шнява шняка шорня шоссе шофер шпана шпора шприц шпрот шпуля шпунт шпынь шримс шрифт штамб штамм штаны штейн штифт штосс штраб штрек штрих штука штыка штырь шубка шугай шуйца шулер шумок шурин шурпа шуряк шушун шхуна щебет щекот щелка щелок щепье щерба щечка щипец щипка щипок щитик щиток щупик щурка щучка эвенк эгида эгрет эдикт экзот элита эллин эмаль эммер энзим эолит эпика эпонж эрзац эркер эспри эстет этика этнос эфиоп эшарп югрич югурт юдоль юзист юкола юниор юница юнкер юнкор юннат юрага юрист юферс ябеда ягель яичко яишня ямина ямища ямщик ярица яруга ярыга ясень яспис яство ястык ясырь ятовь яхонт'.split(' ');
+var ALLOWED=new Set(ANSWERS.concat(EXTRA));
+var ROWS=6,LEN=5,root=document.documentElement;
+var gridEl=document.getElementById('grid'),kbEl=document.getElementById('kb'),mainEl=document.getElementById('main');
+var toastEl=document.getElementById('toast'),modal=document.getElementById('modal'),card=document.getElementById('card');
+var doneEl=document.getElementById('done'),doneT=document.getElementById('doneT'),doneS=document.getElementById('doneS');
+var tiles=[],keys={};
+
+// ---------- данные ----------
+function emptyStats(){return {played:0,wins:0,streak:0,maxStreak:0,dist:[0,0,0,0,0,0],last:0}}
+var st={mode:'daily',daily:null,free:null,stats:emptyStats(),recent:[],help:false};
+var cur='',busy=false,paused=false,touched=false,sdk=null;
+
+function pad2(n){return (n<10?'0':'')+n}
+function todayKey(){var d=new Date();return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate())}
+function dayNum(key){var p=key.split('-');return Math.round((Date.UTC(+p[0],+p[1]-1,+p[2])-Date.UTC(2026,0,1))/864e5)}
+function dailyWord(key){var n=ANSWERS.length,i=((dayNum(key)*7)%n+n)%n;return ANSWERS[i]}
+function fmtDate(key){var p=key.split('-');return p[2]+'.'+p[1]+'.'+p[0]}
+function newDaily(){var k=todayKey();return {date:k,answer:dailyWord(k),guesses:[],done:false,won:false}}
+function newFree(){
+  var daily=dailyWord(todayKey()),w,tries=0;
+  do{w=ANSWERS[Math.random()*ANSWERS.length|0];tries++}while((w===daily||st.recent.indexOf(w)>=0)&&tries<200);
+  st.recent.push(w);if(st.recent.length>120)st.recent.splice(0,st.recent.length-120);
+  return {answer:w,guesses:[],done:false,won:false};
+}
+function game(){return st[st.mode]}
+
+function save(){
+  if(!sdk)return;
+  sdk.data.set({v:1,mode:st.mode,daily:st.daily,free:st.free,stats:st.stats,recent:st.recent,help:st.help,cur:cur}).catch(function(){});
+}
+function num(v,max){return typeof v==='number'&&isFinite(v)&&v>=0?Math.min(Math.floor(v),max||1e9):0}
+function validGame(g,needAnswer){
+  if(!g||typeof g!=='object'||typeof g.answer!=='string'||!Array.isArray(g.guesses)||g.guesses.length>ROWS)return null;
+  if(needAnswer&&ANSWERS.indexOf(g.answer)<0)return null;
+  for(var i=0;i<g.guesses.length;i++)if(typeof g.guesses[i]!=='string'||!/^[а-я]{5}$/.test(g.guesses[i]))return null;
+  var last=g.guesses[g.guesses.length-1],won=last===g.answer,done=won||g.guesses.length===ROWS;
+  return {answer:g.answer,guesses:g.guesses.slice(),done:done,won:won,date:g.date};
+}
+function applySave(d){
+  if(!d||typeof d!=='object'||d.v!==1)return false;
+  var s=d.stats;
+  if(s&&typeof s==='object'){
+    var ns=emptyStats();
+    ns.played=num(s.played);ns.wins=Math.min(num(s.wins),ns.played);ns.streak=num(s.streak);ns.maxStreak=Math.max(num(s.maxStreak),ns.streak);ns.last=num(s.last,6);
+    if(Array.isArray(s.dist)&&s.dist.length===6)ns.dist=s.dist.map(function(x){return num(x)});
+    st.stats=ns;
+  }
+  if(Array.isArray(d.recent))st.recent=d.recent.filter(function(w){return typeof w==='string'}).slice(-120);
+  st.help=d.help===true;
+  if(touched)return true;
+  var dl=validGame(d.daily,false);
+  if(dl&&dl.date===todayKey()&&dl.answer===dailyWord(dl.date))st.daily=dl;
+  var fr=validGame(d.free,true);
+  if(fr)st.free=fr;
+  st.mode=d.mode==='free'&&st.free?'free':'daily';
+  if(!st.daily)st.daily=newDaily();
+  cur=typeof d.cur==='string'&&/^[а-я]{0,5}$/.test(d.cur)&&!game().done?d.cur:'';
+  return true;
+}
+
+// ---------- проверка слова ----------
+function evaluate(g,a){
+  var res=['a','a','a','a','a','a'].slice(0,LEN),left={},i;
+  for(i=0;i<LEN;i++){if(g[i]===a[i])res[i]='c';else left[a[i]]=(left[a[i]]||0)+1}
+  for(i=0;i<LEN;i++){if(res[i]!=='c'&&left[g[i]]>0){res[i]='p';left[g[i]]--}}
+  return res;
+}
+
+// ---------- раскладка ----------
+var KB_ROWS=['йцукенгшщзхъ','фывапролджэ','>ячсмитьбю<'];
+function layout(){
+  var W=window.innerWidth,H=window.innerHeight;
+  var pad=W<380||H<420?6:10;
+  var hh=Math.round(Math.max(34,Math.min(50,H*.065)));
+  var land=W>H*1.3&&H<640;
+  var tg,tile,kbw,kg,kw,kh,gap2;
+  var avH=H-hh-pad*3;
+  if(land){
+    tg=Math.max(4,Math.round(avH*.012));
+    tile=Math.floor(Math.min((avH-5*tg)/6,70));
+    var gw=tile*5+tg*4;
+    gap2=Math.max(14,Math.round(W*.03));
+    kbw=Math.min(W-gw-gap2-pad*2,620);
+    kg=Math.max(3,Math.round(kbw*.011));
+    kw=(kbw-11*kg)/12;
+    kh=Math.min(kw*1.4,(avH-2*kg)/3*.72,60);
+  }else{
+    kbw=Math.min(W-pad*2,600);
+    kg=Math.max(3,Math.round(kbw*.011));
+    kw=(kbw-11*kg)/12;
+    kh=Math.max(34,Math.min(kw*1.45,H*.078,62));
+    var kbH=kh*3+kg*2;
+    gap2=pad;
+    tg=Math.max(4,Math.round(Math.min(W,H)*.012));
+    tile=Math.floor(Math.min((avH-kbH-gap2*2-5*tg)/6,(W-pad*2-4*tg)/5,70));
+  }
+  tile=Math.max(26,tile);
+  mainEl.className=land?'land':'port';
+  var gw2=tile*5+tg*4,tw=Math.min(W-pad*2,land?gw2+gap2+kbw:Math.max(kbw,gw2));
+  var r=root.style;
+  r.setProperty('--pad',pad+'px');r.setProperty('--hh',hh+'px');r.setProperty('--tw',tw+'px');
+  r.setProperty('--tile',tile+'px');r.setProperty('--tg',tg+'px');r.setProperty('--gap2',gap2+'px');
+  r.setProperty('--kbw',kbw+'px');r.setProperty('--kg',kg+'px');r.setProperty('--kw',kw+'px');r.setProperty('--kh',kh+'px');
+}
+
+function build(){
+  for(var i=0;i<ROWS*LEN;i++){
+    var t=document.createElement('div');t.className='t';t.appendChild(document.createElement('div')).className='f';
+    gridEl.appendChild(t);tiles.push(t);
+  }
+  KB_ROWS.forEach(function(row){
+    var r=document.createElement('div');r.className='kr';
+    row.split('').forEach(function(ch){
+      var b=document.createElement('button');b.className='k';b.tabIndex=-1;
+      if(ch==='>'){b.className='k w';b.textContent='Ввод';b.dataset.k='enter';b.setAttribute('aria-label','Проверить слово')}
+      else if(ch==='<'){b.className='k w';b.dataset.k='back';b.setAttribute('aria-label','Стереть букву');
+        b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5m0-5l-5 5"/></svg>'}
+      else{b.textContent=ch;b.dataset.k=ch;keys[ch]=b}
+      r.appendChild(b);
+    });
+    kbEl.appendChild(r);
+  });
+  kbEl.addEventListener('mousedown',function(e){e.preventDefault()});
+  kbEl.addEventListener('click',function(e){
+    var b=e.target.closest('.k');if(!b)return;
+    var k=b.dataset.k;
+    if(k==='enter')submit();else if(k==='back')back();else type(k);
+  });
+}
+
+// ---------- отрисовка ----------
+function tileAt(r,c){return tiles[r*LEN+c]}
+function setTile(t,ch,cls){t.className='t'+(ch?' fill':'')+(cls?' '+cls:'');t.firstChild.textContent=ch||''}
+function renderBoard(){
+  var g=game();
+  for(var r=0;r<ROWS;r++){
+    var w=g.guesses[r],ev=w?evaluate(w,g.answer):null;
+    for(var c=0;c<LEN;c++){
+      if(w)setTile(tileAt(r,c),w[c],ev[c]);
+      else if(r===g.guesses.length)setTile(tileAt(r,c),cur[c]||'');
+      else setTile(tileAt(r,c),'');
+    }
+  }
+  renderKeys();renderDone();renderSeg();
+}
+function renderKeys(){
+  var g=game(),best={},rank={a:1,p:2,c:3};
+  g.guesses.forEach(function(w){var ev=evaluate(w,g.answer);for(var i=0;i<LEN;i++){var s=ev[i];if(!best[w[i]]||rank[s]>rank[best[w[i]]])best[w[i]]=s}});
+  for(var ch in keys)keys[ch].className='k'+(best[ch]?' '+best[ch]:'');
+}
+function renderSeg(){
+  document.getElementById('mDaily').classList.toggle('on',st.mode==='daily');
+  document.getElementById('mFree').classList.toggle('on',st.mode==='free');
+}
+var tick=null;
+function untilMidnight(){
+  var n=new Date(),m=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1),s=Math.max(0,Math.floor((m-n)/1000));
+  return pad2(s/3600|0)+':'+pad2((s%3600)/60|0)+':'+pad2(s%60);
+}
+function renderDone(){
+  var g=game();
+  if(!g.done){doneEl.classList.remove('show');return}
+  doneEl.classList.add('show');
+  doneT.textContent=g.won?(st.mode==='daily'?'Слово дня разгадано!':'Слово разгадано!'):'Было слово: '+g.answer.toUpperCase();
+  doneS.textContent=st.mode==='daily'?'Новое слово через '+untilMidnight():g.won?'Угадано с '+g.guesses.length+'-й попытки':'Не беда, попробуйте следующее';
+}
+setInterval(function(){
+  if(st.mode==='daily'&&st.daily&&st.daily.date!==todayKey()&&!busy){st.daily=newDaily();cur='';renderBoard();save()}
+  if(doneEl.classList.contains('show'))renderDone();
+  var nx=document.getElementById('nextT');if(nx)nx.textContent=untilMidnight();
+},1000);
+
+function toast(text,ms){
+  var m=document.createElement('div');m.className='msg';m.textContent=text;
+  while(toastEl.children.length>2)toastEl.firstChild.remove();
+  toastEl.appendChild(m);
+  setTimeout(function(){m.classList.add('out');setTimeout(function(){m.remove()},300)},ms||1400);
+}
+
+// ---------- ввод ----------
+function canType(){return !busy&&!paused&&!modal.classList.contains('show')&&!game().done}
+function type(ch){
+  if(!canType()||cur.length>=LEN)return;
+  cur+=ch;
+  var t=tileAt(game().guesses.length,cur.length-1);
+  setTile(t,ch,'');void t.offsetWidth;t.classList.add('pop');
+  flash(ch);
+}
+function back(){
+  if(!canType()||!cur.length)return;
+  cur=cur.slice(0,-1);
+  setTile(tileAt(game().guesses.length,cur.length),'');
+  flash('back');
+}
+function flash(k){
+  var b=k==='back'?kbEl.querySelector('[data-k=back]'):keys[k];if(!b)return;
+  b.classList.add('down');setTimeout(function(){b.classList.remove('down')},90);
+}
+function shakeRow(r){
+  for(var c=0;c<LEN;c++){var t=tileAt(r,c);t.classList.remove('row-shake');void t.offsetWidth;t.classList.add('row-shake')}
+}
+var WIN_MSG=['Гениально!','Великолепно!','Потрясающе!','Отлично!','Хорошо!','Уф, успели!'];
+function submit(){
+  if(!canType())return;
+  var g=game(),r=g.guesses.length;
+  if(cur.length<LEN){shakeRow(r);toast('Нужно слово из пяти букв');return}
+  if(!ALLOWED.has(cur)){shakeRow(r);toast('Такого слова нет в словаре');return}
+  var w=cur,ev=evaluate(w,g.answer);
+  g.guesses.push(w);cur='';touched=true;busy=true;
+  var won=w===g.answer,lost=!won&&g.guesses.length===ROWS;
+  if(won||lost){g.done=true;g.won=won;record(won,g.guesses.length)}
+  save();
+  for(var c=0;c<LEN;c++)(function(c){
+    var t=tileAt(r,c);
+    setTimeout(function(){t.classList.add('flip');setTimeout(function(){setTile(t,w[c],ev[c]+' flip')},250)},c*260);
+  })(c);
+  setTimeout(function(){
+    for(var c=0;c<LEN;c++)tileAt(r,c).classList.remove('flip');
+    renderKeys();busy=false;
+    if(won){
+      toast(WIN_MSG[r],1800);
+      for(var c2=0;c2<LEN;c2++)(function(c2){setTimeout(function(){tileAt(r,c2).classList.add('win')},c2*90)})(c2);
+      confetti();
+      setTimeout(function(){renderDone();showStats(true)},1600);
+    }else if(lost){
+      toast(g.answer.toUpperCase(),2600);
+      setTimeout(function(){renderDone();showStats(true)},1500);
+    }
+  },LEN*260+300);
+}
+function record(won,n){
+  var s=st.stats;s.played++;
+  if(won){s.wins++;s.streak++;s.maxStreak=Math.max(s.maxStreak,s.streak);s.dist[n-1]++;s.last=n}
+  else{s.streak=0;s.last=0}
+}
+
+var CODE={KeyQ:'й',KeyW:'ц',KeyE:'у',KeyR:'к',KeyT:'е',KeyY:'н',KeyU:'г',KeyI:'ш',KeyO:'щ',KeyP:'з',BracketLeft:'х',BracketRight:'ъ',KeyA:'ф',KeyS:'ы',KeyD:'в',KeyF:'а',KeyG:'п',KeyH:'р',KeyJ:'о',KeyK:'л',KeyL:'д',Semicolon:'ж',Quote:'э',KeyZ:'я',KeyX:'ч',KeyC:'с',KeyV:'м',KeyB:'и',KeyN:'т',KeyM:'ь',Comma:'б',Period:'ю',Backquote:'е'};
+var LAT={q:'й',w:'ц',e:'у',r:'к',t:'е',y:'н',u:'г',i:'ш',o:'щ',p:'з','[':'х',']':'ъ',a:'ф',s:'ы',d:'в',f:'а',g:'п',h:'р',j:'о',k:'л',l:'д',';':'ж',"'":'э',z:'я',x:'ч',c:'с',v:'м',b:'и',n:'т',m:'ь',',':'б','.':'ю','`':'е'};
+window.addEventListener('keydown',function(e){
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.target&&e.target.id==='shareTxt')return;
+  if(modal.classList.contains('show')){
+    if(e.key==='Escape'){e.preventDefault();closeModal()}
+    else if(e.key==='Enter'){e.preventDefault();var nb=card.querySelector('[data-enter]');if(nb)nb.click();else closeModal()}
+    return;
+  }
+  if(e.key==='Enter'){e.preventDefault();if(game().done)nextWord();else submit();return}
+  if(e.key==='Backspace'){e.preventDefault();back();return}
+  var k=(e.key||'').toLowerCase(),ch=null;
+  if(/^[а-яё]$/.test(k))ch=k==='ё'?'е':k;
+  else if(CODE[e.code])ch=CODE[e.code];
+  else if(LAT[k])ch=LAT[k];
+  if(ch){e.preventDefault();type(ch)}
+});
+
+// ---------- режимы ----------
+function setMode(m){
+  if(busy||st.mode===m)return;
+  if(cur){cur=''}
+  st.mode=m;
+  if(m==='daily'&&(!st.daily||st.daily.date!==todayKey()))st.daily=newDaily();
+  if(m==='free'&&!st.free)st.free=newFree();
+  renderBoard();save();
+}
+var adBusy=false;
+function nextWord(){
+  if(busy||adBusy)return;
+  closeModal();
+  var startNew=function(){st.mode='free';st.free=newFree();cur='';renderBoard();save()};
+  if(st.mode==='daily'&&st.free&&!st.free.done){setMode('free');return}
+  if(sdk){
+    adBusy=true;
+    sdk.ads.fullscreen().catch(function(){}).then(function(){adBusy=false;startNew()});
+  }else startNew();
+}
+document.getElementById('mDaily').addEventListener('click',function(){setMode('daily')});
+document.getElementById('mFree').addEventListener('click',function(){if(st.mode==='free'&&st.free&&st.free.done)nextWord();else setMode('free')});
+document.getElementById('doneNext').addEventListener('click',nextWord);
+document.getElementById('doneStats').addEventListener('click',function(){showStats(true)});
+document.getElementById('statsBtn').addEventListener('click',function(){showStats(false)});
+document.getElementById('helpBtn').addEventListener('click',showHelp);
+document.getElementById('top').addEventListener('mousedown',function(e){e.preventDefault()});
+
+// ---------- окна ----------
+var X_SVG='<button id="x" aria-label="Закрыть"><svg viewBox="0 0 16 16" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M3 3l10 10M13 3L3 13"/></svg></button>';
+function openModal(html){
+  card.innerHTML=X_SVG+html;modal.classList.add('show');
+  document.getElementById('x').addEventListener('click',closeModal);
+}
+function closeModal(){modal.classList.remove('show');card.innerHTML=''}
+modal.addEventListener('click',function(e){if(e.target===modal)closeModal()});
+function exRow(word,marks){
+  return '<div class="ex">'+word.split('').map(function(ch,i){return '<div class="t fill '+(marks[i]||'')+'"><div class="f">'+ch+'</div></div>'}).join('')+'</div>';
+}
+function showHelp(){
+  openModal('<h2>Как играть</h2>'+
+    '<p>Угадайте слово из пяти букв за шесть попыток. Это всегда существительное в именительном падеже, буква Ё пишется как Е.</p>'+
+    '<p>После каждой попытки буквы подсвечиваются:</p>'+
+    exRow('пирог',['c'])+'<p><b>П</b> есть в слове и стоит на своём месте.</p>'+
+    exRow('песок',['','p'])+'<p><b>Е</b> есть в слове, но в другом месте.</p>'+
+    exRow('ветка',['','','','a'])+'<p><b>К</b> в слове нет.</p>'+
+    '<p>«Слово дня» одно на всех и меняется в полночь. В режиме «Ещё слово» можно играть сколько угодно.</p>'+
+    '<div class="btns" style="margin-top:14px"><button class="bt" data-enter id="hOk">Играть</button></div>');
+  document.getElementById('hOk').addEventListener('click',closeModal);
+  if(!st.help){st.help=true;save()}
+}
+function shareText(){
+  var g=game(),n=g.won?g.guesses.length:'X';
+  var head=st.mode==='daily'?'Слово дня '+fmtDate(g.date)+' — '+n+'/6':'Слово дня, свободная игра — '+n+'/6';
+  var rows=g.guesses.map(function(w){return evaluate(w,g.answer).map(function(s){return s==='c'?'🟩':s==='p'?'🟨':'⬜'}).join('')});
+  return head+'\n'+rows.join('\n')+'\n#ИгродромСловоДня';
+}
+function showStats(end){
+  var s=st.stats,g=game(),max=Math.max.apply(null,s.dist.concat([1]));
+  var pct=s.played?Math.round(s.wins/s.played*100):0;
+  var html='<h2>'+(end&&g.done?(g.won?WIN_MSG[g.guesses.length-1]:'Не получилось'):'Статистика')+'</h2>';
+  if(end&&g.done)html+='<div class="word">Загаданное слово:<b>'+g.answer+'</b></div>';
+  html+='<div class="nums"><div><b>'+s.played+'</b><small>Сыграно</small></div><div><b>'+pct+'</b><small>% побед</small></div><div><b>'+s.streak+'</b><small>Серия побед</small></div><div><b>'+s.maxStreak+'</b><small>Лучшая серия</small></div></div>';
+  html+='<div class="dist"><h3>С какой попытки угадано</h3>';
+  for(var i=0;i<6;i++){
+    var hl=g.done&&g.won&&g.guesses.length===i+1;
+    html+='<div class="dr"><span>'+(i+1)+'</span><div class="bar'+(hl?' hl':'')+'" style="width:'+Math.max(7,s.dist[i]/max*100)+'%;animation-delay:'+(i*60)+'ms">'+s.dist[i]+'</div></div>';
+  }
+  html+='</div>';
+  if(st.mode==='daily'&&g.done)html+='<div class="next">Новое слово дня через <b id="nextT">'+untilMidnight()+'</b></div>';
+  html+='<div class="btns">';
+  if(g.done)html+='<button class="bt alt" id="shareBtn">Скопировать результат</button>';
+  html+='<button class="bt" data-enter id="moreBtn">'+(g.done||st.mode==='daily'?'Ещё слово':'Продолжить')+'</button></div><div id="shareBox"></div>';
+  openModal(html);
+  var sb=document.getElementById('shareBtn');if(sb)sb.addEventListener('click',share);
+  document.getElementById('moreBtn').addEventListener('click',function(){if(g.done||st.mode==='daily')nextWord();else closeModal()});
+}
+function share(){
+  var text=shareText();
+  var fallback=function(){
+    var box=document.getElementById('shareBox');if(!box)return;
+    box.innerHTML='<p id="shareP" style="margin:12px 0 0;font-size:14px"></p><textarea id="shareTxt" readonly></textarea>';
+    var ta=document.getElementById('shareTxt');ta.value=text;ta.focus();ta.select();
+    var ok=false;try{ok=document.execCommand('copy')}catch(e){}
+    document.getElementById('shareP').textContent=ok?'Результат скопирован. Вот он, если понадобится ещё раз:':'Скопировать автоматически не вышло — выделите текст и скопируйте:';
+    if(ok){toast('Результат скопирован');var b=document.getElementById('shareBtn');if(b)b.textContent='Скопировано!'}
+    try{ta.scrollIntoView({block:'nearest'})}catch(e){}
+  };
+  try{
+    var fp=document.featurePolicy||document.permissionsPolicy,allowed=!fp||!fp.allowsFeature||fp.allowsFeature('clipboard-write');
+    if(allowed&&navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){toast('Результат скопирован');var b=document.getElementById('shareBtn');if(b)b.textContent='Скопировано!'},fallback);
+      return;
+    }
+  }catch(e){}
+  fallback();
+}
+function confetti(){
+  var cols=['#4fe58f','#ffd866','#5fd3ff','#ff7aa8','#ffffff'],W=window.innerWidth,H=window.innerHeight;
+  for(var i=0;i<40;i++){
+    var c=document.createElement('div');c.className='conf';
+    c.style.left=(W/2)+'px';c.style.top=(H*.35)+'px';c.style.background=cols[i%cols.length];
+    c.style.setProperty('--dx',(Math.random()-.5)*W*.9+'px');c.style.setProperty('--dy',(Math.random()*.7+.1)*H+'px');c.style.setProperty('--r',(Math.random()*720-360)+'deg');
+    c.style.animationDelay=(Math.random()*.15)+'s';
+    document.body.appendChild(c);setTimeout(function(el){el.remove()}.bind(null,c),1700);
+  }
+}
+
+document.addEventListener('touchmove',function(e){if(!e.target.closest('#card'))e.preventDefault()},{passive:false});
+document.addEventListener('contextmenu',function(e){e.preventDefault()});
+window.addEventListener('resize',layout);
+
+build();layout();
+st.daily=newDaily();renderBoard();
+function ready(s,hadSave){
+  if(!hadSave&&!st.help)showHelp();
+  if(s)s.game.ready();
+}
+if(window.Igrodrom){
+  Igrodrom.init().then(function(s){
+    s.on('pause',function(){paused=true});
+    s.on('resume',function(){paused=false});
+    return s.data.get().catch(function(){return null}).then(function(d){
+      var had=applySave(d);
+      sdk=s;
+      renderBoard();
+      if(touched)save();
+      ready(s,had);
+    });
+  }).catch(function(){ready(null,false)});
+}else ready(null,false);
+try{window.focus()}catch(e){}
+window.__game={get answer(){return game().answer},get mode(){return st.mode},get guesses(){return game().guesses.slice()},get stats(){return JSON.parse(JSON.stringify(st.stats))},get cur(){return cur},get flags(){return {busy:busy,paused:paused,adBusy:adBusy,modal:modal.classList.contains('show'),done:game().done}},allowed:function(w){return ALLOWED.has(w)}};
+})();
+</script>
+</body>
+</html>
