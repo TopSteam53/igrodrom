@@ -28,7 +28,7 @@ Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm
 Подробности: README.md, дизайн: DESIGN.md, настройки: `.env.example`.
 
 ## Что уже есть
-- Каталог из 21 игры (`public/games/*`, у каждой meta.json), статический `catalog.json` для GitHub Pages.
+- Каталог из 22 игр (новая — «Огонёк», выживалка в духе Vampire Survivors, `public/games/ogonek`) (`public/games/*`, у каждой meta.json), статический `catalog.json` для GitHub Pages.
 - «Звёздный патруль» (`public/games/starpatrol`): спрайты, фон, обложка и иконка отрендерены в Blender 5.2
   скриптом `scripts/blender/starpatrol.py` (blender --background --python … -- public/games/starpatrol [имена]).
 - Аккаунты игроков, заявки разработчиков, загрузка игр ZIP, модерация; роли: игрок, разработчик, модератор
