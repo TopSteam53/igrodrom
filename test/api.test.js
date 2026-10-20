@@ -168,10 +168,13 @@ test('проверки загрузки', async () => {
   assert.equal((await upload(c, 'Норм', 'Казино')).status, 400, 'неизвестный жанр');
   assert.equal((await upload(c, 'Норм', 'Аркады', '')).status, 400, 'пустой файл');
   assert.equal((await upload(c, 'Норм', 'Аркады', 'просто текст')).status, 400, 'не HTML');
+  // Сервер отвечает 413 и закрывает соединение, не дочитывая тело. Linux отдаёт клиенту ответ,
+  // а Windows рвёт соединение, пока клиент ещё отправляет, — это тоже отказ.
+  const rejected = (p) => p.then((r) => r.status, (err) => (err.cause?.code === 'ECONNRESET' ? 413 : err));
   const big = '<html>' + 'x'.repeat(5 * 1024 * 1024);
-  assert.equal((await upload(c, 'Норм', 'Аркады', big)).status, 413, 'html больше 5 МБ');
+  assert.equal(await rejected(upload(c, 'Норм', 'Аркады', big)), 413, 'html больше 5 МБ');
   const huge = Buffer.concat([Buffer.from('PK\x03\x04'), Buffer.alloc(100 * 1024 * 1024)]);
-  assert.equal((await upload(c, 'Норм', 'Аркады', huge)).status, 413, 'архив больше 100 МБ');
+  assert.equal(await rejected(upload(c, 'Норм', 'Аркады', huge)), 413, 'архив больше 100 МБ');
 });
 
 test('запросы с чужого сайта отклоняются', async () => {
@@ -270,7 +273,7 @@ test('игры старого формата (games/<id>.html) переезжа�
     const app = createApp({ dataDir: dir, publicDir: path.join(root, 'public') });
     assert.equal(fs.readFileSync(path.join(dir, 'games', '0123456789abcdef', 'index.html'), 'utf8'), '<html>old</html>');
     assert.equal(fs.existsSync(path.join(dir, 'games', '0123456789abcdef.html')), false);
-    app.close();
+    await new Promise((r) => app.close(r)); // база закрывается по событию close — на Windows иначе файл занят
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -101,7 +101,56 @@
     metrika();
     if (login) login.href = `login.html?next=${encodeURIComponent(here())}`;
     me().then((user) => {
-      if (user && login) { login.textContent = user.name; login.href = 'account.html'; }
+      if (user && login) {
+        login.textContent = user.name; login.href = 'account.html';
+        const chip = document.createElement('a');
+        chip.className = 'coin-chip'; chip.id = 'coinChip'; chip.href = 'account.html#coins';
+        (login.previousElementSibling?.classList.contains('theme-btn') ? login.previousElementSibling : login).before(chip);
+        setCoins(user.coins);
+      }
+    });
+  }
+
+  // ---------- монетки ----------
+  const COIN_SVG = '<svg class="coin-ico" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+  const plural = (n, [one, few, many]) => {
+    const a = Math.abs(n) % 100, b = a % 10;
+    return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
+  };
+  const coinsText = (n) => `${fmt(n)} ${plural(n, ['монетка', 'монетки', 'монеток'])}`;
+  function setCoins(n) {
+    const chip = $('coinChip');
+    if (!chip || typeof n !== 'number') return;
+    chip.innerHTML = `${COIN_SVG}<span>${fmt(n)}</span>`;
+    chip.title = `${coinsText(n)}: копятся за время в играх, тратятся в играх`;
+    chip.setAttribute('aria-label', `Монетки: ${fmt(n)}`);
+  }
+
+  // Окно поверх страницы. buttons: [{ text, value, cls, href }]; Esc и клик мимо — null.
+  // В полноэкранном режиме окно кладётся внутрь развёрнутого элемента, иначе его не будет видно.
+  function dialog({ title, html, buttons, body }) {
+    return new Promise((resolve) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'modal';
+      wrap.innerHTML = `<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+        <h3 id="dlgTitle">${esc(title)}</h3>${html || ''}<div class="modal-acts"></div></div>`;
+      const card = wrap.firstElementChild;
+      if (body) card.insertBefore(body, card.lastElementChild);
+      const back = document.activeElement;
+      const done = (v) => { wrap.remove(); removeEventListener('keydown', onKey, true); back?.focus?.(); resolve(v); };
+      const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(null); } };
+      addEventListener('keydown', onKey, true);
+      wrap.onclick = (e) => { if (e.target === wrap) done(null); };
+      for (const b of buttons) {
+        const el = document.createElement(b.href ? 'a' : 'button');
+        el.className = `btn ${b.cls || ''}`;
+        el.textContent = b.text;
+        if (b.href) { el.href = b.href; el.target = '_blank'; el.rel = 'noopener'; el.onclick = () => done(b.value ?? null); }
+        else { el.type = 'button'; el.onclick = () => done(b.value); }
+        card.querySelector('.modal-acts').append(el);
+      }
+      (document.fullscreenElement || document.body).append(wrap);
+      (card.querySelector('textarea') || card.querySelector('.modal-acts .primary') || card.querySelector('.modal-acts > *:last-child'))?.focus();
     });
   }
 
@@ -166,5 +215,8 @@
   const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${g.description || ''}`).includes(norm(q));
 
-  window.Igr = { $, esc, fmt, me, safeNext, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader, toast, matches, CATEGORY_ICONS };
+  window.Igr = {
+    $, esc, fmt, me, safeNext, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog,
+  };
 })();

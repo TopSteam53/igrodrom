@@ -120,6 +120,60 @@ export function openDb(file) {
     );
   `);
 
+  db.exec(`
+    -- Одноразовые ссылки из писем: подтверждение почты и сброс пароля. В базе — только хэш токена.
+    CREATE TABLE IF NOT EXISTS email_tokens (
+      token_hash TEXT PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind       TEXT NOT NULL,              -- verify | reset
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS email_tokens_by_user ON email_tokens(user_id, kind);
+
+    -- Таблицы рекордов игр (SDK). Лучший результат игрока в каждой таблице игры.
+    CREATE TABLE IF NOT EXISTS leaderboard_scores (
+      game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      board      TEXT NOT NULL,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      score      INTEGER NOT NULL,
+      extra      TEXT NOT NULL DEFAULT '',
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, board, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS leaderboard_rank ON leaderboard_scores(game_id, board, score DESC, updated_at);
+
+    -- Монетки: начисляются за время в играх (не больше дневного лимита), тратятся в играх через SDK.
+    CREATE TABLE IF NOT EXISTS coin_daily (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      day     TEXT NOT NULL,
+      earned  INTEGER NOT NULL DEFAULT 0,
+      last_at INTEGER NOT NULL DEFAULT 0,  -- последнее начисление: не чаще раза в минуту на все вкладки
+      PRIMARY KEY (user_id, day)
+    );
+    CREATE TABLE IF NOT EXISTS coin_spends (
+      id         INTEGER PRIMARY KEY,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      game_id    TEXT REFERENCES games(id) ON DELETE SET NULL,
+      game_title TEXT NOT NULL,
+      amount     INTEGER NOT NULL,
+      title      TEXT NOT NULL,                -- что купил игрок, как назвала игра
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS coin_spends_by_user ON coin_spends(user_id, created_at);
+
+    -- Отзывы игроков: один на игру от аккаунта, можно изменить или удалить.
+    CREATE TABLE IF NOT EXISTS game_reviews (
+      game_id    TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      text       TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY (game_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS game_reviews_by_game ON game_reviews(game_id, updated_at);
+  `);
+
   // Колонки, добавленные после первых версий: старые базы дополняются при запуске.
   const addColumnTo = (table) => {
     const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
@@ -128,6 +182,8 @@ export function openDb(file) {
   const addUserColumn = addColumnTo('users');
   addUserColumn('role', "TEXT NOT NULL DEFAULT 'player'"); // player | moderator; владельцы — из ADMIN_EMAILS
   addUserColumn('role_since', 'INTEGER');
+  addUserColumn('email_verified_at', 'INTEGER'); // NULL — почта не подтверждена
+  addUserColumn('coins', 'INTEGER NOT NULL DEFAULT 0');
   const addColumn = addColumnTo('games');
   addColumn('file_count', 'INTEGER NOT NULL DEFAULT 1');
   addColumn('description', "TEXT NOT NULL DEFAULT ''");

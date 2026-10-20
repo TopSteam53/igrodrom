@@ -64,6 +64,7 @@ export function createStats({ db, now = Date.now, tz = 'Europe/Moscow' }) {
   }
 
   return {
+    dayOf,
     isBot: (ua) => !ua || BOT_UA.test(ua),
 
     /** Открытие игры. Возвращает true, если засчитан новый запуск. */

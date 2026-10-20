@@ -26,9 +26,23 @@
     <button class="btn" id="logout">Выйти</button>
   </div>
 
+  <div class="notice hidden" id="verify">
+    <p><b>Подтвердите почту.</b> Мы отправили письмо со ссылкой — без подтверждения нельзя писать отзывы и подать заявку разработчика.</p>
+    <button class="btn" id="resend">Отправить ещё раз</button>
+  </div>
+
   <section class="sec">
     <div class="sec-head"><h2>Продолжить играть</h2></div>
     <div class="grid" id="recent"></div>
+  </section>
+
+  <section class="panel dev-block" id="coins" style="scroll-margin-top:90px">
+    <h3>Монетки</h3>
+    <div class="coin-big" id="coinBig"></div>
+    <p>Монетки копятся, пока вы играете: одна за каждую минуту, до 60 в день. Тратить их можно в играх, которые что-то за них предлагают, — каждую трату вы подтверждаете сами.</p>
+    <div class="mut" id="coinToday"></div>
+    <div class="coin-meter" aria-hidden="true"><i id="coinBar" style="width:0"></i></div>
+    <div id="spends"></div>
   </section>
 
   <section class="panel dev-block" id="dev"></section>
@@ -62,11 +76,34 @@ me().then(async (user) => {
     ? `<h3 style="margin-top:20px">Вы ${user.isAdmin ? 'владелец площадки' : 'модератор'}</h3>
        <p>Заявки разработчиков, проверка игр и журнал решений — в кабинете, раздел «Модерация».</p>
        <a class="btn" href="cabinet.html">Открыть модерацию</a>` : '');
+  const cfg = await Igr.config();
+  $('verify').classList.toggle('hidden', user.emailVerified || !cfg.mail);
+  loadCoins();
   const { games } = await (await fetch('/api/me/recent')).json();
   $('recent').innerHTML = games.length ? games.map(fromApi).map(cardHTML).join('')
     : `<div class="empty"><p>Здесь появятся игры, в которых у вас есть сохранённый прогресс.</p>
        <a class="btn" href="index.html">Выбрать игру</a></div>`;
 });
+
+async function loadCoins() {
+  const c = await (await fetch('/api/me/coins')).json();
+  $('coinBig').innerHTML = `${Igr.COIN_SVG}<span>${Igr.fmt(c.coins)}</span>`;
+  $('coinToday').textContent = `Сегодня: ${c.today} из ${c.cap}`;
+  $('coinBar').style.width = `${Math.min(100, (c.today / c.cap) * 100)}%`;
+  $('spends').innerHTML = c.spends.length ? `<h3 style="margin-top:20px">Покупки в играх</h3>
+    <table class="tbl"><tbody>${c.spends.map((s) => `<tr><td>${esc(s.title)}<div class="mut">${s.game_id
+      ? `<a href="game.html?id=${esc(s.game_id)}" style="color:var(--link)">${esc(s.game_title)}</a>` : esc(s.game_title)}</div></td>
+      <td class="mut">${new Date(s.created_at).toLocaleDateString('ru-RU')}</td><td class="n">−${Igr.fmt(s.amount)}</td></tr>`).join('')}</tbody></table>` : '';
+}
+
+$('resend').onclick = async () => {
+  $('resend').disabled = true;
+  const r = await fetch('/api/email/resend', { method: 'POST' });
+  const data = await r.json().catch(() => ({}));
+  Igr.toast(r.ok ? 'Письмо отправлено' : data.error || 'Не получилось');
+  if (r.status === 409) $('verify').classList.add('hidden');
+  else setTimeout(() => { $('resend').disabled = false; }, 30000);
+};
 
 $('logout').onclick = async () => {
   await fetch('/api/logout', { method: 'POST' }).catch(() => {});

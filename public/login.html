@@ -26,6 +26,7 @@
     <label for="email">Email</label><input id="email" type="email" required autocomplete="email">
     <label for="password">Пароль</label><input id="password" type="password" required minlength="8" autocomplete="current-password">
     <p class="mut hidden" id="passHint">Не короче 8 символов.</p>
+    <p class="mut" id="forgot" style="margin:6px 0 0"><a href="reset.html" style="color:var(--link)">Забыли пароль?</a></p>
     <div class="err-text" id="err" role="alert"></div>
     <button class="btn primary" id="submit" style="width:100%;margin-top:6px">Войти</button>
   </form>
@@ -50,6 +51,7 @@ function setMode(m) {
   $('nameField').classList.toggle('hidden', !reg);
   $('name').required = reg;
   $('passHint').classList.toggle('hidden', !reg);
+  $('forgot').classList.toggle('hidden', reg);
   $('title').textContent = reg ? 'Регистрация' : 'Вход';
   $('submit').textContent = reg ? 'Создать аккаунт' : 'Войти';
   $('password').autocomplete = reg ? 'new-password' : 'current-password';

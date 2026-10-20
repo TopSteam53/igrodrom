@@ -42,7 +42,7 @@ function fakeWindow({ storage = true } = {}) {
 }
 
 // Страница площадки; каждая session() — новый запуск игры в iframe.
-function platform(player) {
+function platform(player, extra = {}) {
   const parent = fakeWindow();
   parent.parent = parent;
   parent.sent = [];
@@ -57,7 +57,7 @@ function platform(player) {
         setTimeout(() => parent.dispatch({ source: child, data: structuredClone(msg) }), 0);
       };
       child.postMessage = (msg) => setTimeout(() => child.dispatch({ source: parent, data: structuredClone(msg) }), 0);
-      parent.IgrodromHost.attach({ contentWindow: child }, { gameId: 'ya-game', live: false, ...(player && { player }) });
+      parent.IgrodromHost.attach({ contentWindow: child }, { gameId: 'ya-game', live: false, ...(player && { player }), ...extra });
       vm.runInNewContext(BUNDLE, child);
       return child;
     },
@@ -136,7 +136,7 @@ test('YaGames: реклама не ломает игру, награда выд�
   assert.deepEqual(events, ['pause', 'open', 'reward', 'close', 'resume']);
 });
 
-test('YaGames: вошедший игрок, заглушки лидербордов и покупок', async () => {
+test('YaGames: вошедший игрок, лидерборды, заглушка покупок', async () => {
   const child = platform(async () => ({ authorized: true, name: 'Миша', id: 'p1' })).session();
   const ysdk = await child.YaGames.init();
   const player = await ysdk.getPlayer();
@@ -147,9 +147,17 @@ test('YaGames: вошедший игрок, заглушки лидерборд�
   ysdk.features.LoadingAPI.ready();
   ysdk.features.GameplayAPI.start();
   const lb = await ysdk.getLeaderboards();
-  await lb.setLeaderboardScore('main', 100);
-  assert.deepEqual(plain((await lb.getLeaderboardEntries('main')).entries), []);
   await assert.rejects(lb.getLeaderboardPlayerEntry('main'), (e) => e.code === 'LEADERBOARD_PLAYER_NOT_PRESENT');
+  await lb.setLeaderboardScore('main', 100, 'уровень 3');
+  await lb.setLeaderboardScore('main', 40);
+  const table = await lb.getLeaderboardEntries('main', { includeUser: true, quantityTop: 10 });
+  assert.deepEqual(plain(table.entries.map((e) => [e.rank, e.score, e.extraData, e.formattedScore])), [[1, 100, 'уровень 3', '100']],
+    'без сервера — только свои результаты, лучший');
+  assert.equal(table.userRank, 1);
+  assert.equal(typeof table.entries[0].player.getAvatarSrc('small'), 'string');
+  assert.equal((await ysdk.leaderboards.getPlayerEntry('main')).score, 100);
+  await assert.rejects(ysdk.leaderboards.getPlayerEntry('time'), (e) => e.code === 'LEADERBOARD_PLAYER_NOT_PRESENT');
+  assert.equal(await ysdk.isAvailableMethod('leaderboards.setScore'), true);
   const pay = await ysdk.getPayments({ signed: false });
   assert.equal((await pay.getPurchases()).length, 0);
   await assert.rejects(pay.purchase({ id: 'gold' }));
@@ -173,4 +181,57 @@ test('при загрузке ссылки на Яндекс SDK перевод�
   const own = [f('index.html', '<script src="sdk.js"></script>'), f('sdk.js', '')];
   assert.equal(adaptYandexSdk(own), false, 'свой sdk.js в архиве — не трогаем');
   assert.equal(adaptYandexSdk([f('index.html', '<canvas></canvas>')]), false);
+});
+
+test('SDK: монетки — трата только после подтверждения игроком на странице площадки', async () => {
+  let balance = 50;
+  const asked = [];
+  let answer = false;
+  const coins = {
+    balance: async () => balance,
+    confirm: async (q) => { asked.push(q); return answer; },
+    spend: async (amount) => { if (amount > balance) { const e = new Error('Не хватает'); e.status = 409; throw e; } balance -= amount; return balance; },
+  };
+  const child = platform(null, { coins }).session();
+  const sdk = await child.Igrodrom.init();
+  assert.equal(await sdk.coins.balance(), 50);
+  assert.deepEqual(plain(await sdk.coins.spend(20, 'Щит')), { ok: false, reason: 'cancelled' });
+  assert.deepEqual(plain(asked), [{ amount: 20, title: 'Щит', balance: 50 }]);
+  answer = true;
+  assert.deepEqual(plain(await sdk.coins.spend(20, 'Щит')), { ok: true, balance: 30 });
+  assert.deepEqual(plain(await sdk.coins.spend(31, 'Ещё щит')), { ok: false, reason: 'not_enough' });
+  await assert.rejects(sdk.coins.spend(0, 'Ноль'));
+  await assert.rejects(sdk.coins.spend(5, ''));
+
+  balance = null; // гость
+  assert.deepEqual(plain(await sdk.coins.spend(1, 'Щит')), { ok: false, reason: 'guest' });
+});
+
+test('SDK: без монеток на площадке и вне её', async () => {
+  const sdk = await platform().session().Igrodrom.init();
+  assert.equal(await sdk.coins.balance(), null);
+  assert.deepEqual(plain(await sdk.coins.spend(5, 'Щит')), { ok: false, reason: 'unavailable' });
+  assert.deepEqual(plain(await sdk.feedback.request()), { sent: false });
+
+  // Вне площадки: для отладки покупок — options.debugCoins (игра подключает sdk/v1.js).
+  const win = fakeWindow();
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'sdk', 'v1.js'), 'utf8'), win);
+  const local = await win.Igrodrom.init({ debugCoins: 10 });
+  assert.equal(local.environment.host, 'standalone');
+  assert.deepEqual(plain(await local.coins.spend(4, 'Щит')), { ok: true, balance: 6 });
+  assert.deepEqual(plain(await local.coins.spend(7, 'Щит')), { ok: false, reason: 'not_enough' });
+  await local.leaderboard.setScore(12);
+  await local.leaderboard.setScore(5);
+  assert.equal((await local.leaderboard.getPlayerEntry()).score, 12);
+  await assert.rejects(local.leaderboard.setScore(1.5));
+});
+
+test('SDK: отзыв из игры открывает окно площадки', async () => {
+  let opened = 0;
+  const feedback = { can: async () => ({ value: true }), request: async () => { opened++; return true; } };
+  const child = platform(null, { feedback }).session();
+  const ysdk = await child.YaGames.init();
+  assert.deepEqual(plain(await ysdk.feedback.canReview()), { value: true });
+  assert.deepEqual(plain(await ysdk.feedback.requestReview()), { feedbackSent: true });
+  assert.equal(opened, 1);
 });

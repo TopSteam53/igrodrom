@@ -8,6 +8,8 @@
  *   sdk.game.ready();                                  // игра загрузилась
  *   await sdk.data.set({ level: 2, coins: 150 });
  *   const { rewarded } = await sdk.ads.rewarded();     // награда за рекламу
+ *   await sdk.leaderboard.setScore(1200);              // таблица рекордов (только вошедшие игроки)
+ *   const { ok } = await sdk.coins.spend(30, 'Щит');   // монетки площадки, игрок подтверждает трату
  *
  * Игра на Игродроме работает в песочнице без доступа к хранилищу браузера, поэтому SDK передаёт
  * сохранения странице площадки через postMessage, а та хранит их на сервере за игроком.
@@ -136,6 +138,77 @@
     return { anonymous: !p.authorized, name: p.name || '', id: p.id || null };
   }
 
+  // ---------- рекорды, монетки, отзывы ----------
+  var BOARD_RE = /^[\w.-]{1,40}$/;
+  function boardOf(opts) {
+    var board = opts && opts.board != null ? String(opts.board) : 'main';
+    if (!BOARD_RE.test(board)) throw new TypeError('Igrodrom SDK: имя таблицы — латиница, цифры, «_», «-», «.», до 40 символов');
+    return board;
+  }
+  function checkScore(score) {
+    if (typeof score !== 'number' || !isFinite(score) || Math.floor(score) !== score) {
+      throw new TypeError('Igrodrom SDK: результат должен быть целым числом');
+    }
+  }
+  function attempt(fn) { try { return Promise.resolve(fn()); } catch (e) { return Promise.reject(e); } }
+
+  function hostedLeaderboard() {
+    return {
+      // Сохраняет результат, если он лучше прежнего. Гостю — ошибка: в таблице только вошедшие игроки.
+      setScore: function (score, opts) {
+        return attempt(function () {
+          checkScore(score);
+          var extra = opts && opts.extra != null ? String(opts.extra) : '';
+          return request('lb.set', { board: boardOf(opts), score: score, extra: extra });
+        });
+      },
+      // { board, total, entries: [{ rank, name, score, extra, player, me }], around, me }
+      getEntries: function (opts) {
+        return attempt(function () {
+          return request('lb.get', { board: boardOf(opts), top: (opts && opts.top) || 10, around: (opts && opts.around) || 0 });
+        });
+      },
+      getPlayerEntry: function (opts) {
+        return attempt(function () { return request('lb.get', { board: boardOf(opts), top: 0, around: 0 }); })
+          .then(function (r) { return (r && r.me) || null; });
+      },
+    };
+  }
+
+  function hostedCoins() {
+    return {
+      // Баланс монеток игрока на площадке или null, если игрок не вошёл.
+      balance: function () { return request('coins.balance').then(function (r) { return r == null ? null : r; }); },
+      // Игрок подтверждает трату в окне площадки. { ok: true, balance } или { ok: false, reason }:
+      // reason — 'cancelled' (отказался), 'not_enough', 'guest' (не вошёл), 'unavailable'.
+      spend: function (amount, title) {
+        if (typeof amount !== 'number' || Math.floor(amount) !== amount || amount < 1 || amount > 1000) {
+          return Promise.reject(new RangeError('Igrodrom SDK: сумма — целое число от 1 до 1000'));
+        }
+        title = String(title == null ? '' : title).trim().slice(0, 60);
+        if (!title) return Promise.reject(new TypeError('Igrodrom SDK: укажите, за что списываются монетки'));
+        return request('coins.spend', { amount: amount, title: title }, AD_MS)
+          .then(function (r) { return r || { ok: false, reason: 'unavailable' }; },
+            function () { return { ok: false, reason: 'unavailable' }; });
+      },
+    };
+  }
+
+  function hostedFeedback() {
+    return {
+      // { value: true } — можно попросить отзыв; иначе reason: 'NO_AUTH' | 'GAME_RATED' | 'UNKNOWN'.
+      canReview: function () {
+        return request('feedback.can').then(function (r) { return r || { value: false, reason: 'UNKNOWN' }; },
+          function () { return { value: false, reason: 'UNKNOWN' }; });
+      },
+      // Площадка показывает окно отзыва. { sent: true }, если игрок написал отзыв.
+      request: function () {
+        return request('feedback.request', null, AD_MS).then(function (r) { return { sent: !!(r && r.sent) }; },
+          function () { return { sent: false }; });
+      },
+    };
+  }
+
   function hosted(info) {
     var write = throttledWriter(function (json) { return request('data.set', json); });
     return {
@@ -153,6 +226,9 @@
       },
       ads: hostedAds(),
       game: hostedGame(),
+      leaderboard: hostedLeaderboard(),
+      coins: hostedCoins(),
+      feedback: hostedFeedback(),
       // sdk.on('pause' | 'resume', fn): площадка показывает рекламу — выключите звук и остановите игру.
       on: on,
     };
@@ -161,11 +237,49 @@
   // ---------- без площадки ----------
   function noop() { return Promise.resolve(); }
 
-  function standalone(key) {
+  // Вне площадки таблица — только из своих результатов (для отладки), монетки — из options.debugCoins.
+  function localLeaderboard(read, write) {
+    function entry(board) {
+      var row = read()[board];
+      return row ? { rank: 1, name: 'Вы', score: row.score, extra: row.extra || '', player: 'local', me: true } : null;
+    }
+    return {
+      setScore: function (score, opts) {
+        return attempt(function () {
+          checkScore(score);
+          var board = boardOf(opts), all = read();
+          if (!all[board] || score > all[board].score) {
+            all[board] = { score: score, extra: opts && opts.extra != null ? String(opts.extra) : '' };
+            write(all);
+          }
+          return entry(board);
+        });
+      },
+      getEntries: function (opts) {
+        return attempt(function () {
+          var board = boardOf(opts), me = entry(board);
+          return { board: board, total: me ? 1 : 0, entries: me ? [me] : [], around: me && opts && opts.around ? [me] : [], me: me };
+        });
+      },
+      getPlayerEntry: function (opts) { return attempt(function () { return entry(boardOf(opts)); }); },
+    };
+  }
+
+  function standalone(key, options) {
     var storageKey = 'igrodrom-sdk:' + key;
     var memory = null;
     var storage = 'memory';
     try { global.localStorage.setItem(storageKey + ':probe', '1'); global.localStorage.removeItem(storageKey + ':probe'); storage = 'browser'; } catch (e) {}
+    var boards = {};
+    function readBoards() {
+      try { if (storage === 'browser') return JSON.parse(global.localStorage.getItem(storageKey + ':lb') || '{}'); } catch (e) {}
+      return boards;
+    }
+    function writeBoards(all) {
+      boards = all;
+      try { if (storage === 'browser') global.localStorage.setItem(storageKey + ':lb', JSON.stringify(all)); } catch (e) {}
+    }
+    var coins = options && typeof options.debugCoins === 'number' ? Math.max(0, Math.floor(options.debugCoins)) : null;
     return {
       version: VERSION,
       environment: { host: 'standalone', storage: storage, gameId: null, lang: 'ru' },
@@ -196,6 +310,20 @@
         rewarded: function () { return Promise.resolve({ rewarded: true }); },
       },
       game: { ready: noop, start: noop, stop: noop },
+      leaderboard: localLeaderboard(readBoards, writeBoards),
+      coins: {
+        balance: function () { return Promise.resolve(coins); },
+        spend: function (amount) {
+          if (coins === null) return Promise.resolve({ ok: false, reason: 'unavailable' });
+          if (amount > coins) return Promise.resolve({ ok: false, reason: 'not_enough' });
+          coins -= amount;
+          return Promise.resolve({ ok: true, balance: coins });
+        },
+      },
+      feedback: {
+        canReview: function () { return Promise.resolve({ value: false, reason: 'UNKNOWN' }); },
+        request: function () { return Promise.resolve({ sent: false }); },
+      },
       on: function () { return function () {}; },
     };
   }
@@ -205,16 +333,17 @@
   /**
    * Подключение к площадке. Вызывайте один раз при старте игры, повторные вызовы вернут тот же объект.
    * options.key — имя сохранения вне площадки (по умолчанию путь страницы).
+   * options.debugCoins — сколько монеток дать вне площадки, чтобы проверить покупки при отладке.
    */
   function init(options) {
     if (initPromise) return initPromise;
     var key = (options && options.key) || global.location.pathname;
     initPromise = new Promise(function (resolve) {
-      if (!inFrame()) return resolve(standalone(key));
+      if (!inFrame()) return resolve(standalone(key, options));
       global.addEventListener('message', onMessage);
       request('init', { sdk: VERSION }, HANDSHAKE_MS).then(
         function (info) { resolve(hosted(info || {})); },
-        function () { resolve(standalone(key)); }
+        function () { resolve(standalone(key, options)); }
       );
     });
     return initPromise;
@@ -233,9 +362,10 @@
  *
  * Работает: player.getData/setData, getStats/setStats/incrementStats, getStorage, localStorage в песочнице,
  * environment, deviceInfo, LoadingAPI и GameplayAPI, реклама (через площадку), screen.fullscreen,
- * clipboard, serverTime, on/off, getFlags, isAvailableMethod.
- * Заглушки, чтобы игра не падала: лидерборды (пустые), покупки (каталог пуст, купить нельзя),
- * бонусы, отзывы, ярлык на рабочий стол, мультиплеер, аналитика, вход через Яндекс.
+ * clipboard, serverTime, on/off, getFlags, isAvailableMethod, лидерборды (таблицы рекордов площадки),
+ * feedback (окно отзыва на странице игры).
+ * Заглушки, чтобы игра не падала: покупки (каталог пуст, купить нельзя), бонусы, ярлык на рабочий стол,
+ * мультиплеер, аналитика, вход через Яндекс.
  */
 (function (global) {
   'use strict';
@@ -370,17 +500,50 @@
     };
   }
 
-  // ---------- лидерборды и покупки: пока заглушки ----------
+  // ---------- лидерборды: таблицы рекордов площадки ----------
+  // Порядок всегда «больше — лучше», как у таблиц Яндекса по умолчанию.
   function lbDescription(name) {
-    return { appID: '', default: false, name: name, title: { ru: name, en: name },
+    return { appID: '', default: name === 'main', name: name, title: { ru: name, en: name },
       description: { invert_sort_order: false, score_format: { options: { decimal_offset: 0 } }, type: 'numeric' } };
   }
-  function lbEntries(name) { return { leaderboard: lbDescription(name), ranges: [], userRank: 0, entries: [] }; }
+  function lbEntry(e) {
+    return {
+      score: e.score, extraData: e.extra || '', rank: e.rank, formattedScore: String(e.score),
+      player: {
+        lang: 'ru', publicName: e.name, uniqueID: e.player,
+        scopePermissions: { avatar: 'forbid', public_name: 'allow' },
+        getAvatarSrc: function () { return ''; }, getAvatarSrcSet: function () { return ''; },
+      },
+    };
+  }
+  function needBoard() { return connect().then(function (s) { return s.leaderboard; }); }
   var leaderboards = {
     getDescription: function (name) { return resolved(lbDescription(name)); },
-    setScore: function () { return resolved(); },
-    getPlayerEntry: function () { return rejected('Игрока нет в таблице', 'LEADERBOARD_PLAYER_NOT_PRESENT'); },
-    getEntries: function (name) { return resolved(lbEntries(name)); },
+    setScore: function (name, score, extraData) {
+      return needBoard().then(function (lb) {
+        return lb.setScore(Math.round(Number(score)), { board: name, extra: extraData == null ? '' : String(extraData).slice(0, 128) });
+      }).then(function () {});
+    },
+    getPlayerEntry: function (name) {
+      return needBoard().then(function (lb) { return lb.getPlayerEntry({ board: name }); }).then(function (me) {
+        return me ? lbEntry(me) : rejected('Игрока нет в таблице', 'LEADERBOARD_PLAYER_NOT_PRESENT');
+      });
+    },
+    getEntries: function (name, opts) {
+      opts = opts || {};
+      var top = opts.quantityTop || 5;
+      var around = opts.includeUser ? opts.quantityAround || 5 : 0;
+      return needBoard().then(function (lb) { return lb.getEntries({ board: name, top: top, around: around }); }).then(function (r) {
+        var list = r.entries.slice();
+        var ranges = [{ start: 0, size: list.length }];
+        var near = (r.around || []).filter(function (e) { return e.rank > list.length; });
+        if (near.length) {
+          ranges.push({ start: near[0].rank - 1, size: near.length });
+          list = list.concat(near);
+        }
+        return { leaderboard: lbDescription(name), ranges: ranges, userRank: r.me ? r.me.rank : 0, entries: list.map(lbEntry) };
+      });
+    },
   };
   var legacyLeaderboards = {
     getLeaderboardDescription: leaderboards.getDescription,
@@ -388,6 +551,7 @@
     getLeaderboardPlayerEntry: leaderboards.getPlayerEntry,
     getLeaderboardEntries: leaderboards.getEntries,
   };
+  // Покупки за деньги на площадке не продаются: каталог пуст, купить нельзя.
   var payments = {
     getCatalog: function () { return resolved([]); },
     getPurchases: function () { var list = []; list.signature = ''; return resolved(list); },
@@ -399,6 +563,8 @@
     'adv.showFullscreenAdv': true, 'adv.showRewardedVideo': true, 'player.getData': true, 'player.setData': true,
     'player.getStats': true, 'player.setStats': true, 'player.incrementStats': true, 'getStorage': true,
     'features.LoadingAPI.ready': true, 'features.GameplayAPI.start': true, 'features.GameplayAPI.stop': true,
+    'leaderboards.setScore': true, 'leaderboards.getEntries': true, 'leaderboards.getPlayerEntry': true,
+    'leaderboards.getDescription': true, 'feedback.canReview': true, 'feedback.requestReview': true,
   };
 
   function call(fn) { if (typeof fn === 'function') { try { fn.apply(null, [].slice.call(arguments, 1)); } catch (e) { setTimeout(function () { throw e; }); } } }
@@ -478,9 +644,10 @@
       leaderboards: leaderboards,
       getPayments: function () { return resolved(payments); },
       payments: payments,
+      // Отзыв пишется в окне площадки под игрой.
       feedback: {
-        canReview: function () { return resolved({ value: false, reason: 'UNKNOWN' }); },
-        requestReview: function () { return resolved({ feedbackSent: false }); },
+        canReview: function () { return info.feedback.canReview(); },
+        requestReview: function () { return info.feedback.request().then(function (r) { return { feedbackSent: r.sent }; }); },
       },
       shortcut: {
         canShowPrompt: function () { return resolved({ canShow: false }); },
@@ -552,7 +719,7 @@
   var initPromise = null;
   function init() {
     initPromise = initPromise || connect().then(function (s) {
-      return makeYsdk({ environment: s.environment, player: s.player, ads: s.ads, game: s.game });
+      return makeYsdk({ environment: s.environment, player: s.player, ads: s.ads, game: s.game, feedback: s.feedback });
     });
     return initPromise;
   }

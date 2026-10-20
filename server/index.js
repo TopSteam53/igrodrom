@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './app.js';
 import { adsFromEnv, siteFromEnv } from './config.js';
+import { mailerFromEnv } from './mail.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT) || 3000;
@@ -34,6 +35,9 @@ const server = createApp({
   seedDemoGames: process.env.SEED_DEMO_GAMES !== '0',
   ads: adsFromEnv(process.env),
   site: siteFromEnv(process.env),
+  mailer: mailerFromEnv(process.env),
+  // Адрес сайта для ссылок в письмах. Берём из настроек, а не из запроса: заголовок Host можно подделать.
+  siteUrl: process.env.SITE_URL || (process.env.DOMAIN ? `https://${process.env.DOMAIN}` : `http://localhost:${port}`),
 });
 
 server.listen(port, () => console.log(`Игродром: http://localhost:${port}`));

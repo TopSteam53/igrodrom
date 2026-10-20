@@ -6,6 +6,7 @@ import { openDb } from './db.js';
 import { extractZip, isZip, ZipError } from './zip.js';
 import { createStats } from './stats.js';
 import { adsFromEnv, siteFromEnv, publicConfig } from './config.js';
+import { logMailer } from './mail.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
 } from './auth.js';
@@ -34,6 +35,14 @@ const SAVE_WRITES_PER_MINUTE = 60;
 const MAX_JSON_BYTES = 16 * 1024;
 const SESSION_TTL_MS = 30 * 24 * 3600 * 1000;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const VERIFY_TTL_MS = 3 * 24 * 3600 * 1000; // ссылка подтверждения почты
+const RESET_TTL_MS = 3600 * 1000;           // ссылка сброса пароля
+// Монетки: одна за минуту в игре (вкладка видна), не больше COIN_DAILY_CAP в день на все игры.
+export const COIN_EVERY_MS = 55 * 1000;
+export const COIN_DAILY_CAP = 60;
+const MAX_SPEND = 1000;
+const BOARD_RE = /^[\w.-]{1,40}$/;
+const MAX_SCORE = 1e15;
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
@@ -66,7 +75,9 @@ export function createApp({
   dataDir, publicDir, adminEmails = [], secureCookies = false, previewSecret = randomBytes(32), trustProxy = false,
   seedDemoGames = false, ads = adsFromEnv(), site = siteFromEnv(),
   now = Date.now, statsTz = 'Europe/Moscow',
+  mailer = logMailer(() => {}), siteUrl = 'http://localhost:3000',
 }) {
+  siteUrl = siteUrl.replace(/\/+$/, '');
   const gamesDir = path.join(dataDir, 'games');
   fs.mkdirSync(gamesDir, { recursive: true });
   migrateSingleFileGames(gamesDir);
@@ -74,14 +85,64 @@ export function createApp({
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
+  const mailLimiter = createLimiter({ max: 5, windowMs: 3600 * 1000 });
+  const scoreLimiter = createLimiter({ max: 30, windowMs: 60 * 1000 });
+  const spendLimiter = createLimiter({ max: 20, windowMs: 60 * 1000 });
+  const reviewLimiter = createLimiter({ max: 10, windowMs: 3600 * 1000 });
   const stats = createStats({ db, now, tz: statsTz });
 
   const q = {
     userByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
     userById: db.prepare('SELECT * FROM users WHERE id = ?'),
     insertUser: db.prepare('INSERT INTO users (email, name, pass_hash, created_at) VALUES (?, ?, ?, ?)'),
-    sessionUser: db.prepare(`SELECT u.id, u.email, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+    sessionUser: db.prepare(`SELECT u.id, u.email, u.name, u.role, u.email_verified_at, u.coins FROM sessions s JOIN users u ON u.id = s.user_id
                              WHERE s.token_hash = ? AND s.expires_at > ?`),
+    deleteUserSessions: db.prepare('DELETE FROM sessions WHERE user_id = ?'),
+    setPassword: db.prepare('UPDATE users SET pass_hash = ? WHERE id = ?'),
+    verifyEmail: db.prepare('UPDATE users SET email_verified_at = ? WHERE id = ? AND email_verified_at IS NULL'),
+    insertToken: db.prepare('INSERT INTO email_tokens (token_hash, user_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?)'),
+    token: db.prepare('SELECT * FROM email_tokens WHERE token_hash = ?'),
+    deleteToken: db.prepare('DELETE FROM email_tokens WHERE token_hash = ?'),
+    deleteTokens: db.prepare('DELETE FROM email_tokens WHERE user_id = ? AND kind = ?'),
+    purgeTokens: db.prepare('DELETE FROM email_tokens WHERE expires_at <= ?'),
+    lbTop: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+                       WHERE s.game_id = ? AND s.board = ? ORDER BY s.score DESC, s.updated_at ASC LIMIT ?`),
+    lbMine: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+                        WHERE s.game_id = ? AND s.board = ? AND s.user_id = ?`),
+    lbAbove: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+                         WHERE s.game_id = ? AND s.board = ? AND (s.score > ? OR (s.score = ? AND s.updated_at < ?))
+                         ORDER BY s.score ASC, s.updated_at DESC LIMIT ?`),
+    lbBelow: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+                         WHERE s.game_id = ? AND s.board = ? AND (s.score < ? OR (s.score = ? AND s.updated_at > ?))
+                         ORDER BY s.score DESC, s.updated_at ASC LIMIT ?`),
+    lbRank: db.prepare(`SELECT COUNT(*) AS n FROM leaderboard_scores WHERE game_id = ? AND board = ?
+                        AND (score > ? OR (score = ? AND updated_at < ?))`),
+    lbCount: db.prepare('SELECT COUNT(*) AS n FROM leaderboard_scores WHERE game_id = ? AND board = ?'),
+    lbBoards: db.prepare(`SELECT board, COUNT(*) AS players FROM leaderboard_scores WHERE game_id = ?
+                          GROUP BY board ORDER BY players DESC, board LIMIT 20`),
+    // Лучший результат побеждает: худший не перезаписывает рекорд.
+    lbUpsert: db.prepare(`INSERT INTO leaderboard_scores (game_id, board, user_id, score, extra, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+                          ON CONFLICT (game_id, board, user_id) DO UPDATE SET score = excluded.score, extra = excluded.extra,
+                            updated_at = excluded.updated_at WHERE excluded.score > leaderboard_scores.score`),
+    coinsOf: db.prepare('SELECT coins FROM users WHERE id = ?'),
+    coinDay: db.prepare('SELECT earned, last_at FROM coin_daily WHERE user_id = ? AND day = ?'),
+    coinLastTick: db.prepare('SELECT MAX(last_at) AS t FROM coin_daily WHERE user_id = ?'),
+    coinEarn: db.prepare(`INSERT INTO coin_daily (user_id, day, earned, last_at) VALUES (?, ?, 1, ?)
+                          ON CONFLICT (user_id, day) DO UPDATE SET earned = earned + 1, last_at = excluded.last_at`),
+    coinDays: db.prepare('SELECT day, earned FROM coin_daily WHERE user_id = ? ORDER BY day DESC LIMIT 14'),
+    addCoins: db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?'),
+    takeCoins: db.prepare('UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?'),
+    insertSpend: db.prepare(`INSERT INTO coin_spends (user_id, game_id, game_title, amount, title, created_at)
+                             VALUES (?, ?, ?, ?, ?, ?)`),
+    spends: db.prepare(`SELECT game_id, game_title, amount, title, created_at FROM coin_spends WHERE user_id = ?
+                        ORDER BY created_at DESC, id DESC LIMIT 50`),
+    reviews: db.prepare(`SELECT r.user_id, r.text, r.created_at, r.updated_at, u.name FROM game_reviews r JOIN users u ON u.id = r.user_id
+                         WHERE r.game_id = ? ORDER BY r.updated_at DESC LIMIT 200`),
+    reviewCount: db.prepare('SELECT COUNT(*) AS n FROM game_reviews WHERE game_id = ?'),
+    myReview: db.prepare('SELECT text, created_at, updated_at FROM game_reviews WHERE game_id = ? AND user_id = ?'),
+    upsertReview: db.prepare(`INSERT INTO game_reviews (game_id, user_id, text, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+                              ON CONFLICT (game_id, user_id) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at`),
+    deleteReview: db.prepare('DELETE FROM game_reviews WHERE game_id = ? AND user_id = ?'),
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
@@ -326,6 +387,7 @@ export function createApp({
   const publicUser = (u) => ({
     id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
     developer: developerStatus(u), canPublish: canPublish(u),
+    emailVerified: !!u.email_verified_at, coins: u.coins ?? 0,
   });
 
   function requireDeveloper(req) {
@@ -333,6 +395,17 @@ export function createApp({
     if (!canPublish(user)) throw new HttpError(403, 'Публиковать игры могут разработчики с одобренной заявкой');
     return user;
   }
+
+  // Заявку разработчика и отзывы принимаем только с подтверждённой почтой. Пока почта не настроена
+  // (локальная разработка), подтверждать нечем — тогда не требуем.
+  function requireVerified(user) {
+    if (mailer.enabled && !user.email_verified_at && !isAdmin(user)) {
+      throw new HttpError(403, 'Сначала подтвердите почту: ссылка в письме, отправить ещё раз можно в профиле');
+    }
+  }
+
+  // Id игрока внутри одной игры — тот же, что страница даёт игре (sdk-host.js, playerIdFor).
+  const playerIdOf = (userId, gameId) => sha256(`igrodrom:${userId}:${gameId}`).slice(0, 24);
 
   // Сохранения вошедшего игрока хранятся за аккаунтом, гостя — за браузером.
   const userSaveKey = (userId) => `user:${userId}`;
@@ -375,9 +448,95 @@ export function createApp({
     if (q.userByEmail.get(email)) throw new HttpError(409, 'Этот email уже зарегистрирован');
 
     const { lastInsertRowid } = q.insertUser.run(email, name, await hashPassword(password), Date.now());
-    const user = { id: Number(lastInsertRowid), email, name };
+    const user = { id: Number(lastInsertRowid), email, name, coins: 0 };
     adoptGuestSaves(req, user.id);
+    sendVerification(user);
     send(res, 201, { user: publicUser(user) }, { 'Set-Cookie': startSession(user.id) });
+  }
+
+  // ---------- почта: подтверждение и сброс пароля ----------
+  // В письме — одноразовая ссылка со случайным токеном; в базе только его хэш.
+  function issueToken(userId, kind, ttlMs) {
+    q.purgeTokens.run(Date.now());
+    q.deleteTokens.run(userId, kind); // действует только последняя ссылка
+    const token = newToken();
+    q.insertToken.run(sha256(token), userId, kind, Date.now() + ttlMs, Date.now());
+    return token;
+  }
+
+  function takeToken(token, kind) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
+    const row = q.token.get(sha256(token));
+    if (!row || row.kind !== kind || row.expires_at <= Date.now()) return null;
+    q.deleteToken.run(row.token_hash);
+    return row;
+  }
+
+  function sendMail(to, subject, text) {
+    Promise.resolve()
+      .then(() => mailer.send({ to, subject, text }))
+      .catch((err) => console.error(`Письмо «${subject}» не отправлено:`, err.message));
+  }
+
+  function sendVerification(user) {
+    const token = issueToken(user.id, 'verify', VERIFY_TTL_MS);
+    sendMail(user.email, 'Подтвердите почту на Игродроме', [
+      `Здравствуйте, ${user.name}!`, '',
+      'Чтобы подтвердить почту, откройте ссылку:', `${siteUrl}/verify.html?token=${token}`, '',
+      'Ссылка действует 3 дня. Если вы не регистрировались на Игродроме, просто удалите это письмо.',
+    ].join('\n'));
+  }
+
+  async function forgotPassword(req, res) {
+    const email = String((await readJson(req)).email || '').trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Некорректный email');
+    const key = `reset|${clientIp(req)}|${email}`;
+    if (mailLimiter.blocked(key)) throw new HttpError(429, 'Слишком много запросов, попробуйте через час');
+    mailLimiter.fail(key);
+    const user = q.userByEmail.get(email);
+    if (user && email !== STUDIO_EMAIL) {
+      const token = issueToken(user.id, 'reset', RESET_TTL_MS);
+      sendMail(user.email, 'Сброс пароля на Игродроме', [
+        `Здравствуйте, ${user.name}!`, '',
+        'Кто-то, возможно вы, попросил сбросить пароль. Задать новый пароль можно по ссылке:',
+        `${siteUrl}/reset.html?token=${token}`, '',
+        'Ссылка действует час. Если вы не просили сброс, ничего не делайте: пароль останется прежним.',
+      ].join('\n'));
+    }
+    // Ответ одинаковый, есть аккаунт или нет: по нему нельзя узнать, кто зарегистрирован.
+    send(res, 200, { ok: true });
+  }
+
+  async function resetPassword(req, res) {
+    const { token, password } = await readJson(req);
+    if (typeof password !== 'string' || password.length < 8 || password.length > 200) {
+      throw new HttpError(400, 'Пароль: от 8 до 200 символов');
+    }
+    const row = takeToken(token, 'reset');
+    if (!row) throw new HttpError(400, 'Ссылка устарела или уже использована. Запросите новую');
+    q.setPassword.run(await hashPassword(password), row.user_id);
+    q.deleteUserSessions.run(row.user_id); // выходим на всех устройствах
+    q.verifyEmail.run(Date.now(), row.user_id); // письмо дошло — значит, почта настоящая
+    const user = q.userById.get(row.user_id);
+    loginLimiter.reset(`${clientIp(req)}|${user.email}`);
+    send(res, 200, { user: publicUser(user) }, { 'Set-Cookie': startSession(user.id) });
+  }
+
+  async function confirmEmail(req, res) {
+    const row = takeToken((await readJson(req)).token, 'verify');
+    if (!row) throw new HttpError(400, 'Ссылка устарела или уже использована. Отправьте письмо ещё раз из профиля');
+    q.verifyEmail.run(Date.now(), row.user_id);
+    send(res, 200, { ok: true });
+  }
+
+  function resendVerification(req, res) {
+    const user = requireUser(req);
+    if (user.email_verified_at) throw new HttpError(409, 'Почта уже подтверждена');
+    const key = `verify|${user.id}`;
+    if (mailLimiter.blocked(key)) throw new HttpError(429, 'Письмо уже отправлено несколько раз, попробуйте через час');
+    mailLimiter.fail(key);
+    sendVerification(user);
+    send(res, 200, { ok: true });
   }
 
   async function login(req, res) {
@@ -543,6 +702,7 @@ export function createApp({
     const current = q.application.get(user.id);
     if (current?.status === 'pending') throw new HttpError(409, 'Заявка уже на рассмотрении');
     if (current?.status === 'approved') throw new HttpError(409, 'Вы уже разработчик');
+    requireVerified(user);
     const body = await readJson(req);
     const field = (k) => String(body[k] ?? '').trim();
     const studio = field('studio'), about = field('about'), links = field('links'), contact = field('contact');
@@ -642,6 +802,167 @@ export function createApp({
   function deleteSave(req, res, id) {
     const { visitor } = saveTarget(req, id);
     q.deleteSave.run(id, visitor);
+    send(res, 200, { ok: true });
+  }
+
+  function approvedGame(id) {
+    const game = q.game.get(id);
+    if (!game || game.status !== 'approved') throw new HttpError(404, 'Игра не найдена');
+    return game;
+  }
+
+  // ---------- таблицы рекордов (SDK) ----------
+  // В таблице — только вошедшие игроки, под своим именем. Хранится лучший результат; больше — лучше.
+  function lbEntry(gameId, board, row, me) {
+    const { n } = q.lbRank.get(gameId, board, row.score, row.score, row.updated_at);
+    return {
+      rank: n + 1, name: row.name, score: row.score, extra: row.extra || '',
+      player: playerIdOf(row.user_id, gameId), me: !!me && row.user_id === me.id,
+    };
+  }
+
+  function getLeaderboard(req, res, id, url) {
+    approvedGame(id);
+    const boards = q.lbBoards.all(id);
+    const board = url.searchParams.get('board') || boards[0]?.board || 'main';
+    if (!BOARD_RE.test(board)) throw new HttpError(400, 'Имя таблицы: латиница, цифры, «_», «-», «.», до 40 символов');
+    const top = Math.min(100, Math.max(0, Number(url.searchParams.get('top') ?? 10) || 0));
+    const around = Math.min(10, Math.max(0, Number(url.searchParams.get('around')) || 0));
+    const user = currentUser(req);
+    const mine = user ? q.lbMine.get(id, board, user.id) : null;
+    const entries = q.lbTop.all(id, board, top).map((r, i) => ({
+      rank: i + 1, name: r.name, score: r.score, extra: r.extra || '', player: playerIdOf(r.user_id, id), me: r.user_id === user?.id,
+    }));
+    let near = [];
+    if (mine && around) {
+      const above = q.lbAbove.all(id, board, mine.score, mine.score, mine.updated_at, around).reverse();
+      const below = q.lbBelow.all(id, board, mine.score, mine.score, mine.updated_at, around);
+      near = [...above, mine, ...below].map((r) => lbEntry(id, board, r, user));
+    }
+    send(res, 200, {
+      board, boards, total: q.lbCount.get(id, board).n,
+      entries, around: near, me: mine ? lbEntry(id, board, mine, user) : null,
+    });
+  }
+
+  async function setScore(req, res, id) {
+    const user = currentUser(req);
+    if (!user) throw new HttpError(401, 'Войдите, чтобы попасть в таблицу рекордов');
+    approvedGame(id);
+    const body = await readJson(req);
+    const board = body.board == null ? 'main' : String(body.board);
+    const score = body.score;
+    const extra = body.extra == null ? '' : String(body.extra);
+    if (!BOARD_RE.test(board)) throw new HttpError(400, 'Имя таблицы: латиница, цифры, «_», «-», «.», до 40 символов');
+    if (!Number.isSafeInteger(score) || Math.abs(score) > MAX_SCORE) throw new HttpError(400, 'score — целое число');
+    if (extra.length > 128) throw new HttpError(400, 'extra: до 128 символов');
+    const key = `${user.id}|${id}`;
+    if (scoreLimiter.blocked(key)) throw new HttpError(429, 'Слишком часто');
+    scoreLimiter.fail(key);
+    const { changes } = q.lbUpsert.run(id, board, user.id, score, extra, now());
+    send(res, 200, { improved: changes > 0, entry: lbEntry(id, board, q.lbMine.get(id, board, user.id), user) });
+  }
+
+  // ---------- монетки ----------
+  // Страница игры раз в минуту, пока вкладка видна, сообщает, что игрок играет. Начисляем не чаще раза
+  // в COIN_EVERY_MS на аккаунт (несколько вкладок не ускоряют) и не больше COIN_DAILY_CAP за день.
+  function coinTick(req, res, id) {
+    const user = currentUser(req);
+    if (!user) return send(res, 200, { earned: 0, coins: null });
+    approvedGame(id);
+    const t = now();
+    const day = stats.dayOf(t);
+    const today = q.coinDay.get(user.id, day)?.earned ?? 0;
+    const last = q.coinLastTick.get(user.id)?.t ?? 0;
+    let earned = 0;
+    if (today < COIN_DAILY_CAP && t - last >= COIN_EVERY_MS && !stats.isBot(req.headers['user-agent'])) {
+      db.exec('BEGIN');
+      try {
+        q.coinEarn.run(user.id, day, t);
+        q.addCoins.run(1, user.id);
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+      earned = 1;
+    }
+    send(res, 200, { earned, coins: q.coinsOf.get(user.id).coins, today: today + earned, cap: COIN_DAILY_CAP });
+  }
+
+  // Трата из игры. Игра в песочнице и сама сюда не ходит: запрос шлёт страница игры после того,
+  // как игрок подтвердил покупку в окне площадки.
+  async function spendCoins(req, res, id) {
+    const user = requireUser(req);
+    const game = approvedGame(id);
+    const { amount, title: rawTitle } = await readJson(req);
+    const title = String(rawTitle ?? '').trim();
+    if (!Number.isInteger(amount) || amount < 1 || amount > MAX_SPEND) throw new HttpError(400, `amount: целое от 1 до ${MAX_SPEND}`);
+    if (title.length < 1 || title.length > 60) throw new HttpError(400, 'Название покупки: от 1 до 60 символов');
+    const key = `${user.id}`;
+    if (spendLimiter.blocked(key)) throw new HttpError(429, 'Слишком часто');
+    spendLimiter.fail(key);
+    db.exec('BEGIN');
+    try {
+      const { changes } = q.takeCoins.run(amount, user.id, amount);
+      if (!changes) throw new HttpError(409, 'Не хватает монет');
+      q.insertSpend.run(user.id, id, game.title, amount, title, now());
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+    send(res, 200, { ok: true, coins: q.coinsOf.get(user.id).coins });
+  }
+
+  function myCoins(req, res) {
+    const user = requireUser(req);
+    const today = q.coinDay.get(user.id, stats.dayOf(now()))?.earned ?? 0;
+    send(res, 200, {
+      coins: q.coinsOf.get(user.id).coins, today, cap: COIN_DAILY_CAP,
+      days: q.coinDays.all(user.id), spends: q.spends.all(user.id),
+    });
+  }
+
+  // ---------- отзывы ----------
+  function getReviews(req, res, id) {
+    approvedGame(id);
+    const user = currentUser(req);
+    const reviews = q.reviews.all(id).map((r) => ({
+      id: playerIdOf(r.user_id, id), name: r.name, text: r.text, created_at: r.created_at, updated_at: r.updated_at,
+      mine: r.user_id === user?.id,
+    }));
+    send(res, 200, { reviews, total: q.reviewCount.get(id).n, canModerate: isModerator(user) });
+  }
+
+  async function putReview(req, res, id) {
+    const user = requireUser(req);
+    approvedGame(id);
+    requireVerified(user);
+    const text = String((await readJson(req)).text ?? '').trim().replace(/\n{3,}/g, '\n\n');
+    if (text.length < 3 || text.length > 1000) throw new HttpError(400, 'Отзыв: от 3 до 1000 символов');
+    const key = `${user.id}`;
+    if (reviewLimiter.blocked(key)) throw new HttpError(429, 'Слишком много отзывов за час');
+    reviewLimiter.fail(key);
+    const t = now();
+    q.upsertReview.run(id, user.id, text, t, t);
+    send(res, 200, { review: { id: playerIdOf(user.id, id), name: user.name, text, mine: true, ...q.myReview.get(id, user.id) } });
+  }
+
+  function deleteMyReview(req, res, id) {
+    const user = requireUser(req);
+    q.deleteReview.run(id, user.id);
+    send(res, 200, { ok: true });
+  }
+
+  // Модератор удаляет чужой отзыв (оскорбления, спам). Решение попадает в журнал.
+  function removeReview(req, res, id, reviewId) {
+    const mod = requireModerator(req);
+    const game = q.game.get(id);
+    const row = game && q.reviews.all(id).find((r) => playerIdOf(r.user_id, id) === reviewId);
+    if (!row) throw new HttpError(404, 'Отзыв не найден');
+    q.deleteReview.run(id, row.user_id);
+    logAction(mod, 'review.delete', id, `${game.title}: отзыв ${row.name}`, row.text.slice(0, 300));
     send(res, 200, { ok: true });
   }
 
@@ -762,11 +1083,16 @@ export function createApp({
       db.prepare('SELECT 1').get();
       return send(res, 200, { ok: true });
     }
-    if (p === '/api/config' && m === 'GET') return send(res, 200, publicConfig(ads, site));
+    if (p === '/api/config' && m === 'GET') return send(res, 200, { ...publicConfig(ads, site), mail: mailer.enabled });
     if (p === '/ads.txt' && (m === 'GET' || m === 'HEAD')) return adsTxt(req, res);
     if (p === '/api/register' && m === 'POST') return register(req, res);
     if (p === '/api/login' && m === 'POST') return login(req, res);
     if (p === '/api/logout' && m === 'POST') return logout(req, res);
+    if (p === '/api/password/forgot' && m === 'POST') return forgotPassword(req, res);
+    if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
+    if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
+    if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
+    if (p === '/api/me/coins' && m === 'GET') return myCoins(req, res);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);
       return send(res, 200, { user: u ? publicUser(u) : null });
@@ -814,6 +1140,18 @@ export function createApp({
       if (m === 'PUT') return putSave(req, res, mm[1]);
       if (m === 'DELETE') return deleteSave(req, res, mm[1]);
     }
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/leaderboard$/))) {
+      if (m === 'GET') return getLeaderboard(req, res, mm[1], url);
+      if (m === 'POST') return setScore(req, res, mm[1]);
+    }
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/reviews$/))) {
+      if (m === 'GET') return getReviews(req, res, mm[1]);
+      if (m === 'PUT') return putReview(req, res, mm[1]);
+      if (m === 'DELETE') return deleteMyReview(req, res, mm[1]);
+    }
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/reviews\/([0-9a-f]{24})$/)) && m === 'DELETE') return removeReview(req, res, mm[1], mm[2]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/coins\/tick$/)) && m === 'POST') return coinTick(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/coins\/spend$/)) && m === 'POST') return spendCoins(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play$/)) && m === 'POST') return playStart(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/play-end$/)) && m === 'POST') return playEnd(req, res, mm[1]);
     if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/ad$/)) && m === 'POST') return adShown(req, res, mm[1]);

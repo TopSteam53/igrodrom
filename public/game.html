@@ -59,11 +59,25 @@
         <h3>Об игре</h3><p id="desc"></p>
         <h3>Как играть</h3><p id="howto"></p>
       </div>
-      <div class="panel">
-        <h3>Информация</h3>
-        <dl class="facts" id="facts"></dl>
+      <div class="side">
+        <div class="panel">
+          <h3>Информация</h3>
+          <dl class="facts" id="facts"></dl>
+        </div>
+        <div class="panel hidden" id="lbPanel">
+          <h3>Рекорды</h3>
+          <div class="lb-boards hidden" id="lbBoards" role="tablist" aria-label="Таблицы рекордов"></div>
+          <ol class="lb" id="lb"></ol>
+          <p class="mut hidden" id="lbNote" style="margin:10px 0 0"></p>
+        </div>
       </div>
     </div>
+
+    <section class="sec hidden" id="reviewsSec">
+      <div class="sec-head"><h2>Отзывы <span class="mut" id="reviewCount"></span></h2></div>
+      <div id="reviewForm"></div>
+      <div class="reviews" id="reviews"></div>
+    </section>
 
     <section class="sec"><div class="sec-head"><h2>Похожие игры</h2></div><div class="row-scroll" id="similar"></div></section>
   </article>
@@ -152,11 +166,13 @@ function render(all) {
   // Гостю — подсказка: прогресс сейчас живёт только в этом браузере.
   if (live) Igr.me().then((user) => {
     if (user) return;
-    const next = encodeURIComponent(`game.html?id=${game.id}`);
-    $('saveHint').innerHTML = `Прогресс сохраняется в этом браузере. <a href="login.html?next=${next}">Войдите</a>, чтобы он был доступен на всех ваших устройствах.`;
+    $('saveHint').innerHTML = `Прогресс сохраняется в этом браузере. <a href="${loginUrl()}">Войдите</a>, чтобы он был доступен на всех ваших устройствах, а за время в игре копились монетки.`;
     $('saveHint').classList.remove('hidden');
   });
+  if (live) { loadBoard(); loadReviews(); }
 }
+
+const loginUrl = () => `login.html?next=${encodeURIComponent(`game.html?id=${game.id}`)}`;
 
 function renderScore() {
   const r = rating(game);
@@ -184,6 +200,8 @@ $('play').onclick = () => {
       const user = live ? await Igr.me() : null;
       return user ? { authorized: true, name: user.name, id: await IgrodromHost.playerIdFor(user.id, game.id) } : null;
     },
+    onScore: () => { if (live) setTimeout(loadBoard, 300); },
+    ...(live && { coins: coinsBridge, feedback: feedbackBridge }),
   });
   frame.src = game.src;
   frame.title = game.title;
@@ -206,7 +224,186 @@ function countAd(kind) {
 function startSession() {
   fetch(`/api/games/${game.id}/play`, { method: 'POST' }).catch(() => {});
   session = { visibleMs: 0, since: document.hidden ? null : Date.now() };
+  // Монетки: раз в минуту, пока вкладка видна, сервер начисляет одну (до дневного лимита).
+  let told = false;
+  setInterval(async () => {
+    if (document.hidden || !session) return;
+    try {
+      const r = await (await fetch(`/api/games/${game.id}/coins/tick`, { method: 'POST' })).json();
+      if (r.coins == null) return;
+      Igr.setCoins(r.coins);
+      if (r.earned && !told) { told = true; toast('+1 монетка. Монетки копятся за каждую минуту в играх'); }
+    } catch {}
+  }, 60 * 1000);
 }
+
+// ---------- монетки в играх ----------
+// Игра просит потратить монетки через SDK. Подтверждает игрок здесь, на странице площадки.
+const coinsBridge = {
+  async balance() {
+    const r = await fetch('/api/me');
+    const { user } = await r.json();
+    return user ? user.coins : null;
+  },
+  async confirm({ amount, title, balance }) {
+    const { dialog, coinsText, COIN_SVG } = Igr;
+    if (balance == null) {
+      await dialog({
+        title: 'Нужен вход',
+        html: `<p>Игра предлагает «${esc(title)}» за ${coinsText(amount)}. Монетки копятся в аккаунте: одна за каждую минуту в играх.</p>`,
+        buttons: [{ text: 'Не сейчас', value: false }, { text: 'Войти', href: loginUrl(), cls: 'primary', value: false }],
+      });
+      return false;
+    }
+    if (balance < amount) {
+      await dialog({
+        title: 'Не хватает монеток',
+        html: `<p>«${esc(title)}» стоит ${coinsText(amount)}, у вас ${coinsText(balance)}.</p>
+          <p class="mut">Монетки начисляются за время в играх: одна в минуту, до 60 в день.</p>`,
+        buttons: [{ text: 'Понятно', value: false, cls: 'primary' }],
+      });
+      return false;
+    }
+    return !!(await dialog({
+      title: `Потратить ${coinsText(amount)}?`,
+      html: `<p>«${esc(title)}» в игре «${esc(game.title)}».</p>
+        <p class="mut" style="display:flex;align-items:center;gap:6px">${COIN_SVG} У вас ${fmt(balance)}, останется ${fmt(balance - amount)}</p>`,
+      buttons: [{ text: 'Отмена', value: false }, { text: 'Потратить', value: true, cls: 'primary' }],
+    }));
+  },
+  async spend(amount, title) {
+    const r = await fetch(`/api/games/${game.id}/coins/spend`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount, title }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(data.error || 'Не получилось'); e.status = r.status; throw e; }
+    Igr.setCoins(data.coins);
+    toast(`Потрачено: ${Igr.coinsText(amount)}`);
+    return data.coins;
+  },
+};
+
+// Игра просит отзыв (ysdk.feedback / sdk.feedback): открываем окно отзыва площадки.
+const feedbackBridge = {
+  async can() {
+    const user = await Igr.me();
+    if (!user) return { value: false, reason: 'NO_AUTH' };
+    if (reviews.mine) return { value: false, reason: 'GAME_RATED' };
+    return { value: true };
+  },
+  async request() {
+    if ((await this.can()).value !== true) return false;
+    return reviewDialog();
+  },
+};
+
+// ---------- рекорды ----------
+let boardName = null;
+async function loadBoard(name = boardName) {
+  try {
+    const qs = new URLSearchParams({ top: 10, around: 1, ...(name && { board: name }) });
+    const r = await (await fetch(`/api/games/${game.id}/leaderboard?${qs}`)).json();
+    if (!r.total) return;
+    boardName = r.board;
+    $('lbPanel').classList.remove('hidden');
+    $('lbBoards').classList.toggle('hidden', r.boards.length < 2);
+    $('lbBoards').innerHTML = r.boards.map((b) =>
+      `<button class="tab ${b.board === r.board ? 'on' : ''}" role="tab" aria-selected="${b.board === r.board}" data-board="${esc(b.board)}">${esc(b.board)}</button>`).join('');
+    const row = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span><span class="n">${esc(e.name)}</span><span class="s">${fmt(e.score)}</span></li>`;
+    const mine = r.me && r.me.rank > r.entries.length ? r.around.filter((e) => e.rank > r.entries.length) : [];
+    $('lb').innerHTML = r.entries.map(row).join('') +
+      (mine.length ? `${mine[0].rank > r.entries.length + 1 ? '<li class="lb-gap" aria-hidden="true">…</li>' : ''}${mine.map(row).join('')}` : '');
+    const user = await Igr.me();
+    $('lbNote').classList.toggle('hidden', !!user);
+    $('lbNote').innerHTML = user ? '' : `<a href="${loginUrl()}">Войдите</a>, чтобы ваш результат попал в таблицу.`;
+  } catch {}
+}
+$('lbBoards').onclick = (e) => { const b = e.target.closest('[data-board]'); if (b) loadBoard(b.dataset.board); };
+
+// ---------- отзывы ----------
+let reviews = { list: [], mine: null, canModerate: false };
+const dateRu = (t) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
+async function loadReviews() {
+  try {
+    const r = await (await fetch(`/api/games/${game.id}/reviews`)).json();
+    reviews = { list: r.reviews, mine: r.reviews.find((x) => x.mine) || null, canModerate: r.canModerate };
+    renderReviews(r.total);
+  } catch {}
+}
+
+async function renderReviews(total = reviews.list.length) {
+  const user = await Igr.me();
+  $('reviewsSec').classList.remove('hidden');
+  $('reviewCount').textContent = total ? fmt(total) : '';
+  const form = $('reviewForm');
+  if (!user) {
+    form.innerHTML = `<div class="notice"><p>Поделитесь впечатлением об игре — другим игрокам будет проще выбрать.</p><a class="btn" href="${loginUrl()}">Войти и написать отзыв</a></div>`;
+  } else if (!reviews.mine) {
+    form.innerHTML = `<form class="review-form" id="rf"><label for="rt" style="margin-top:0">Ваш отзыв</label>
+      <textarea id="rt" maxlength="1000" placeholder="Что понравилось, что нет, кому подойдёт игра"></textarea>
+      <div class="err-text" id="rErr" role="alert"></div>
+      <div class="acts"><span class="count" id="rc">0 / 1000</span><button class="btn primary">Отправить</button></div></form>`;
+    $('rt').oninput = () => { $('rc').textContent = `${$('rt').value.length} / 1000`; };
+    $('rf').onsubmit = async (e) => {
+      e.preventDefault();
+      const err = await saveReview($('rt').value);
+      $('rErr').textContent = err || '';
+    };
+  } else form.innerHTML = '';
+  $('reviews').innerHTML = reviews.list.length ? reviews.list.map((r) => `<article class="review" data-id="${esc(r.id)}">
+      <div class="review-head"><b>${esc(r.name)}</b><time datetime="${new Date(r.updated_at).toISOString()}">${dateRu(r.updated_at)}</time>
+        <span class="acts">${r.mine ? '<button class="btn sm" data-act="edit">Изменить</button><button class="btn sm" data-act="del">Удалить</button>'
+          : reviews.canModerate ? '<button class="btn sm bad" data-act="mod">Удалить</button>' : ''}</span></div>
+      <p>${esc(r.text)}</p></article>`).join('')
+    : '<p class="mut" style="margin:0">Отзывов пока нет.</p>';
+}
+
+async function saveReview(text) {
+  const r = await fetch(`/api/games/${game.id}/reviews`, {
+    method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return data.error || 'Не удалось сохранить отзыв';
+  toast('Спасибо за отзыв');
+  await loadReviews();
+  return null;
+}
+
+// Окно отзыва: для «Изменить» и для просьбы игры через SDK. Возвращает true, если отзыв сохранён.
+async function reviewDialog(initial = '') {
+  const body = document.createElement('div');
+  body.innerHTML = `<label for="rdText" style="margin-top:4px">Что понравилось, что нет, кому подойдёт игра</label>
+    <textarea id="rdText" maxlength="1000"></textarea><div class="err-text" id="rdErr" role="alert"></div>`;
+  body.querySelector('textarea').value = initial;
+  for (;;) {
+    const ok = await Igr.dialog({
+      title: initial ? 'Изменить отзыв' : `Отзыв об игре «${game.title}»`, body,
+      buttons: [{ text: 'Отмена', value: false }, { text: 'Отправить', value: true, cls: 'primary' }],
+    });
+    if (!ok) return false;
+    const err = await saveReview(body.querySelector('textarea').value);
+    if (!err) return true;
+    body.querySelector('.err-text').textContent = err;
+  }
+}
+
+$('reviews').onclick = async (e) => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const id = btn.closest('[data-id]').dataset.id;
+  if (btn.dataset.act === 'edit') return reviewDialog(reviews.mine.text);
+  const ok = await Igr.dialog({
+    title: btn.dataset.act === 'mod' ? 'Удалить чужой отзыв?' : 'Удалить ваш отзыв?',
+    html: btn.dataset.act === 'mod' ? '<p class="mut">Решение попадёт в журнал модерации.</p>' : '',
+    buttons: [{ text: 'Отмена', value: false }, { text: 'Удалить', value: true, cls: 'bad' }],
+  });
+  if (!ok) return;
+  const url = btn.dataset.act === 'mod' ? `/api/games/${game.id}/reviews/${id}` : `/api/games/${game.id}/reviews`;
+  const r = await fetch(url, { method: 'DELETE' });
+  if (!r.ok) return toast('Не удалось удалить');
+  loadReviews();
+};
 function endSession() {
   if (!session) return;
   if (session.since) session.visibleMs += Date.now() - session.since;

@@ -8,9 +8,10 @@
  *
  * Работает: player.getData/setData, getStats/setStats/incrementStats, getStorage, localStorage в песочнице,
  * environment, deviceInfo, LoadingAPI и GameplayAPI, реклама (через площадку), screen.fullscreen,
- * clipboard, serverTime, on/off, getFlags, isAvailableMethod.
- * Заглушки, чтобы игра не падала: лидерборды (пустые), покупки (каталог пуст, купить нельзя),
- * бонусы, отзывы, ярлык на рабочий стол, мультиплеер, аналитика, вход через Яндекс.
+ * clipboard, serverTime, on/off, getFlags, isAvailableMethod, лидерборды (таблицы рекордов площадки),
+ * feedback (окно отзыва на странице игры).
+ * Заглушки, чтобы игра не падала: покупки (каталог пуст, купить нельзя), бонусы, ярлык на рабочий стол,
+ * мультиплеер, аналитика, вход через Яндекс.
  */
 (function (global) {
   'use strict';
@@ -145,17 +146,50 @@
     };
   }
 
-  // ---------- лидерборды и покупки: пока заглушки ----------
+  // ---------- лидерборды: таблицы рекордов площадки ----------
+  // Порядок всегда «больше — лучше», как у таблиц Яндекса по умолчанию.
   function lbDescription(name) {
-    return { appID: '', default: false, name: name, title: { ru: name, en: name },
+    return { appID: '', default: name === 'main', name: name, title: { ru: name, en: name },
       description: { invert_sort_order: false, score_format: { options: { decimal_offset: 0 } }, type: 'numeric' } };
   }
-  function lbEntries(name) { return { leaderboard: lbDescription(name), ranges: [], userRank: 0, entries: [] }; }
+  function lbEntry(e) {
+    return {
+      score: e.score, extraData: e.extra || '', rank: e.rank, formattedScore: String(e.score),
+      player: {
+        lang: 'ru', publicName: e.name, uniqueID: e.player,
+        scopePermissions: { avatar: 'forbid', public_name: 'allow' },
+        getAvatarSrc: function () { return ''; }, getAvatarSrcSet: function () { return ''; },
+      },
+    };
+  }
+  function needBoard() { return connect().then(function (s) { return s.leaderboard; }); }
   var leaderboards = {
     getDescription: function (name) { return resolved(lbDescription(name)); },
-    setScore: function () { return resolved(); },
-    getPlayerEntry: function () { return rejected('Игрока нет в таблице', 'LEADERBOARD_PLAYER_NOT_PRESENT'); },
-    getEntries: function (name) { return resolved(lbEntries(name)); },
+    setScore: function (name, score, extraData) {
+      return needBoard().then(function (lb) {
+        return lb.setScore(Math.round(Number(score)), { board: name, extra: extraData == null ? '' : String(extraData).slice(0, 128) });
+      }).then(function () {});
+    },
+    getPlayerEntry: function (name) {
+      return needBoard().then(function (lb) { return lb.getPlayerEntry({ board: name }); }).then(function (me) {
+        return me ? lbEntry(me) : rejected('Игрока нет в таблице', 'LEADERBOARD_PLAYER_NOT_PRESENT');
+      });
+    },
+    getEntries: function (name, opts) {
+      opts = opts || {};
+      var top = opts.quantityTop || 5;
+      var around = opts.includeUser ? opts.quantityAround || 5 : 0;
+      return needBoard().then(function (lb) { return lb.getEntries({ board: name, top: top, around: around }); }).then(function (r) {
+        var list = r.entries.slice();
+        var ranges = [{ start: 0, size: list.length }];
+        var near = (r.around || []).filter(function (e) { return e.rank > list.length; });
+        if (near.length) {
+          ranges.push({ start: near[0].rank - 1, size: near.length });
+          list = list.concat(near);
+        }
+        return { leaderboard: lbDescription(name), ranges: ranges, userRank: r.me ? r.me.rank : 0, entries: list.map(lbEntry) };
+      });
+    },
   };
   var legacyLeaderboards = {
     getLeaderboardDescription: leaderboards.getDescription,
@@ -163,6 +197,7 @@
     getLeaderboardPlayerEntry: leaderboards.getPlayerEntry,
     getLeaderboardEntries: leaderboards.getEntries,
   };
+  // Покупки за деньги на площадке не продаются: каталог пуст, купить нельзя.
   var payments = {
     getCatalog: function () { return resolved([]); },
     getPurchases: function () { var list = []; list.signature = ''; return resolved(list); },
@@ -174,6 +209,8 @@
     'adv.showFullscreenAdv': true, 'adv.showRewardedVideo': true, 'player.getData': true, 'player.setData': true,
     'player.getStats': true, 'player.setStats': true, 'player.incrementStats': true, 'getStorage': true,
     'features.LoadingAPI.ready': true, 'features.GameplayAPI.start': true, 'features.GameplayAPI.stop': true,
+    'leaderboards.setScore': true, 'leaderboards.getEntries': true, 'leaderboards.getPlayerEntry': true,
+    'leaderboards.getDescription': true, 'feedback.canReview': true, 'feedback.requestReview': true,
   };
 
   function call(fn) { if (typeof fn === 'function') { try { fn.apply(null, [].slice.call(arguments, 1)); } catch (e) { setTimeout(function () { throw e; }); } } }
@@ -253,9 +290,10 @@
       leaderboards: leaderboards,
       getPayments: function () { return resolved(payments); },
       payments: payments,
+      // Отзыв пишется в окне площадки под игрой.
       feedback: {
-        canReview: function () { return resolved({ value: false, reason: 'UNKNOWN' }); },
-        requestReview: function () { return resolved({ feedbackSent: false }); },
+        canReview: function () { return info.feedback.canReview(); },
+        requestReview: function () { return info.feedback.request().then(function (r) { return { feedbackSent: r.sent }; }); },
       },
       shortcut: {
         canShowPrompt: function () { return resolved({ canShow: false }); },
@@ -327,7 +365,7 @@
   var initPromise = null;
   function init() {
     initPromise = initPromise || connect().then(function (s) {
-      return makeYsdk({ environment: s.environment, player: s.player, ads: s.ads, game: s.game });
+      return makeYsdk({ environment: s.environment, player: s.player, ads: s.ads, game: s.game, feedback: s.feedback });
     });
     return initPromise;
   }

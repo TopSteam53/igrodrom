@@ -279,4 +279,44 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .ad-test-label{display:inline-block;font-size:13px;font-weight:600;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
 .ad-test-title{font:700 22px/1.2 var(--display);margin:14px 0 8px}.ad-test-sub{margin:0 0 18px;color:var(--ink-2)}
 .contact-facts{max-width:560px}.contact-facts a{color:var(--link)}
+
+/* ---------- монетки ---------- */
+.coin-chip{display:inline-flex;align-items:center;gap:6px;font:700 15px/1 var(--text);font-variant-numeric:tabular-nums;color:var(--ink);text-decoration:none;white-space:nowrap;padding:6px 4px}
+.coin-chip:hover{text-decoration:underline;text-underline-offset:3px}
+.coin-ico{width:20px;height:20px;flex:none}
+.top-in>.coin-chip{margin-left:auto}.top-in>.coin-chip~.theme-btn{margin-left:0}
+.coin-big{display:flex;align-items:center;gap:12px;font:800 40px/1 var(--display);font-variant-numeric:tabular-nums;margin:6px 0 10px}
+.coin-big .coin-ico{width:40px;height:40px}
+.coin-meter{height:10px;border-radius:999px;background:var(--paper);overflow:hidden;max-width:360px;margin:6px 0 4px}
+.coin-meter i{display:block;height:100%;background:var(--x)}
+
+/* ---------- окно поверх страницы (подтверждение траты, отзыв) ---------- */
+.modal{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:16px;background:rgba(8,10,24,.62)}
+.modal-card{width:min(460px,100%);background:var(--panel);color:var(--ink);border:2px solid var(--key-line);border-radius:20px;padding:22px 24px;box-shadow:0 4px 0 var(--key-shadow)}
+.modal-card h3{font-size:20px;margin:0 0 8px}.modal-card p{margin:0 0 8px}
+.modal-acts{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
+
+/* ---------- рекорды и отзывы на странице игры ---------- */
+.side{display:flex;flex-direction:column;gap:16px}
+.lb{list-style:none;margin:0;padding:0;font-size:15px}
+.lb li{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.lb li:last-child{border-bottom:0}
+.lb .r{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.lb .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb .s{font-weight:700;font-variant-numeric:tabular-nums}
+.lb li.me{font-weight:600}.lb li.me .n::after{content:" — вы";color:var(--ink-2);font-weight:400}
+.lb-gap{color:var(--ink-2);text-align:center;padding:2px 0!important;border-bottom:0!important;display:block!important}
+.lb-boards{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.lb-boards .tab{padding:4px 10px;font-size:14px}
+.reviews{display:flex;flex-direction:column;gap:12px;max-width:760px}
+.review{background:var(--panel);border-radius:16px;padding:14px 18px}
+.review-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px}
+.review-head b{font-weight:600}.review-head time{color:var(--ink-2);font-size:14px}
+.review-head .acts{margin-left:auto;display:flex;gap:6px}
+.review p{margin:0;white-space:pre-line;overflow-wrap:anywhere}
+.review-form{background:var(--panel);border-radius:16px;padding:14px 18px;max-width:760px;margin-bottom:12px}
+.review-form .acts{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:10px}
+.review-form .count{margin-right:auto;color:var(--ink-2);font-size:14px}
+.notice{background:var(--panel);border:2px solid var(--key-line);border-radius:16px;padding:12px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:20px 0 0;max-width:760px}
+.notice p{margin:0;flex:1;min-width:220px}
 .prose a:not(.btn){color:var(--link)}
