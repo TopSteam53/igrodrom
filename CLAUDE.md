@@ -13,7 +13,8 @@
 Сайт работает на https://playgamely.ru (см. «Продакшен»).
 
 ## Продакшен
-- Сайт: https://playgamely.ru (домен в reg.ru, A-записи @ и www → 194.35.112.71; старый адрес 194-35-112-71.sslip.io\n  и www перекидывают на него — REDIRECT_FROM в .env). VPS RUVDS RU2772577, Казань, 1 CPU / 1 ГБ / 20 ГБ,
+- Сайт: https://playgamely.ru (домен в reg.ru, A-записи @ и www → 194.35.112.71; старый адрес 194-35-112-71.sslip.io
+  и www перекидывают на него — REDIRECT_FROM в .env). VPS RUVDS RU2772577, Казань, 1 CPU / 1 ГБ / 20 ГБ,
   Ubuntu 24.04, 349 ₽/мес; автопродление в панели RUVDS выключено — следить за балансом.
 - Вход: `ssh -i ~/.ssh/igrodrom_deploy root@194.35.112.71`. Код в `/opt/igrodrom` (ветка `claude/yandex-games-alternative-uzcl2b`),
   настройки в `/opt/igrodrom/.env`, база в docker-томе `igrodrom-data`.
