@@ -27,6 +27,13 @@ Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm
   contacts/terms/privacy (шаблоны, юридически не проверены).
 - Тёмная тема, шрифты Unbounded + Onest.
 
+## Скиллы
+- `.claude/skills/frontend-design` — план дизайна без шаблонности (Anthropic).
+- `.claude/skills/impeccable` (pbakaus/impeccable v4.7.0, Apache 2.0) — аудит и шлифовка интерфейса: `/impeccable audit|critique|polish|layout|typeset …`.
+  Установлен без папки `scripts/`: её CLI скачивает и запускает сторонний бинарник. Поэтому при старте скилл пишет
+  «Context loading did not run» и читает DESIGN.md напрямую — это нормально. Не работают только `live` и `generate`.
+- Больше 2–3 скиллов не ставить: каждый ест контекст.
+
 ## Правила работы
 - Разработка и пуши только в ветку `claude/yandex-games-alternative-uzcl2b`. PR не создавать без просьбы.
 - Историю git не переписывать без подтверждения. Папка `docs/` в `.gitignore`.
