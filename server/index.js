@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createApp } from './app.js';
 import { adsFromEnv, siteFromEnv } from './config.js';
 import { mailerFromEnv } from './mail.js';
+import { packsFromEnv, yookassaFromEnv } from './economy.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT) || 3000;
@@ -39,6 +40,8 @@ const server = createApp({
   // Адрес сайта для ссылок в письмах. Берём из настроек, а не из запроса: заголовок Host можно подделать.
   siteUrl: process.env.SITE_URL || (process.env.DOMAIN ? `https://${process.env.DOMAIN}` : `http://localhost:${port}`),
   registerGuard: true,
+  coinPacks: packsFromEnv(process.env),
+  yookassa: yookassaFromEnv(process.env),
 });
 
 server.listen(port, () => console.log(`Gamely: http://localhost:${port}`));

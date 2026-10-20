@@ -237,7 +237,7 @@
 
   // Поиск без учёта регистра и «ё».
   const norm = (s) => String(s || '').toLowerCase().replace(/ё/g, 'е');
-  const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${g.description || ''}`).includes(norm(q));
+  const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${(g.tags || []).join(' ')} ${g.short_description || ''} ${g.description || ''}`).includes(norm(q));
 
   window.Igr = {
     $, esc, fmt, me, safeNext, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,

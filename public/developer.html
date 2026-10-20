@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Разработчик — Gamely</title>
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html" aria-label="Gamely, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#FFC531"/><path d="M22.6 9.4A9 9 0 1 0 25 16" fill="none" stroke="#1C2140" stroke-width="4.2" stroke-linecap="round"/><path d="M14.6 12.2 21.2 16l-6.6 3.8z" fill="#1C2140" stroke="#1C2140" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Gamely</span></a>
+  <form class="search" id="searchForm" action="index.html" role="search">
+    <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
+  </form>
+  <a class="btn" id="login" href="login.html">Войти</a>
+</div></header>
+
+<main class="w">
+  <div class="empty" id="loading">Загрузка…</div>
+  <section class="me-card hidden" id="head">
+    <span id="ava"></span>
+    <div class="me-info">
+      <span class="mut">Разработчик</span>
+      <h1 id="studio" class="profile-name"></h1>
+      <a id="site" class="mut hidden" target="_blank" rel="noopener nofollow ugc"></a>
+    </div>
+  </section>
+  <p class="dev-about hidden" id="about"></p>
+  <section class="sec hidden" id="gamesSec">
+    <div class="sec-head"><h2>Игры <span class="mut" id="count"></span></h2></div>
+    <div class="grid" id="games"></div>
+  </section>
+</main>
+
+<footer><div class="w">
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a><a href="terms.html">Правила</a><a href="privacy.html">Конфиденциальность</a><a href="contacts.html">Контакты</a></nav>
+  <div>© Gamely</div>
+</div></footer>
+
+<script src="app.js"></script>
+<script>
+const { $, esc, fmt, fromApi, cardHTML, avatarHTML, loadCatalog, initHeader } = Igr;
+initHeader();
+const id = new URLSearchParams(location.search).get('id');
+
+(async () => {
+  const r = /^\d+$/.test(id || '') ? await fetch(`/api/developers/${id}`).catch(() => null) : null;
+  if (!r || !r.ok) {
+    $('loading').innerHTML = '<h1 class="empty-title">Такого разработчика нет</h1><a class="btn primary" href="index.html">Открыть каталог</a>';
+    return;
+  }
+  const { developer: d, games } = await r.json();
+  // Оценки и запуски — из общего каталога.
+  const all = new Map((await loadCatalog()).games.map((g) => [g.id, g]));
+  document.title = `${d.studio} — игры на Gamely`;
+  $('loading').classList.add('hidden');
+  $('head').classList.remove('hidden');
+  $('ava').innerHTML = avatarHTML({ name: d.studio, avatar: d.avatar }, 96);
+  $('ava').firstElementChild.classList.add('dev-ava');
+  $('studio').textContent = d.studio;
+  if (d.website) {
+    $('site').textContent = d.website.replace(/^https:\/\//, '');
+    $('site').href = d.website;
+    $('site').classList.remove('hidden');
+  }
+  if (d.about) { $('about').textContent = d.about; $('about').classList.remove('hidden'); }
+  $('count').textContent = fmt(games.length);
+  $('games').innerHTML = games.map((g) => all.get(g.id) || fromApi(g)).map(cardHTML).join('');
+  $('gamesSec').classList.remove('hidden');
+})();
+</script>
+</body>
+</html>

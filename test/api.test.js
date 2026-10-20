@@ -126,7 +126,7 @@ test('загрузка → модерация → каталог', async () => {
   const list = await guest('GET', '/api/games');
   assert.equal(list.data.games.length, 1);
   assert.equal(list.data.games[0].title, 'Моя <b>игра</b>');
-  assert.equal(list.data.games[0].author, 'Разработчик');
+  assert.equal(list.data.games[0].author, 'Студия', 'автор для игроков — название студии из заявки');
 
   const redirect = await guest('GET', `/play/${id}`);
   assert.equal(redirect.status, 301);

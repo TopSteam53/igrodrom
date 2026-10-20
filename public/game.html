@@ -57,8 +57,11 @@
 
     <div class="info">
       <div class="panel">
+        <div class="gallery hidden" id="shots" aria-label="Скриншоты"></div>
         <h3>Об игре</h3><p id="desc"></p>
+        <div class="tag-list hidden" id="tags"></div>
         <h3>Как играть</h3><p id="howto"></p>
+        <div class="hidden" id="news"><h3>Что нового<span class="mut" id="newsVer"></span></h3><p id="changelog"></p></div>
       </div>
       <div class="side">
         <div class="panel">
@@ -125,7 +128,8 @@ function render(all) {
   $('game').classList.remove('hidden');
   $('icon').innerHTML = iconHTML(game);
   $('title').textContent = game.title;
-  $('author').textContent = game.author || '';
+  $('author').innerHTML = game.author && game.author_id && !game.demo
+    ? `<a href="developer.html?id=${encodeURIComponent(game.author_id)}">${esc(game.author)}</a>` : esc(game.author || '');
   $('category').textContent = game.genre;
   $('category').href = `index.html?category=${encodeURIComponent(game.genre)}`;
   // Заставка: размытая обложка фоном, поверх — иконка, название и «Играть».
@@ -136,15 +140,23 @@ function render(all) {
   $('splashMeta').innerHTML = `<span>${esc(game.genre)}</span><span class="age">${esc(game.age || '0+')}</span>${r0 !== null ? `<span>👍 ${r0}%</span>` : ''}`;
   $('desc').textContent = game.description || 'Описание пока не добавлено.';
   $('howto').textContent = game.how_to_play || 'Правила пока не добавлены.';
+  renderExtras();
   renderScore();
 
+  const named = (list, dict) => (list || []).map((v) => dict[v]).filter(Boolean).join(', ');
   const facts = [
     ['Категория', esc(game.genre)],
     ['Возраст', esc(game.age || '0+')],
-    ['Разработчик', esc(game.author || '—')],
-    ['Платформы', 'Компьютер, телефон, планшет'],
+    ['Разработчик', $('author').innerHTML || '—'],
+    ['Платформы', named(game.platforms, PLATFORMS) || 'Компьютер, телефон, планшет'],
+    game.controls?.length ? ['Управление', named(game.controls, CONTROLS)] : null,
+    game.orientation && game.orientation !== 'any' ? ['Экран', ORIENT[game.orientation]] : null,
+    game.languages?.length ? ['Языки', named(game.languages, LANGS)] : null,
+    game.version ? ['Версия', esc(game.version)] : null,
     live && game.created_at ? ['Добавлена', new Date(game.created_at).toLocaleDateString('ru-RU')] : null,
+    live && game.updated_at && game.updated_at - game.created_at > 864e5 ? ['Обновлена', new Date(game.updated_at).toLocaleDateString('ru-RU')] : null,
     live ? ['Запусков', fmt(game.plays || 0)] : null,
+    game.support ? ['Поддержка', supportHTML(game.support)] : null,
   ].filter(Boolean);
   $('facts').innerHTML = facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 
@@ -167,13 +179,45 @@ function render(all) {
   // Гостю — подсказка: прогресс сейчас живёт только в этом браузере.
   if (live) Igr.me().then((user) => {
     if (user) return;
-    $('saveHint').innerHTML = `Прогресс сохраняется в этом браузере. <a href="${loginUrl()}">Войдите</a>, чтобы он был доступен на всех ваших устройствах, а за время в игре копились монетки.`;
+    $('saveHint').innerHTML = `Прогресс сохраняется в этом браузере. <a href="${loginUrl()}">Войдите</a>, чтобы он был доступен на всех ваших устройствах. Новичкам дарим 50 монеток.`;
     $('saveHint').classList.remove('hidden');
   });
   if (live) { loadBoard(); loadReviews(); }
 }
 
 const loginUrl = () => `login.html?next=${encodeURIComponent(`game.html?id=${game.id}`)}`;
+
+const PLATFORMS = { desktop: 'Компьютер', mobile: 'Телефон и планшет', tv: 'Телевизор' };
+const CONTROLS = { keyboard: 'Клавиатура', mouse: 'Мышь', touch: 'Сенсорный экран', gamepad: 'Геймпад' };
+const ORIENT = { landscape: 'Горизонтальный', portrait: 'Вертикальный' };
+const LANGS = { ru: 'русский', en: 'английский', uk: 'украинский', be: 'белорусский', kk: 'казахский', uz: 'узбекский', tr: 'турецкий', de: 'немецкий', es: 'испанский', other: 'другие' };
+// Контакт поддержки: почта или Telegram становятся ссылками, остальное — текстом.
+function supportHTML(s) {
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return `<a href="mailto:${esc(s)}">${esc(s)}</a>`;
+  const tg = s.match(/^(?:@|https:\/\/t\.me\/)([\w]{4,32})$/);
+  if (tg) return `<a href="https://t.me/${tg[1]}" target="_blank" rel="noopener nofollow">@${esc(tg[1])}</a>`;
+  return esc(s);
+}
+
+// Скриншоты, теги и «Что нового» — то, что разработчик заполнил в кабинете.
+function renderExtras() {
+  const shots = game.screenshots || [];
+  $('shots').classList.toggle('hidden', !shots.length);
+  $('shots').innerHTML = shots.map((s, i) => `<button type="button" class="gallery-item" data-i="${i}"><img src="${esc(s)}" alt="Скриншот ${i + 1}" loading="lazy"></button>`).join('');
+  $('shots').onclick = (e) => {
+    const b = e.target.closest('[data-i]');
+    if (!b) return;
+    const img = document.createElement('img');
+    img.src = shots[b.dataset.i]; img.alt = ''; img.className = 'shot-full';
+    Igr.dialog({ title: `${game.title} — скриншот ${Number(b.dataset.i) + 1} из ${shots.length}`, body: img, buttons: [{ text: 'Закрыть', value: null, cls: 'primary' }] });
+  };
+  const tags = game.tags || [];
+  $('tags').classList.toggle('hidden', !tags.length);
+  $('tags').innerHTML = tags.map((t) => `<a class="chip" href="index.html?q=${encodeURIComponent(t)}">#${esc(t)}</a>`).join('');
+  $('news').classList.toggle('hidden', !game.changelog);
+  $('changelog').textContent = game.changelog || '';
+  $('newsVer').textContent = game.version ? ` · версия ${game.version}` : '';
+}
 
 function renderScore() {
   const r = rating(game);

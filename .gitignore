@@ -1,4 +1,5 @@
 data/
+data-preview/
 node_modules/
 .env
 *.log

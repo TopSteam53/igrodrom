@@ -381,3 +381,90 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .tbl td.plus{color:var(--x-ink)}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]) .tbl td.plus{color:#4ADE80}}
 :root[data-theme=dark] .tbl td.plus{color:#4ADE80}
+/* ---------- кабинет разработчика ---------- */
+.cab-nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:22px 0 18px;overflow-x:auto;scrollbar-width:none}
+.cab-nav button{flex:none;background:none;border:0;border-bottom:3px solid transparent;color:var(--ink-2);font:600 16px var(--text);padding:12px 14px;cursor:pointer;margin-bottom:-1px}
+.cab-nav button:hover{color:var(--ink)}.cab-nav button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.cab-nav .cab-new{margin-left:auto;color:var(--link)}
+.narrow-left{max-width:720px}
+.form-acts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
+.form-acts .spacer,.ed-head .spacer{flex:1}
+.game-row{cursor:pointer}.game-row:hover{background:var(--panel-hover)}
+.game-thumb{width:96px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--skeleton);flex:none;display:flex;align-items:center;justify-content:center}
+.game-thumb img{width:100%;height:100%;object-fit:cover}
+.reject-reason{color:var(--err)}
+.ed-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ed-head h2{margin:0;font-size:24px}
+.ed-grid{display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:16px}
+@media(max-width:900px){.ed-grid{grid-template-columns:1fr}}
+.ed-grid h3,#editor .panel>h3{margin:0 0 6px;font-size:17px}
+#editor>.panel{margin-bottom:16px}
+.ed-save{grid-column:1/-1;display:flex;align-items:center;justify-content:flex-end;gap:14px;position:sticky;bottom:12px;z-index:2}
+.ed-save .btn{box-shadow:0 3px 0 var(--key-shadow),0 8px 24px rgba(0,0,0,.25)}
+.label{display:block;font-size:15px;font-weight:500;margin:14px 0 6px}
+.checks{display:flex;flex-wrap:wrap;gap:8px}
+.check{display:inline-flex;align-items:center;gap:8px;margin:0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-weight:500}
+.check input{width:18px;height:18px;margin:0;accent-color:var(--a)}
+.check:has(input:checked){border-color:var(--a);background:color-mix(in srgb,var(--a) 10%,transparent)}
+.media-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:8px}
+@media(max-width:640px){.media-grid{grid-template-columns:1fr}}
+.media-slot{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.media-slot .label{margin:6px 0 0}
+.media-box{border-radius:14px;overflow:hidden;background:var(--paper);border:1px dashed var(--field);display:flex;align-items:center;justify-content:center;width:100%}
+.cover-box{aspect-ratio:16/9}.icon-box{aspect-ratio:1;max-width:180px}
+.media-box img{width:100%;height:100%;object-fit:cover}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:8px}
+.shot{position:relative;margin:0;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:var(--paper)}
+.shot img{width:100%;height:100%;object-fit:cover}
+.shot-acts{position:absolute;top:6px;right:6px;display:flex;gap:6px}
+.shot.add{display:flex;align-items:center;justify-content:center;border:2px dashed var(--field);cursor:pointer;color:var(--link);font-weight:600;margin:0}
+.shot.add:hover{background:var(--panel-hover)}
+/* ---------- страница игры: скриншоты, теги; страница студии ---------- */
+.gallery{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,40%);gap:10px;overflow-x:auto;margin:0 0 18px;padding-bottom:4px;scroll-snap-type:x mandatory}
+.gallery-item{padding:0;border:0;border-radius:12px;overflow:hidden;aspect-ratio:16/9;cursor:zoom-in;background:var(--paper);scroll-snap-align:start}
+.gallery-item img{width:100%;height:100%;object-fit:cover;display:block}
+.shot-full{display:block;width:min(86vw,1100px);max-height:72vh;object-fit:contain;border-radius:12px;margin:4px 0 14px}
+.modal-card:has(.shot-full){max-width:none;width:auto}
+.tag-list{display:flex;flex-wrap:wrap;gap:8px;margin:-4px 0 14px}
+.tag-list .chip{padding:5px 12px;font-size:14px}
+#news h3 .mut{font-family:var(--text);font-weight:500;font-size:15px}
+.game-sub a{color:inherit;text-decoration:underline;text-underline-offset:3px}
+.facts a{color:var(--link)}
+.dev-ava{width:96px;height:96px;font-size:42px}
+.dev-about{max-width:70ch;white-space:pre-line;margin:8px 0 0}
+/* ---------- админка ---------- */
+.adm{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;padding-top:24px;padding-bottom:48px;align-items:start}
+.adm-nav{position:sticky;top:92px;display:flex;flex-direction:column;gap:2px}
+.adm-nav button{display:flex;align-items:center;gap:6px;text-align:left;background:none;border:0;border-radius:10px;color:var(--ink-2);font:600 15px var(--text);padding:10px 12px;cursor:pointer}
+.adm-nav button:hover{background:var(--panel);color:var(--ink)}
+.adm-nav button.on{background:var(--ink);color:var(--on-ink)}
+.adm-nav .count:not(:empty){margin-left:auto;min-width:22px;background:var(--b-ink);color:#fff;border-radius:999px;font-size:12px;padding:2px 7px;text-align:center}
+@media(max-width:860px){.adm{grid-template-columns:minmax(0,1fr);gap:12px}.adm-nav{position:static;flex-direction:row;overflow-x:auto;scrollbar-width:none}.adm-nav button{flex:none}}
+.adm-title{font-size:26px;margin:0 0 16px}
+.adm-sub{font-size:19px;margin:24px 0 12px}
+.kpi small{display:block;margin-top:6px;font-size:13px}
+.queues{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin:16px 0}
+.queue{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);cursor:pointer;text-align:left;font:inherit}
+.queue b{font:800 26px/1 var(--display);color:var(--ink)}
+.queue.hot{border-color:var(--b);box-shadow:inset 4px 0 0 var(--b)}
+.queue:hover{background:var(--panel-hover)}
+.adm-tools{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:4px}
+.adm-tools input{flex:1;min-width:0;flex-basis:220px}.adm-tools select{width:auto}
+#uFilters{padding-top:8px}
+.users-tbl td{vertical-align:middle}
+.u-cell{display:flex;align-items:center;gap:10px}.u-cell b{font-weight:600}
+.tbl tr.click{cursor:pointer}.tbl tr.click:hover td{background:var(--panel-hover)}
+.tbl tr.total td{font-weight:700;border-top:2px solid var(--line)}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px}
+.modal-card:has(.user-card){width:min(720px,94vw);max-width:none;max-height:90vh;overflow:auto}
+.user-card h3{font-size:16px;margin:18px 0 8px}
+.u-head{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.u-name{font:700 20px/1.2 var(--display)}
+.u-acts{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.user-card .coin-ico{width:16px;height:16px;vertical-align:-3px}
+.ava-queue{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.ava-card{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.ava-card img{width:160px;height:160px;border-radius:50%;object-fit:cover;background:var(--paper)}
+.ava-card .acts{display:flex;gap:8px;margin-top:6px}
+.cover-box{max-width:520px}

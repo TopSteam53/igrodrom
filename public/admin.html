@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Админка — Gamely</title>
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<script src="theme.js"></script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html" aria-label="Gamely, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#FFC531"/><path d="M22.6 9.4A9 9 0 1 0 25 16" fill="none" stroke="#1C2140" stroke-width="4.2" stroke-linecap="round"/><path d="M14.6 12.2 21.2 16l-6.6 3.8z" fill="#1C2140" stroke="#1C2140" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Gamely</span></a>
+  <span class="mut" style="margin-left:auto">Админка <span class="badge role" id="roleBadge"></span></span>
+  <a class="btn" href="cabinet.html">Кабинет</a>
+  <span id="themeSlot"></span>
+  <a class="btn" id="login" href="account.html">Профиль</a>
+</div></header>
+
+<div class="w adm" id="adm" hidden>
+  <nav class="adm-nav" id="nav" aria-label="Разделы админки">
+    <button data-pane="overview" class="on">📊 Обзор</button>
+    <button data-pane="users">👥 Пользователи</button>
+    <button data-pane="games">🎮 Игры <span class="count" id="cntGames"></span></button>
+    <button data-pane="devs">🧑‍💻 Заявки <span class="count" id="cntDevs"></span></button>
+    <button data-pane="avatars">🖼️ Аватарки <span class="count" id="cntAvatars"></span></button>
+    <button data-pane="payments" class="owner-only">💳 Платежи</button>
+    <button data-pane="log">📜 Журнал</button>
+    <button data-pane="team" class="owner-only">🛡️ Команда</button>
+  </nav>
+
+  <main class="adm-main">
+    <section class="pane" id="pane-overview">
+      <h1 class="adm-title">Обзор</h1>
+      <div class="kpis" id="kpis"></div>
+      <div class="queues" id="queues"></div>
+      <div class="panel chart-panel"><div class="chart-title">Регистрации за 30 дней</div><div class="chart" id="regChart"></div></div>
+      <div id="money"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-users">
+      <h1 class="adm-title">Пользователи <span class="mut" id="uTotal"></span></h1>
+      <div class="adm-tools">
+        <input type="search" id="uSearch" placeholder="Имя, почта или номер" aria-label="Поиск пользователей">
+        <select id="uSort" aria-label="Сортировка">
+          <option value="new">Сначала новые</option><option value="old">Сначала старые</option>
+          <option value="seen">Недавно заходили</option><option value="coins">Больше монеток</option><option value="name">По имени</option>
+        </select>
+      </div>
+      <div class="chips" id="uFilters">
+        <button class="chip on" data-f="all">Все</button><button class="chip" data-f="team">Команда</button>
+        <button class="chip" data-f="developers">Разработчики</button><button class="chip" data-f="buyers">Покупали монетки</button>
+        <button class="chip" data-f="unverified">Почта не подтверждена</button><button class="chip" data-f="blocked">Заблокированы</button>
+      </div>
+      <div class="panel table-panel"><table class="tbl users-tbl" id="uTable"></table></div>
+      <div class="pager" id="uPager"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-games">
+      <h1 class="adm-title">Игры</h1>
+      <div class="tabs" id="gTabs">
+        <span class="tab on" data-s="pending">На проверке</span><span class="tab" data-s="approved">Опубликованы</span><span class="tab" data-s="rejected">Отклонены</span>
+      </div>
+      <div id="updatesBox"></div>
+      <div class="rows" id="queue"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-devs">
+      <h1 class="adm-title">Заявки разработчиков</h1>
+      <div class="tabs" id="dTabs">
+        <span class="tab on" data-s="pending">Новые</span><span class="tab" data-s="approved">Одобрены</span><span class="tab" data-s="rejected">Отклонены</span>
+      </div>
+      <div class="rows" id="devQueue"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-avatars">
+      <h1 class="adm-title">Аватарки на проверке</h1>
+      <p class="mut">Своя картинка игрока. Отклоняйте чужие фото, лица детей, неприличное, рекламу и ссылки.</p>
+      <div class="ava-queue" id="avaQueue"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-payments">
+      <h1 class="adm-title">Платежи</h1>
+      <div class="tabs" id="pTabs">
+        <span class="tab on" data-s="all">Все</span><span class="tab" data-s="paid">Оплачены</span><span class="tab" data-s="pending">Ждут оплаты</span><span class="tab" data-s="canceled">Отменены</span>
+      </div>
+      <div class="panel table-panel"><table class="tbl" id="payTable"></table></div>
+    </section>
+
+    <section class="pane hidden" id="pane-log">
+      <h1 class="adm-title">Журнал решений</h1>
+      <p class="mut">Последние 200 действий команды: кто, что и почему.</p>
+      <div class="rows" id="log"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-team">
+      <h1 class="adm-title">Команда</h1>
+      <p class="mut">Модератор проверяет игры, заявки и аватарки, может блокировать игроков. Удалять игры, начислять монетки,
+        видеть платежи и менять команду может только владелец. Назначайте по почте уже зарегистрированного аккаунта.</p>
+      <form class="team-add" id="teamForm">
+        <input type="email" id="teamEmail" placeholder="Почта аккаунта" aria-label="Почта аккаунта" required>
+        <button class="btn primary">Назначить модератором</button>
+      </form>
+      <div class="err-text" id="teamErr"></div>
+      <div class="rows" id="team"></div>
+    </section>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script>
+const { esc, fmt, avatarHTML, dialog, coinsText, COIN_SVG } = Igr;
+const $ = (i) => document.getElementById(i);
+const STATUS = { pending: 'на проверке', approved: 'опубликована', rejected: 'отклонена' };
+const ROLE = { owner: 'владелец', moderator: 'модератор', player: 'игрок' };
+const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' МБ' : Math.ceil(n / 1024) + ' КБ';
+const date = (t) => t ? new Date(t).toLocaleDateString('ru-RU') : '—';
+const when = (t) => t ? new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+const files = (n) => `${n} ${Igr.plural(n, ['файл', 'файла', 'файлов'])}`;
+const rub = (n) => `${fmt(n)} ₽`;
+let me = null;
+
+function toast(msg, err) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 3200);
+}
+async function api(method, url, body) {
+  const res = await fetch(url, { method, headers: body !== undefined ? { 'content-type': 'application/json' } : {}, body: body === undefined ? undefined : JSON.stringify(body) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+  return data;
+}
+// Окно с полем для причины: null — передумали.
+async function ask(title, text, placeholder = 'Причина') {
+  const body = document.createElement('div');
+  body.innerHTML = `${text ? `<p>${text}</p>` : ''}<textarea rows="3" maxlength="300" placeholder="${esc(placeholder)}"></textarea>`;
+  const ok = await dialog({ title, body, buttons: [{ text: 'Отмена', value: false }, { text: 'Готово', value: true, cls: 'primary' }] });
+  return ok ? body.querySelector('textarea').value.trim() : null;
+}
+
+// ---------- разделы ----------
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, log: loadLog, team: loadTeam };
+function openPane(name) {
+  document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
+  document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
+  history.replaceState(null, '', `#${name}`);
+  loaders[name]?.();
+}
+$('nav').onclick = (e) => { const b = e.target.closest('button'); if (b) openPane(b.dataset.pane); };
+
+// ---------- обзор ----------
+const kpi = (label, value, sub = '') => `<div class="kpi"><span>${label}</span><b>${value}</b>${sub ? `<small class="mut">${sub}</small>` : ''}</div>`;
+async function loadOverview() {
+  const o = await api('GET', '/api/admin/overview');
+  $('cntGames').textContent = o.queues.games || '';
+  $('cntDevs').textContent = o.queues.developers || '';
+  $('cntAvatars').textContent = o.queues.avatars || '';
+  $('kpis').innerHTML = [
+    kpi('Игроков', fmt(o.users.total), `+${fmt(o.users.week)} за неделю`),
+    kpi('Заходили за неделю', fmt(o.users.active_week), `${fmt(o.users.today)} новых за сутки`),
+    kpi('Запуски сегодня', fmt(o.plays.today.n), `${fmt(o.plays.week.n)} за 7 дней`),
+    kpi('Игр в каталоге', fmt(o.games.approved), `${fmt(o.users.developers)} разработчиков, ${fmt(o.reviews)} отзывов`),
+  ].join('');
+  const q = (pane, n, label) => `<button class="queue ${n ? 'hot' : ''}" data-go="${pane}"><b>${fmt(n)}</b><span>${label}</span></button>`;
+  $('queues').innerHTML = q('games', o.queues.games, 'игр и обновлений ждут проверки') + q('devs', o.queues.developers, 'заявок разработчиков') +
+    q('avatars', o.queues.avatars, 'аватарок на проверке') + q('users', o.users.blocked, 'заблокированных');
+  $('queues').onclick = (e) => { const b = e.target.closest('[data-go]'); if (b) openPane(b.dataset.go); };
+  drawBars($('regChart'), o.registrations.map((r) => ({ label: r.day, value: r.n })), 'регистраций');
+  $('money').innerHTML = o.money ? `<h2 class="adm-sub">Монетки и платежи</h2><div class="kpis">
+    ${kpi('Выручка за 30 дней', rub(o.money.month.rub), `${fmt(o.money.month.n)} покупок, сегодня ${rub(o.money.today.rub)}`)}
+    ${kpi('Выручка за всё время', rub(o.money.all.rub), `${fmt(o.money.all.n)} покупок`)}
+    ${kpi('Монеток у игроков', fmt(o.money.circulation), `потрачено за 30 дней: ${fmt(o.money.spent_month)}`)}
+    ${kpi('Подарено за 30 дней', fmt(o.money.given_month), 'подарки, бонусы, выдачи')}</div>` : '';
+}
+
+function drawBars(box, data, unit) {
+  const W = Math.max(box.clientWidth, 280), H = 180, m = { t: 10, r: 6, b: 24, l: 30 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const max = Math.max(1, ...data.map((d) => d.value));
+  const band = iw / data.length, bw = Math.min(18, Math.max(band - 2, 1));
+  const label = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  let svg = `<svg width="${W}" height="${H}" role="img" aria-label="${esc(unit)} по дням">`;
+  for (const v of [0, Math.ceil(max / 2), max]) {
+    const y = m.t + ih - (v / max) * ih;
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" class="grid"/><text x="${m.l - 6}" y="${y + 4}" text-anchor="end" class="axis">${fmt(v)}</text>`;
+  }
+  data.forEach((d, i) => {
+    const h = (d.value / max) * ih, x = m.l + band * i + (band - bw) / 2;
+    if (h > 0) svg += `<rect class="bar" x="${x}" y="${m.t + ih - h}" width="${bw}" height="${h}" rx="3"><title>${label(d.label)}: ${fmt(d.value)} ${unit}</title></rect>`;
+    if ((data.length - 1 - i) % 6 === 0) svg += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle" class="axis">${label(d.label)}</text>`;
+  });
+  box.innerHTML = svg + '</svg>';
+}
+
+// ---------- пользователи ----------
+const uState = { q: '', filter: 'all', sort: 'new', page: 0 };
+async function loadUsers() {
+  const qs = new URLSearchParams({ q: uState.q, filter: uState.filter, sort: uState.sort, page: uState.page });
+  const r = await api('GET', `/api/admin/users?${qs}`);
+  $('uTotal').textContent = fmt(r.total);
+  $('uTable').innerHTML = `<thead><tr><th>Пользователь</th><th>Роль</th><th class="n">Монетки</th><th>Регистрация</th><th>Был на сайте</th></tr></thead><tbody>` +
+    (r.users.length ? r.users.map((u) => `<tr class="click" data-user="${u.id}">
+      <td><div class="u-cell">${avatarHTML(u, 32)}<div><b>${esc(u.name)}</b>${u.blocked ? ' <span class="badge rejected">заблокирован</span>' : ''}
+        ${u.avatar_pending ? ' <span class="badge pending">аватарка</span>' : ''}<div class="mut">${esc(u.email)}${u.verified ? ' ✓' : ''}</div></div></div></td>
+      <td>${ROLE[u.role]}${u.developer === 'approved' ? ', разработчик' : u.developer === 'pending' ? ', заявка' : ''}</td>
+      <td class="n">${fmt(u.coins)}</td><td>${date(u.created_at)}</td><td>${u.last_seen_at ? when(u.last_seen_at) : '—'}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="mut">Никого не нашли.</td></tr>') + '</tbody>';
+  $('uPager').innerHTML = r.pages > 1 ? `<button class="btn sm" data-p="${r.page - 1}" ${r.page ? '' : 'disabled'}>← Назад</button>
+    <span class="mut">Страница ${r.page + 1} из ${r.pages}</span>
+    <button class="btn sm" data-p="${r.page + 1}" ${r.page + 1 < r.pages ? '' : 'disabled'}>Дальше →</button>` : '';
+}
+let searchT;
+$('uSearch').oninput = (e) => { clearTimeout(searchT); searchT = setTimeout(() => { uState.q = e.target.value.trim(); uState.page = 0; loadUsers(); }, 250); };
+$('uSort').onchange = (e) => { uState.sort = e.target.value; uState.page = 0; loadUsers(); };
+$('uFilters').onclick = (e) => {
+  const b = e.target.closest('[data-f]');
+  if (!b) return;
+  uState.filter = b.dataset.f; uState.page = 0;
+  document.querySelectorAll('#uFilters .chip').forEach((c) => c.classList.toggle('on', c === b));
+  loadUsers();
+};
+$('uPager').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b && !b.disabled) { uState.page = Number(b.dataset.p); loadUsers(); } };
+$('uTable').onclick = (e) => { const tr = e.target.closest('[data-user]'); if (tr) openUser(Number(tr.dataset.user)); };
+
+const KIND = { purchase: '🛒 Покупка', welcome: '🎁 Подарок', daily: '📅 Бонус', grant: '⭐ Выдача', spend: '🎮 Трата', play: '⏱️ За игру' };
+async function openUser(id) {
+  const d = await api('GET', `/api/admin/users/${id}`);
+  const u = d.user;
+  const owner = me.isAdmin;
+  const body = document.createElement('div');
+  body.className = 'user-card';
+  body.innerHTML = `
+    <div class="u-head">${avatarHTML(u, 64)}<div><b class="u-name">${esc(u.name)}</b><div class="mut">${esc(u.email)} · №${u.id}</div>
+      <div class="me-badges"><span class="badge role ${u.role === 'owner' ? 'owner' : ''}">${ROLE[u.role]}</span>
+      ${d.application ? `<span class="badge role">${d.application.status === 'approved' ? 'разработчик' : 'заявка: ' + esc(STATUS[d.application.status] || d.application.status)}</span>` : ''}
+      ${u.verified ? '<span class="badge approved">почта подтверждена</span>' : '<span class="badge pending">почта не подтверждена</span>'}
+      ${u.blocked ? `<span class="badge rejected">заблокирован: ${esc(u.blocked_reason || '')}</span>` : ''}</div></div></div>
+    <dl class="facts"><dt>Монетки</dt><dd>${COIN_SVG} ${fmt(u.coins)}</dd><dt>Регистрация</dt><dd>${when(u.created_at)}</dd>
+      <dt>Был на сайте</dt><dd>${when(u.last_seen_at)}</dd><dt>Отзывов</dt><dd>${fmt(d.reviews)}</dd>
+      ${d.application ? `<dt>Студия</dt><dd>${esc(d.application.studio)} · ${esc(d.application.contact || '')}</dd>` : ''}
+      ${d.games.length ? `<dt>Игры</dt><dd>${d.games.map((g) => `<a href="${g.status === 'approved' ? `game.html?id=${g.id}` : '#'}" target="_blank" rel="noopener">${esc(g.title)}</a> <span class="mut">(${STATUS[g.status]})</span>`).join(', ')}</dd>` : ''}</dl>
+    ${u.avatar_pending_url ? `<p class="mut">Аватарка на проверке: <img class="ava" src="${esc(u.avatar_pending_url)}" width="40" height="40" alt=""></p>` : ''}
+    <div class="u-acts">
+      ${owner ? '<button class="btn sm" data-a="coins">Начислить или списать монетки</button>' : ''}
+      ${u.role !== 'owner' ? `<button class="btn sm ${u.blocked ? '' : 'bad'}" data-a="block">${u.blocked ? 'Разблокировать' : 'Заблокировать'}</button>` : ''}
+      ${u.avatar ? '<button class="btn sm" data-a="avatar">Сбросить аватарку</button>' : ''}
+      ${owner && u.role === 'player' && !u.blocked ? '<button class="btn sm" data-a="mod">Сделать модератором</button>' : ''}
+    </div>
+    <h3>Монетки: история</h3>
+    ${d.history.length ? `<table class="tbl"><tbody>${d.history.map((h) => `<tr><td>${KIND[h.kind] || esc(h.kind)}</td><td>${esc(h.title)}</td>
+      <td class="mut">${when(h.created_at)}</td><td class="n ${h.delta > 0 ? 'plus' : ''}">${h.delta > 0 ? '+' : '−'}${fmt(Math.abs(h.delta))}</td></tr>`).join('')}</tbody></table>` : '<p class="mut">Пусто.</p>'}
+    ${d.orders ? `<h3>Покупки</h3>${d.orders.length ? `<table class="tbl"><tbody>${d.orders.map((o) => `<tr><td>${fmt(o.coins)} монеток</td><td>${rub(o.amount)}</td>
+      <td>${PAY[o.status] || o.status}</td><td class="mut">${when(o.created_at)}</td></tr>`).join('')}</tbody></table>` : '<p class="mut">Не покупал.</p>'}` : ''}`;
+  body.onclick = async (e) => {
+    const a = e.target.closest('[data-a]')?.dataset.a;
+    if (!a) return;
+    try {
+      if (a === 'coins') {
+        const f = document.createElement('div');
+        f.innerHTML = `<label style="margin-top:0">Сколько: плюс — начислить, минус — списать</label><input type="number" step="1" value="100">
+          <label>Причина — её увидит игрок в истории</label><input maxlength="200" placeholder="Победа в конкурсе">`;
+        const ok = await dialog({ title: `Монетки для ${u.name}`, body: f, buttons: [{ text: 'Отмена', value: false }, { text: 'Готово', value: true, cls: 'primary' }] });
+        if (!ok) return;
+        const [amount, reason] = f.querySelectorAll('input');
+        const r = await api('POST', `/api/admin/users/${id}/coins`, { amount: Number(amount.value), reason: reason.value });
+        toast(`Готово, теперь у игрока ${coinsText(r.coins)}`);
+      }
+      if (a === 'block') {
+        if (u.blocked) await api('POST', `/api/admin/users/${id}/block`, { blocked: false });
+        else {
+          const reason = await ask(`Заблокировать ${u.name}?`, 'Вход в аккаунт закроется сразу на всех устройствах. Причину пользователь увидит при входе.');
+          if (reason === null) return;
+          await api('POST', `/api/admin/users/${id}/block`, { blocked: true, reason });
+        }
+        toast(u.blocked ? 'Разблокирован' : 'Заблокирован');
+      }
+      if (a === 'avatar') { await api('DELETE', `/api/admin/users/${id}/avatar`); toast('Аватарка сброшена'); }
+      if (a === 'mod') { await api('POST', '/api/admin/team', { email: u.email }); toast(`${u.name} теперь модератор`); }
+      document.querySelector('.modal')?.click();
+      loadUsers();
+      setTimeout(() => openUser(id), 50);
+    } catch (err) { toast(err.message, true); }
+  };
+  dialog({ title: 'Пользователь', body, buttons: [{ text: 'Закрыть', value: null, cls: 'primary' }] });
+}
+
+// ---------- игры ----------
+let gStatus = 'pending';
+async function loadQueue() {
+  const { games, updates } = await api('GET', `/api/admin/games?status=${gStatus}`);
+  if (gStatus === 'pending') $('cntGames').textContent = (games.length + updates.length) || '';
+  const own = (g) => g.author_id === me.id && !me.isAdmin;
+  $('updatesBox').innerHTML = updates.length ? `<h2 class="adm-sub">Обновления опубликованных игр</h2><div class="rows">${updates.map((g) => `
+    <div class="row"><div class="t"><b>${esc(g.title)}</b> ${g.version ? `<span class="mut">версия ${esc(g.version)}</span>` : ''}
+      <span class="facts-line"><span>${esc(g.author)}, ${esc(g.author_email)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${when(g.created_at)}</span></span>
+      ${g.changelog ? `<p class="app-about">Что нового: ${esc(g.changelog)}</p>` : ''}</div>
+      <div class="acts"><a class="btn sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить новую версию</a>
+      ${own(g) ? '<span class="mut">Ваша игра</span>' : `<button class="btn ok sm" data-upd="approve" data-id="${g.id}">Выпустить</button>
+      <button class="btn bad sm" data-upd="reject" data-id="${g.id}">Отклонить</button>`}</div></div>`).join('')}</div><h2 class="adm-sub">Новые игры</h2>` : '';
+  $('queue').innerHTML = games.length ? games.map((g) => `
+    <div class="row"><div class="t"><b>${esc(g.title)}</b>
+      <span class="facts-line"><span>${esc(g.genre)}</span><span>${esc(g.author)}, ${esc(g.author_email)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${date(g.created_at)}</span></span>
+      ${g.status === 'rejected' && g.reject_reason ? `<p class="reject-reason">Причина: ${esc(g.reject_reason)}</p>` : ''}</div>
+      <div class="acts"><a class="btn sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить</a>
+      ${g.status === 'approved' ? `<a class="btn sm" href="game.html?id=${g.id}" target="_blank" rel="noopener">Страница</a>` : ''}
+      ${own(g) ? '<span class="mut">Ваша игра — проверит другой модератор</span>' : `
+      ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Опубликовать</button>` : ''}
+      ${g.status !== 'rejected' ? `<button class="btn bad sm" data-act="reject" data-id="${g.id}">${g.status === 'approved' ? 'Снять с публикации' : 'Отклонить'}</button>` : ''}`}
+      ${me.isAdmin ? `<button class="btn sm" data-act="delete" data-id="${g.id}" data-title="${esc(g.title)}">Удалить</button>` : ''}</div></div>`).join('')
+    : '<p class="mut">Пусто.</p>';
+}
+$('gTabs').onclick = (e) => {
+  if (!e.target.dataset.s) return;
+  gStatus = e.target.dataset.s;
+  document.querySelectorAll('#gTabs .tab').forEach((t) => t.classList.toggle('on', t.dataset.s === gStatus));
+  loadQueue();
+};
+$('pane-games').onclick = async (e) => {
+  const { act, upd, id, title } = e.target.dataset;
+  if (!act && !upd) return;
+  try {
+    if (upd) {
+      let reason;
+      if (upd === 'reject' && (reason = await ask('Отклонить новую версию?', 'Игроки продолжат играть в текущую. Причину увидит разработчик.')) === null) return;
+      await api('POST', `/api/admin/games/${id}/build`, { action: upd, reason });
+      toast(upd === 'approve' ? 'Новая версия выпущена' : 'Новая версия отклонена');
+    } else if (act === 'delete') {
+      if (!confirm(`Удалить «${title}» навсегда? Статистика и сохранения игроков пропадут.`)) return;
+      await api('DELETE', `/api/games/${id}`);
+      toast('Игра удалена');
+    } else {
+      let reason;
+      if (act === 'reject' && (reason = await ask('Причина', 'Её увидит разработчик.')) === null) return;
+      await api('POST', `/api/admin/games/${id}`, { action: act, reason });
+      toast(act === 'approve' ? 'Опубликовано' : 'Отклонено');
+    }
+    loadQueue();
+  } catch (err) { toast(err.message, true); }
+};
+
+// ---------- заявки ----------
+let dStatus = 'pending';
+const linkify = (text) => String(text || '').split(/(\s+)/).map((t) =>
+  /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener nofollow ugc">${esc(t)}</a>` : esc(t)).join('');
+async function loadDevQueue() {
+  const { applications } = await api('GET', `/api/admin/developers?status=${dStatus}`);
+  if (dStatus === 'pending') $('cntDevs').textContent = applications.length || '';
+  $('devQueue').innerHTML = applications.length ? applications.map((a) => `
+    <div class="row"><div class="t"><b>${esc(a.studio)}</b>
+      <span class="facts-line"><span>${esc(a.name)}, ${esc(a.email)}</span><span>${esc(a.contact)}</span><span>${date(a.updated_at)}</span></span>
+      <p class="app-about">${esc(a.about)}</p>
+      ${a.links ? `<p class="app-links">${linkify(a.links)}</p>` : ''}
+      ${a.reason ? `<p class="reject-reason">Причина отказа: ${esc(a.reason)}</p>` : ''}</div>
+      <div class="acts">
+      ${a.status !== 'approved' ? `<button class="btn ok sm" data-dev="approve" data-id="${a.user_id}">Одобрить</button>` : ''}
+      ${a.status !== 'rejected' ? `<button class="btn bad sm" data-dev="reject" data-id="${a.user_id}">Отклонить</button>` : ''}</div></div>`).join('')
+    : '<p class="mut">Заявок нет.</p>';
+}
+$('dTabs').onclick = (e) => {
+  if (!e.target.dataset.s) return;
+  dStatus = e.target.dataset.s;
+  document.querySelectorAll('#dTabs .tab').forEach((t) => t.classList.toggle('on', t.dataset.s === dStatus));
+  loadDevQueue();
+};
+$('devQueue').onclick = async (e) => {
+  const { dev, id } = e.target.dataset;
+  if (!dev) return;
+  let reason;
+  if (dev === 'reject' && (reason = await ask('Причина отказа', 'Её увидит заявитель.')) === null) return;
+  try { await api('POST', `/api/admin/developers/${id}`, { action: dev, reason }); toast(dev === 'approve' ? 'Разработчик одобрен' : 'Заявка отклонена'); loadDevQueue(); }
+  catch (err) { toast(err.message, true); }
+};
+
+// ---------- аватарки ----------
+async function loadAvatars() {
+  const { avatars } = await api('GET', '/api/admin/avatars');
+  $('cntAvatars').textContent = avatars.length || '';
+  $('avaQueue').innerHTML = avatars.length ? avatars.map((a) => `
+    <div class="ava-card panel"><img src="${esc(a.url)}" alt="Аватарка ${esc(a.name)}" width="160" height="160">
+      <b>${esc(a.name)}</b><span class="mut">${esc(a.email)} · ${when(a.at)}</span>
+      <div class="acts"><button class="btn ok sm" data-av="approve" data-id="${a.user_id}">Принять</button>
+      <button class="btn bad sm" data-av="reject" data-id="${a.user_id}">Отклонить</button></div></div>`).join('')
+    : '<p class="mut">Все аватарки проверены.</p>';
+}
+$('avaQueue').onclick = async (e) => {
+  const { av, id } = e.target.dataset;
+  if (!av) return;
+  let reason;
+  if (av === 'reject' && (reason = await ask('Почему не подходит?', 'Игрок увидит причину в профиле.', 'Например: чужое фото')) === null) return;
+  try { await api('POST', `/api/admin/avatars/${id}`, { action: av, reason }); loadAvatars(); }
+  catch (err) { toast(err.message, true); }
+};
+
+// ---------- платежи ----------
+const PAY = { paid: '✅ оплачен', pending: '⏳ ждёт оплаты', canceled: '✖ отменён' };
+let pStatus = 'all';
+async function loadPayments() {
+  const { orders } = await api('GET', `/api/admin/payments?status=${pStatus}`);
+  const paid = orders.filter((o) => o.status === 'paid');
+  $('payTable').innerHTML = `<thead><tr><th>Когда</th><th>Игрок</th><th class="n">Монетки</th><th class="n">Сумма</th><th>Статус</th><th>Платёж ЮKassa</th></tr></thead><tbody>` +
+    (orders.length ? orders.map((o) => `<tr class="click" data-user="${o.user_id}"><td>${when(o.created_at)}</td><td>${esc(o.name)}<div class="mut">${esc(o.email)}</div></td>
+      <td class="n">${fmt(o.coins)}</td><td class="n">${rub(o.amount)}</td><td>${PAY[o.status] || o.status}</td><td class="mut mono">${esc(o.payment_id || '')}</td></tr>`).join('')
+      : '<tr><td colspan="6" class="mut">Платежей пока нет.</td></tr>') +
+    (paid.length ? `<tr class="total"><td colspan="3">Оплачено в списке</td><td class="n">${rub(paid.reduce((n, o) => n + o.amount, 0))}</td><td colspan="2"></td></tr>` : '') + '</tbody>';
+}
+$('pTabs').onclick = (e) => {
+  if (!e.target.dataset.s) return;
+  pStatus = e.target.dataset.s;
+  document.querySelectorAll('#pTabs .tab').forEach((t) => t.classList.toggle('on', t.dataset.s === pStatus));
+  loadPayments();
+};
+$('payTable').onclick = (e) => { const tr = e.target.closest('[data-user]'); if (tr) openUser(Number(tr.dataset.user)); };
+
+// ---------- журнал ----------
+const ACTIONS = {
+  // Без глаголов прошедшего времени: пол модератора мы не знаем.
+  'game.approve': 'публикация игры', 'game.reject': 'отклонение игры', 'game.delete': 'удаление игры',
+  'game.update.approve': 'выпуск новой версии', 'game.update.reject': 'отказ в новой версии',
+  'developer.approve': 'одобрение разработчика', 'developer.reject': 'отказ в заявке разработчика',
+  'team.add': 'назначение модератором', 'team.remove': 'снятие с модераторов',
+  'review.delete': 'удаление отзыва', 'avatar.approve': 'одобрение аватарки', 'avatar.reject': 'отказ в аватарке', 'avatar.reset': 'сброс аватарки',
+  'user.block': 'блокировка', 'user.unblock': 'разблокировка', 'coins.grant': 'начисление монеток', 'coins.take': 'списание монеток',
+};
+async function loadLog() {
+  const { entries } = await api('GET', '/api/admin/log?limit=200');
+  $('log').innerHTML = entries.length ? entries.map((e) => `
+    <div class="row log-row"><span class="log-time">${when(e.created_at)}</span>
+      <div class="t"><b>${esc(e.actor_name)}</b>: ${ACTIONS[e.action] || esc(e.action)} «${esc(e.target_title)}»
+      ${e.reason ? `<span class="facts-line">${esc(e.reason)}</span>` : ''}</div></div>`).join('')
+    : '<p class="mut">Действий пока не было.</p>';
+}
+
+// ---------- команда ----------
+async function loadTeam() {
+  const { owners, moderators } = await api('GET', '/api/admin/team');
+  $('team').innerHTML = [
+    ...owners.map((o) => `<div class="row"><div class="t"><b>${esc(o.name || o.email)}</b>
+      <span class="facts-line"><span>${esc(o.email)}</span>${o.registered ? '' : '<span>ещё не зарегистрирован</span>'}</span></div>
+      <span class="badge role owner">владелец</span></div>`),
+    ...moderators.map((m) => `<div class="row"><div class="t"><b>${esc(m.name)}</b>
+      <span class="facts-line"><span>${esc(m.email)}</span><span>с ${date(m.role_since)}</span><span>решений: ${m.decisions}</span></span></div>
+      <span class="badge role">модератор</span>
+      <div class="acts"><button class="btn bad sm" data-remove="${m.id}" data-name="${esc(m.name)}">Убрать</button></div></div>`),
+  ].join('') + (moderators.length ? '' : '<p class="mut">Модераторов пока нет.</p>');
+}
+$('teamForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('teamErr').textContent = '';
+  try { const { moderator } = await api('POST', '/api/admin/team', { email: $('teamEmail').value }); $('teamForm').reset(); toast(`${moderator.name} теперь модератор`); loadTeam(); }
+  catch (err) { $('teamErr').textContent = err.message; }
+};
+$('team').onclick = async (e) => {
+  const { remove, name } = e.target.dataset;
+  if (!remove || !confirm(`Убрать ${name} из модераторов? Доступ к админке пропадёт сразу.`)) return;
+  try { await api('DELETE', `/api/admin/team/${remove}`); toast('Модератор убран'); loadTeam(); }
+  catch (err) { toast(err.message, true); }
+};
+
+$('themeSlot').replaceWith(IgrTheme.button());
+Igr.me().then((user) => {
+  if (!user) { location.replace('login.html?next=admin.html'); return; }
+  if (!user.canModerate) { location.replace('account.html'); return; }
+  me = user;
+  $('login').innerHTML = `${avatarHTML(user, 26)}<span class="user-name">${esc(user.name)}</span>`;
+  $('login').classList.add('user-btn');
+  $('roleBadge').textContent = user.isAdmin ? 'владелец' : 'модератор';
+  $('roleBadge').classList.toggle('owner', user.isAdmin);
+  document.querySelectorAll('.owner-only').forEach((el) => el.classList.toggle('hidden', !user.isAdmin));
+  $('adm').hidden = false;
+  const start = location.hash.slice(1);
+  openPane(loaders[start] && (user.isAdmin || !['payments', 'team'].includes(start)) ? start : 'overview');
+  if (start && start !== 'overview') api('GET', '/api/admin/overview').then((o) => {
+    $('cntGames').textContent = o.queues.games || ''; $('cntDevs').textContent = o.queues.developers || ''; $('cntAvatars').textContent = o.queues.avatars || '';
+  }).catch(() => {});
+});
+</script>
+</body>
+</html>
