@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#05040a;color:#f5ead6;
 #xp{position:fixed;left:0;right:0;top:0;height:5px;background:rgba(255,255,255,.08)}
 #xp i{display:block;height:100%;width:0;background:#ffb547}
 .pill{background:rgba(10,8,18,.72);border:1px solid rgba(255,181,71,.25);border-radius:10px;padding:6px 10px;font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
-@media (max-width:480px){#hud{gap:6px;padding:10px 8px}.pill{font-size:13px;padding:5px 7px}#hp{width:70px}}
+@media (max-width:480px){#hud{gap:6px;padding:10px 8px}.pill{font-size:13px;padding:5px 7px}#hp{width:64px}}
 #hp{width:120px;height:10px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden}
 #hp i{display:block;height:100%;background:#ff5d5d;transition:width .2s}
 #pauseBtn{margin-left:auto;pointer-events:auto;border:1px solid rgba(255,181,71,.35);background:rgba(10,8,18,.72);color:#f5ead6;border-radius:10px;width:40px;height:36px;font:700 16px system-ui;cursor:pointer}
@@ -22,10 +22,15 @@ html,body{margin:0;height:100%;overflow:hidden;background:#05040a;color:#f5ead6;
 #inv span.evo{border-color:#ffb547}
 #inv canvas{width:30px;height:30px;display:block}
 #inv b{position:absolute;right:1px;bottom:-1px;font-size:10px;color:#ffd38a}
-#banner{position:fixed;left:0;right:0;top:22%;text-align:center;pointer-events:none;transition:opacity .5s;opacity:0}
+#dashBtn{position:fixed;right:14px;bottom:14px;width:74px;height:74px;border-radius:50%;border:2px solid rgba(255,181,71,.55);background:rgba(10,8,18,.72);color:#f5ead6;font:800 13px system-ui;overflow:hidden;cursor:pointer;touch-action:none}
+#dashBtn i{position:absolute;left:0;right:0;bottom:0;height:0;background:rgba(255,181,71,.28)}
+#dashBtn span{position:relative}
+#dashBtn.cool{border-color:rgba(255,181,71,.18);color:#8f8299}
+#banner{position:fixed;left:0;right:0;top:22%;text-align:center;pointer-events:none;transition:opacity .5s;opacity:0;padding:0 16px}
 #banner.on{opacity:1}
 #banner b{display:block;font-size:30px;color:#ffb547;letter-spacing:-.01em}
 #banner small{font-size:15px;color:#d8cab2}
+#evt{position:fixed;left:50%;top:54px;transform:translateX(-50%);width:min(420px,90vw);text-align:center;font-weight:700;font-size:14px;color:#ffd38a;pointer-events:none;text-shadow:0 1px 6px #000}
 .scr{position:fixed;inset:0;background:rgba(5,4,10,.78);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
 #menu{background:rgba(5,4,10,.35)}
 .card{background:#15111f;border:1px solid rgba(255,181,71,.18);border-radius:18px;padding:22px;width:min(460px,100%);max-height:94vh;overflow:auto;text-align:center}
@@ -81,18 +86,20 @@ h2{font-size:26px;margin:0 0 8px}
 <div id="xp"><i id="xpBar"></i></div>
 <div id="hud" class="hidden">
   <div id="hp"><i id="hpBar"></i></div>
+  <span class="pill" id="hWave">Волна 1</span>
   <span class="pill" id="hTime">0:00</span>
   <span class="pill" id="hLvl">Ур. 1</span>
-  <span class="pill" id="hKills">0</span>
   <button id="pauseBtn" aria-label="Пауза">II</button>
 </div>
 <div id="inv" class="hidden"></div>
-<div id="boss" class="hidden">Хозяин тьмы<div><i id="bossBar"></i></div></div>
+<button id="dashBtn" class="hidden" aria-label="Рывок"><i id="dashFill"></i><span>Рывок</span></button>
+<div id="boss" class="hidden"><span id="bossName"></span><div><i id="bossBar"></i></div></div>
+<div id="evt" class="hidden"></div>
 <div id="banner"><b id="bTitle"></b><small id="bSub"></small></div>
 
 <div class="scr" id="menu"><div class="card">
   <h1>Огонёк</h1>
-  <p class="sub">Ночь в лесу, вокруг поднимаются тени. Огонёк сражается сам — уводите его от толпы, зажигайте фонари, ищите сундуки и дотяните до рассвета.</p>
+  <p class="sub">Ночь в лесу, тени идут волнами. Огонёк сражается сам — уводите его от толпы, делайте рывки, зажигайте фонари, ловите светлячков и дотяните до рассвета.</p>
   <div class="heroes" id="heroes"></div>
   <p class="note" id="heroText"></p>
   <button class="btn" id="playBtn">Зажечься</button>
@@ -121,6 +128,13 @@ h2{font-size:26px;margin:0 0 8px}
   <button class="btn" id="cTake">Забрать</button>
 </div></div>
 
+<div class="scr hidden" id="altar"><div class="card">
+  <h2>Алтарь</h2>
+  <p class="sub">Камень предлагает сделку. Можно уйти ни с чем.</p>
+  <div class="choices" id="aList"></div>
+  <button class="btn alt" id="aLeave">Уйти</button>
+</div></div>
+
 <div class="scr hidden" id="pause"><div class="card">
   <h2>Пауза</h2>
   <div class="stats" id="pStats"></div>
@@ -146,6 +160,7 @@ h2{font-size:26px;margin:0 0 8px}
 const $ = (id) => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
 const lc = document.createElement('canvas'), lctx = lc.getContext('2d'); // карта света
+const coarse = matchMedia('(pointer:coarse)').matches;
 let W = 0, H = 0, dpr = 1, zoom = 1;
 
 // ---------- 2.5D ----------
@@ -192,7 +207,7 @@ const PASSIVES = {
   speed: { name: 'Ветер', text: 'Огонёк быстрее на 10%', max: 5 },
   magnet: { name: 'Тяга', text: 'Искры летят к огоньку издалека', max: 5 },
   power: { name: 'Жар', text: 'Урон всего оружия +15%', max: 5 },
-  haste: { name: 'Ритм', text: 'Оружие перезаряжается на 8% быстрее', max: 5 },
+  haste: { name: 'Ритм', text: 'Оружие и рывок перезаряжаются на 8% быстрее', max: 5 },
   heart: { name: 'Сердцевина', text: 'Запас сил +20 и лечение', max: 5 },
   light: { name: 'Сияние', text: 'Огонёк освещает больше леса', max: 5 },
 };
@@ -206,7 +221,7 @@ const EVO = {
 };
 const HEROES = {
   ogonek: { name: 'Огонёк', text: 'Начинает с Искры. Ровный во всём.', cost: 0, hp: 100, speed: 150, start: 'bolt', pal: ['#ff6a10', '#ffb547', '#fff1c4', '#2a1405'], glow: '255,150,60' },
-  zarnitsa: { name: 'Зарница', text: 'Начинает с Молнии. Быстрее всех, но хрупкая.', cost: 150, hp: 80, speed: 172, start: 'chain', pal: ['#2f6bff', '#7fc4ff', '#eef8ff', '#0b1a3a'], glow: '110,170,255' },
+  zarnitsa: { name: 'Зарница', text: 'Начинает с Молнии. Быстрее всех и рывок чаще, но хрупкая.', cost: 150, hp: 80, speed: 172, start: 'chain', dash: 0.7, pal: ['#2f6bff', '#7fc4ff', '#eef8ff', '#0b1a3a'], glow: '110,170,255' },
   bolotny: { name: 'Болотный', text: 'Начинает со Вспышки. Крепкий и светит дальше, но медленный.', cost: 300, hp: 130, speed: 136, start: 'nova', light: 50, pal: ['#14946c', '#5fe0a6', '#e8fff3', '#06261a'], glow: '90,230,170' },
 };
 const META = [
@@ -218,17 +233,35 @@ const META = [
   { id: 'start', name: 'Второй огонь', text: 'Начинать с хороводом угольков', cost: () => 300, max: 1 },
 ];
 // eye: [dx, by, bz, r] в единицах модели — по ним светятся глаза в темноте
+const SHADE_EYE = [0.16, -0.42, 0.62, 0.07], BAT_EYE = [0.08, -0.2, 0.8, 0.045], GOLEM_EYE = [0.12, -0.38, 1.58, 0.06];
 const ENEMY = {
-  shade: { hp: 12, speed: 52, r: 13, dmg: 8, xp: 1, spr: ['shade_0', 'shade_1'], eye: [0.16, -0.42, 0.62, 0.07], eyeC: '255,211,138', smoke: '#5b4790' },
-  bat: { hp: 7, speed: 105, r: 10, dmg: 6, xp: 1, spr: ['bat_0', 'bat_1'], fly: 14, eye: [0.08, -0.2, 0.8, 0.045], eyeC: '255,211,138', smoke: '#6a4a8f' },
-  ghost: { hp: 28, speed: 44, r: 14, dmg: 12, xp: 3, spr: ['ghost'], fly: 6, glow: true, smoke: '#a9b8e0' },
-  brute: { hp: 120, speed: 34, r: 22, dmg: 20, xp: 8, spr: ['golem'], eye: [0.12, -0.38, 1.58, 0.06], eyeC: '255,140,64', smoke: '#6b6478' },
-  boss: { hp: 2200, speed: 46, r: 40, dmg: 30, xp: 60, spr: ['boss'], k: 1.5, fly: 0, eye: [0.17, -0.4, 2.2, 0.08], eyeC: '255,70,70', smoke: '#3a2560' },
+  shade: { hp: 14, speed: 54, r: 13, dmg: 8, xp: 2, spr: ['shade_0', 'shade_1'], eye: SHADE_EYE, eyeC: '255,211,138', smoke: '#5b4790' },
+  bat: { hp: 8, speed: 108, r: 10, dmg: 6, xp: 2, spr: ['bat_0', 'bat_1'], fly: 14, eye: BAT_EYE, eyeC: '255,211,138', smoke: '#6a4a8f' },
+  ghost: { hp: 30, speed: 44, r: 14, dmg: 12, xp: 4, spr: ['ghost'], fly: 6, glow: true, smoke: '#a9b8e0' },
+  brute: { hp: 130, speed: 34, r: 22, dmg: 20, xp: 10, spr: ['golem'], eye: GOLEM_EYE, eyeC: '255,140,64', smoke: '#6b6478' },
+  // тлеющая тень: подбегает и взрывается, задевая и своих
+  smolder: { hp: 10, speed: 80, r: 12, dmg: 0, xp: 2, spr: ['shade_0', 'shade_1'], eye: SHADE_EYE, eyeC: '255,90,40', smoke: '#ff7a3c', aura: '255,90,40' },
+  // золотая тень убегает — её надо догнать
+  golden: { hp: 70, speed: 128, r: 13, dmg: 0, xp: 20, spr: ['shade_0', 'shade_1'], eye: SHADE_EYE, eyeC: '255,225,110', smoke: '#ffcf4a', aura: '255,200,80' },
+  lord: { boss: true, title: 'Хозяин тьмы', hp: 1800, speed: 46, r: 40, dmg: 30, xp: 60, spr: ['boss'], k: 1.5, eye: [0.17, -0.4, 2.2, 0.08], eyeC: '255,70,70', smoke: '#3a2560' },
+  giant: { boss: true, title: 'Каменный великан', hp: 2600, speed: 36, r: 44, dmg: 35, xp: 70, spr: ['golem'], k: 2.3, eye: GOLEM_EYE, eyeC: '255,140,64', smoke: '#6b6478' },
+  queen: { boss: true, title: 'Королева мышей', hp: 1500, speed: 74, r: 30, dmg: 25, xp: 60, spr: ['bat_0', 'bat_1'], k: 3, fly: 26, eye: BAT_EYE, eyeC: '255,90,90', smoke: '#6a4a8f' },
+  witch: { boss: true, title: 'Болотная ведьма', hp: 1900, speed: 50, r: 30, dmg: 25, xp: 70, spr: ['ghost'], k: 2.6, fly: 10, glow: true, smoke: '#a9b8e0' },
 };
-const FLYING = { bat: 1, ghost: 1, boss: 1 };
+const FLYING = { bat: 1, ghost: 1, lord: 1, queen: 1, witch: 1 };
+const BOSSES = ['lord', 'giant', 'queen', 'witch'];
+// Ночь — это волны по 45 секунд с передышками; каждая пятая — босс, после пятнадцатой — рассвет.
+const WAVE_LEN = 45, BREAK = 7, DAWN_WAVE = 15;
+const THEMES = [
+  { name: 'Тени', sub: 'Разминка' },
+  { name: 'Крылья', sub: 'Летучие мыши' },
+  { name: 'Туман', sub: 'Призраки и тлеющие тени' },
+  { name: 'Тёмная волна', sub: 'Свет меньше, держитесь у фонарей' },
+];
+const MAXE = coarse ? 130 : 200, MAXG = 80, MAXFX = coarse ? 220 : 380;
 
 // ---------- сохранение ----------
-let save = { v: 1, embers: 0, meta: {}, best: 0, bestKills: 0, mute: false, hero: 'ogonek', heroes: ['ogonek'], dawns: 0 };
+let save = { v: 1, embers: 0, meta: {}, best: 0, bestKills: 0, bestWave: 0, mute: false, hero: 'ogonek', heroes: ['ogonek'], dawns: 0 };
 let sdk = null;
 const persist = () => { if (sdk) sdk.data.set(save).catch(() => {}); };
 function applySave(d) {
@@ -237,6 +270,7 @@ function applySave(d) {
   if (d.meta && typeof d.meta === 'object') for (const m of META) if (Number.isInteger(d.meta[m.id])) save.meta[m.id] = Math.min(m.max, Math.max(0, d.meta[m.id]));
   if (typeof d.best === 'number' && isFinite(d.best)) save.best = Math.max(0, Math.floor(d.best));
   if (Number.isInteger(d.bestKills)) save.bestKills = d.bestKills;
+  if (Number.isInteger(d.bestWave)) save.bestWave = Math.max(0, d.bestWave);
   if (Array.isArray(d.heroes)) save.heroes = ['ogonek', ...d.heroes.filter((h) => h !== 'ogonek' && HEROES[h])];
   if (HEROES[d.hero] && save.heroes.includes(d.hero)) save.hero = d.hero;
   if (Number.isInteger(d.dawns)) save.dawns = Math.max(0, d.dawns);
@@ -296,19 +330,22 @@ function collide(ent, er, slide) {
     if (slide) { const side = Math.sign((hero.x - o.x) * -ny + (hero.y - o.y) * nx) || 1; ent.x += -ny * side * slide; ent.y += nx * side * slide; }
   });
 }
+// Точка на расстоянии d от огонька, не внутри дерева.
+function spotAround(d) { const a = Math.random() * Math.PI * 2, p = { x: hero.x + Math.cos(a) * d, y: hero.y + Math.sin(a) * d }; collide(p, 24); return p; }
 
 // ---------- состояние забега ----------
 let state = 'menu', time = 0, kills = 0, runEmbers = 0, revived = false, runs = 0;
 let hero, enemies = [], shots = [], eshots = [], gems = [], embers = [], chests = [], fx = [], texts = [], decals = [];
-let weapons = {}, passives = {}, evolved = {}, lvl = 1, xp = 0, xpNeed = 6, nextBoss, boss = null, spawnAcc = 0, shake = 0, camX = 0, camY = 0;
-let lit = new Set(), litList = [], pendingLevels = 0, pendingChest = false, nextChest = 0, darkUntil = 0, dawned = false;
-let weaponState = {};
+let weapons = {}, passives = {}, evolved = {}, lvl = 1, xp = 0, xpNeed = 6, boss = null, spawnAcc = 0, shake = 0, camX = 0, camY = 0;
+let lit = new Set(), litList = [], pendingLevels = 0, pendingChest = false, darkWave = false, dawned = false, dawnAt = 0;
+let wave = 0, waveT = 0, phase = 'break', waveMods = { dense: 1, xp: 1 }, nextMods = null, evDone = false, ev = null, lastEv = '', fury = false;
+let dashT = 0, dashCd = 0, weaponState = {};
 const grid = new Map(); // клетки 64×64 для быстрых столкновений с врагами
 const H_ = () => HEROES[save.hero] || HEROES.ogonek;
 
 function makeHero() {
   const h = H_();
-  return { x: 0, y: 0, r: 12, hp: h.hp + meta('hp') * 10, maxHp: h.hp + meta('hp') * 10, inv: 0, speed: h.speed * (1 + meta('spd') * 0.05), dir: 0, dt: 'h', pal: h.pal, glow: h.glow, spark: 0 };
+  return { x: 0, y: 0, r: 12, hp: h.hp + meta('hp') * 10, maxHp: h.hp + meta('hp') * 10, inv: 0, speed: h.speed * (1 + meta('spd') * 0.05), dir: 0, lmx: 1, lmy: 0, dt: 'h', pal: h.pal, glow: h.glow, spark: 0 };
 }
 function newRun() {
   if (!assetsReady) return;
@@ -319,55 +356,82 @@ function newRun() {
   weapons = { [H_().start]: 1 }; if (meta('start')) weapons.orbit = Math.max(weapons.orbit || 0, 1);
   passives = {}; evolved = {};
   lvl = 1; xp = 0; xpNeed = 6; time = 0; kills = 0; runEmbers = 0; revived = false;
-  nextBoss = 300; boss = null; spawnAcc = 0; shake = 0; nextChest = 150; darkUntil = 0; dawned = false;
-  lit = new Set(); litList = []; pendingLevels = 0; pendingChest = false;
+  boss = null; spawnAcc = 0; shake = 0; darkWave = false; dawned = false; fury = false;
+  wave = 0; waveT = 0; phase = 'break'; waveMods = { dense: 1, xp: 1 }; nextMods = null; ev = null; lastEv = '';
+  lit = new Set(); litList = []; pendingLevels = 0; pendingChest = false; dashT = 0; dashCd = 0;
   weaponState = { bolt: 0, nova: 0.5, chain: 0, comet: 1 };
-  state = 'play'; show(null); $('hud').classList.remove('hidden'); $('inv').classList.remove('hidden'); $('boss').classList.add('hidden');
+  state = 'play'; show(null);
+  for (const id of ['hud', 'inv', 'dashBtn']) $(id).classList.remove('hidden');
+  $('boss').classList.add('hidden'); $('evt').classList.add('hidden');
   renderInv();
   sdk?.game.start();
-  for (let i = 0; i < 8; i++) spawn('shade');
+  startWave();
 }
 const P = (k) => passives[k] || 0;
-const dmgMul = () => (1 + P('power') * 0.15) * (1 + meta('dmg') * 0.08);
+const dmgMul = () => (1 + P('power') * 0.15) * (1 + meta('dmg') * 0.08) * (fury ? 1.25 : 1);
 const cdMul = () => Math.pow(0.92, P('haste'));
-const darkMul = () => (time < darkUntil ? 0.62 : 1);
-const lightR = () => (230 + P('light') * 45 + (H_().light || 0)) * darkMul();
+const lightR = () => (230 + P('light') * 45 + (H_().light || 0)) * (darkWave ? 0.62 : 1);
 const magnetR = () => 60 + P('magnet') * 40 + meta('mag') * 15;
 const viewR = () => Math.max(W / 2 / zoom, H / 2 / zoom / TILT);
+
+// ---------- волны ----------
+const isBossWave = (n) => n % 5 === 0;
+function startWave() {
+  wave++; waveT = 0; phase = 'fight'; evDone = false; spawnAcc = 0;
+  waveMods = nextMods || { dense: 1, xp: 1 }; nextMods = null;
+  const th = THEMES[(wave - 1) % 5] || null;
+  darkWave = !dawned && (wave - 1) % 5 === 3;
+  if (isBossWave(wave)) { spawn(BOSSES[(wave / 5 - 1) % BOSSES.length]); return; }
+  banner(`Волна ${wave}: ${th.name}`, th.sub + (waveMods.dense > 1 ? '. Сделка с алтарём: теней вдвое больше' : waveMods.dense < 1 ? '. Алтарь подарил тишину' : ''));
+  tone(330, 0.15); tone(440, 0.2);
+  if ((wave - 1) % 5 === 1) for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, d = viewR() + 20; spawn('bat', hero.x + Math.cos(a) * d, hero.y + Math.sin(a) * d); }
+  for (let i = 0; i < 4; i++) spawn('shade');
+}
+// Конец волны: оставшиеся тени рассеиваются, вся искра летит к огоньку, немного сил возвращается.
+function endWave() {
+  phase = 'break'; waveT = 0; darkWave = false;
+  for (const e of enemies) if (!ENEMY[e.kind].boss) { e.dead = true; if (Math.random() < 0.3) puff(e.x, e.y, 8, ENEMY[e.kind].smoke, 1); }
+  enemies = enemies.filter((e) => !e.dead); eshots = [];
+  if (ev && ev.type === 'hunt') failEvent();
+  for (const g of gems) g.pull = 2;
+  hero.hp = Math.min(hero.maxHp, hero.hp + 10);
+  if (wave === DAWN_WAVE && !dawned) { dawned = true; dawnAt = time; runEmbers += 50; banner('Рассвет', 'Ночь пережита, +50 угольков. Тени не уходят'); tone(523, 0.3); tone(784, 0.5); }
+  else banner(`Волна ${wave} пройдена`, 'Передышка, искры летят к вам');
+}
+function pickKind() {
+  const th = (wave - 1) % 5, r = Math.random(), late = wave > 5;
+  if (wave >= 3 && r < 0.07) return 'smolder';
+  if (th === 1 && r < 0.45) return 'bat';
+  if (th === 2 && r < 0.35) return 'ghost';
+  if (th === 3 && r < 0.12) return 'brute';
+  if (late && r < 0.25) return ['bat', 'ghost', 'bat', 'brute'][Math.floor(Math.random() * 4)];
+  return 'shade';
+}
+function waveTick(dt) {
+  waveT += dt;
+  if (phase === 'break') { if (waveT >= BREAK) startWave(); return; }
+  const bw = isBossWave(wave);
+  if (bw ? !boss : waveT >= WAVE_LEN) { endWave(); return; }
+  const rate = (bw ? 0.5 : 0.8 + wave * 0.24) * waveMods.dense;
+  spawnAcc += rate * dt;
+  while (spawnAcc >= 1) { spawnAcc--; if (enemies.length >= MAXE) break; spawn(pickKind()); }
+  if (!bw && !evDone && waveT >= 9) { evDone = true; startEvent(); }
+}
 
 // ---------- враги ----------
 function spawn(kind, x, y) {
   const t = ENEMY[kind];
   if (x == null) { const a = Math.random() * Math.PI * 2, d = viewR() + 60 + Math.random() * 60; x = hero.x + Math.cos(a) * d; y = hero.y + Math.sin(a) * d; }
-  const scale = 1 + time / 240; // тени крепнут со временем
-  const e = { kind, x, y, r: t.r, hp: t.hp * scale, max: t.hp * scale, speed: t.speed * (0.9 + Math.random() * 0.2), dmg: t.dmg, xp: t.xp, hit: 0, kx: 0, ky: 0, wob: Math.random() * 6, dt: 'e', cd: 3 };
+  const cycle = Math.floor((wave - 1) / 20);
+  const scale = t.boss ? 1 + cycle * 0.8 : 1 + (wave - 1) * 0.2;
+  const elite = !t.boss && kind !== 'golden' && kind !== 'smolder' && wave >= 3 && Math.random() < 0.035;
+  const e = { kind, x, y, r: t.r * (elite ? 1.3 : 1), hp: t.hp * scale * (elite ? 5 : 1), speed: t.speed * (0.9 + Math.random() * 0.2) * (fury ? 1.15 : 1), dmg: t.dmg, xp: t.xp * (elite ? 5 : 1), hit: 0, kx: 0, ky: 0, wob: Math.random() * 6, dt: 'e', cd: 3, cd2: 6, elite };
+  e.max = e.hp;
   enemies.push(e);
-  if (kind === 'boss') { boss = e; $('boss').classList.remove('hidden'); tone(80, 0.8, 'sawtooth', 0.08, 0.5); banner('Хозяин тьмы', 'Он зовёт тени за собой'); }
+  if (t.boss) { boss = e; $('bossName').textContent = t.title; $('boss').classList.remove('hidden'); tone(80, 0.8, 'sawtooth', 0.08, 0.5); banner(`Волна ${wave}: ${t.title}`, 'Победите его, чтобы волна закончилась'); }
   return e;
 }
-function spawnWave(dt) {
-  // Темп растёт со временем: вначале — пара теней в секунду, к десятой минуте — десятки.
-  const rate = (1.2 + time / 18 + Math.pow(time / 120, 2) * 3) * (time < darkUntil ? 1.5 : 1);
-  spawnAcc += rate * dt;
-  while (spawnAcc >= 1) {
-    spawnAcc--;
-    if (enemies.length > 420) break;
-    const r = Math.random();
-    spawn(time > 240 && r < 0.06 ? 'brute' : time > 90 && r < 0.2 ? 'ghost' : time > 30 && r < 0.45 ? 'bat' : 'shade');
-  }
-  const crossed = (s) => Math.floor(time / s) !== Math.floor((time - dt) / s);
-  if (crossed(60) && time > 5) for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, d = viewR() + 20; spawn('bat', hero.x + Math.cos(a) * d, hero.y + Math.sin(a) * d); }
-  if (time >= nextBoss && !boss) { nextBoss += 300; spawn('boss'); }
-  // Каждые четыре минуты тьма сгущается: свет меньше, теней больше.
-  if (crossed(240) && time < 900) { darkUntil = time + 25; banner('Тьма сгущается', 'Держитесь ближе к фонарям'); tone(110, 1, 'sine', 0.06, 0.6); }
-  if (time >= nextChest) { nextChest += 150; dropChest(true); }
-  if (time >= 900 && !dawned) { dawned = true; runEmbers += 50; banner('Рассвет', 'Ночь пережита, +50 угольков. Тени не уходят'); tone(523, 0.3); tone(784, 0.5); }
-}
-function dropChest(far, x, y) {
-  if (far) { const a = Math.random() * Math.PI * 2; x = hero.x + Math.cos(a) * 560; y = hero.y + Math.sin(a) * 560; }
-  const c = { x, y, r: 14, dt: 'c' }; collide(c, 14); chests.push(c);
-  if (far) banner('Где-то в лесу сундук', 'Стрелка на краю экрана покажет путь');
-}
+function dropChest(x, y) { const c = { x, y, r: 14, dt: 'c' }; collide(c, 14); chests.push(c); }
 function rebuildGrid() {
   grid.clear();
   for (const e of enemies) { const k = ((e.x >> 6) * 73856093) ^ ((e.y >> 6) * 19349663); let a = grid.get(k); if (!a) grid.set(k, a = []); a.push(e); }
@@ -382,31 +446,152 @@ function nearestK(x, y, maxD, k) {
   out.sort((a, b) => a[0] - b[0]);
   return out.slice(0, k).map((a) => a[1]);
 }
-const nearest = (x, y, maxD = 900) => nearestK(x, y, maxD, 1)[0] || null;
 function hurt(e, dmg, kx = 0, ky = 0) {
   if (e.dead) return;
   e.hp -= dmg; e.hit = 0.12; e.kx += kx; e.ky += ky;
-  if (Math.random() < 0.35) texts.push({ x: e.x, y: e.y, z: 34, s: Math.round(dmg), life: 0.5 });
+  if (Math.random() < 0.3 && texts.length < 40) texts.push({ x: e.x, y: e.y, z: 34, s: Math.round(dmg), life: 0.5 });
   if (e.hp <= 0) kill(e);
 }
 function puff(x, y, z, c, n, sp = 70) {
+  if (fx.length > MAXFX) return;
   for (let i = 0; i < n; i++) fx.push({ p: 1, x, y, z, vx: (Math.random() - 0.5) * sp, vy: (Math.random() - 0.5) * sp, vz: 20 + Math.random() * 50, life: 0.6, max: 0.6, c, s: 3 + Math.random() * 2 });
 }
+// Искр на карте не больше MAXG: лишняя вливается в ближайшую, и та становится крупнее.
+function addGem(x, y, v) {
+  v *= waveMods.xp;
+  if (gems.length >= MAXG) {
+    let best = gems[0], bd = Infinity;
+    for (const g of gems) { const d = (g.x - x) ** 2 + (g.y - y) ** 2; if (d < bd) { bd = d; best = g; } }
+    best.v += v; best.big = best.v >= 6; return;
+  }
+  gems.push({ x, y, v, big: v >= 6, ph: Math.random() * 6 });
+}
+function explode(x, y) {
+  fx.push({ ring: true, x, y, r: 0, R: 80, life: 0.4, c: '255,110,50' });
+  puff(x, y, 6, '#ff7a3c', 8, 180); shake = Math.max(shake, 5); tone(90, 0.2, 'sawtooth', 0.05, 0.4);
+  decals.push({ x, y, r: 50, life: 3 });
+  if ((hero.x - x) ** 2 + (hero.y - y) ** 2 < 62 * 62 && hero.inv <= 0) hitHero(14);
+  near(x, y, 90, (e) => { if (!e.dead && (e.x - x) ** 2 + (e.y - y) ** 2 < 85 * 85) hurt(e, 40 + wave * 6, (e.x - x) * 3, (e.y - y) * 3); });
+}
 function kill(e) {
+  if (e.dead) return;
   e.dead = true; kills++;
   const t = ENEMY[e.kind];
-  gems.push({ x: e.x, y: e.y, v: e.xp, big: e.xp >= 8, ph: Math.random() * 6 });
-  if (Math.random() < (e.kind === 'boss' ? 1 : e.kind === 'brute' ? 0.5 : 0.025)) embers.push({ x: e.x + 8, y: e.y, v: e.kind === 'boss' ? 40 : e.kind === 'brute' ? 4 : 1, ph: Math.random() * 6 });
-  if (e.kind === 'brute' && Math.random() < 0.22) dropChest(false, e.x - 10, e.y + 6);
-  fx.push({ die: true, spr: t.spr[0], x: e.x, y: e.y, k: t.k || 1, z: t.fly || 0, life: 0.3 });
-  puff(e.x, e.y, 10, t.smoke, e.kind === 'boss' ? 30 : 5);
-  if (e.kind === 'boss') {
+  addGem(e.x, e.y, e.xp);
+  if (t.boss) {
     boss = null; $('boss').classList.add('hidden'); shake = 14; tone(120, 1, 'sawtooth', 0.08, 0.3);
-    for (let i = 0; i < 40; i++) gems.push({ x: e.x + (Math.random() - 0.5) * 120, y: e.y + (Math.random() - 0.5) * 120, v: 3, ph: Math.random() * 6 });
-    dropChest(false, e.x, e.y + 30);
+    for (let i = 0; i < 20; i++) addGem(e.x + (Math.random() - 0.5) * 140, e.y + (Math.random() - 0.5) * 140, 4);
+    embers.push({ x: e.x + 20, y: e.y, v: 40, ph: 0 });
+    dropChest(e.x, e.y + 30);
+  } else if (e.kind === 'golden') {
+    embers.push({ x: e.x, y: e.y, v: 25, ph: 0 });
+    if (ev && ev.type === 'hunt') { ev = null; banner('Золотая тень поймана', '+25 угольков'); tone(880, 0.1); tone(1320, 0.2); }
+  } else {
+    const ch = e.elite ? 0.5 : e.kind === 'brute' ? 0.4 : 0.02;
+    if (Math.random() < ch) embers.push({ x: e.x + 8, y: e.y, v: e.elite ? 3 : e.kind === 'brute' ? 4 : 1, ph: Math.random() * 6 });
+    if (Math.random() < (e.elite ? 0.15 : e.kind === 'brute' ? 0.05 : 0)) dropChest(e.x - 10, e.y + 6);
   }
+  fx.push({ die: true, spr: t.spr[0], x: e.x, y: e.y, k: (t.k || 1) * (e.elite ? 1.35 : 1), z: t.fly || 0, life: 0.3 });
+  puff(e.x, e.y, 10, t.smoke, t.boss ? 30 : 4);
+  if (e.kind === 'smolder') explode(e.x, e.y);
   tone(300 + Math.random() * 100, 0.04, 'square', 0.025);
 }
+// Приёмы боссов. Перед ударом всегда есть предупреждение на земле — его можно избежать рывком.
+function bossAI(e, dt) {
+  e.cd -= dt; e.cd2 -= dt;
+  if (e.fade > 0) e.fade -= dt;
+  const aim = () => { const dx = hero.x - e.x, dy = hero.y - e.y, d = Math.hypot(dx, dy) || 1; return [dx / d, dy / d]; };
+  if (e.tele) {
+    e.tele.t -= dt;
+    if (e.tele.t > 0) return;
+    const tl = e.tele; e.tele = null;
+    if (tl.k === 'stomp') {
+      fx.push({ ring: true, x: e.x, y: e.y, r: 0, R: tl.R, life: 0.4, c: '255,120,80' }); shake = 12; tone(55, 0.5, 'sawtooth', 0.08, 0.5);
+      decals.push({ x: e.x, y: e.y, r: tl.R * 0.6, life: 4 });
+      if ((hero.x - e.x) ** 2 + (hero.y - e.y) ** 2 < tl.R * tl.R && hero.inv <= 0) hitHero(25);
+    } else e.dash = { t: tl.k === 'dive' ? 0.6 : 0.8, vx: tl.ax * (tl.k === 'dive' ? 430 : 330), vy: tl.ay * (tl.k === 'dive' ? 430 : 330) };
+    return;
+  }
+  if (e.dash) return;
+  if (e.kind === 'lord') {
+    if (Math.random() < dt * 0.5) for (let i = 0; i < 2; i++) spawn('shade', e.x + (Math.random() - 0.5) * 80, e.y + (Math.random() - 0.5) * 80);
+    if (e.cd <= 0) { e.cd = 4.5; for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; eshots.push({ x: e.x, y: e.y, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, life: 6 }); } tone(70, 0.4, 'sawtooth', 0.05, 0.7); }
+  } else if (e.kind === 'giant') {
+    if (e.cd <= 0) { e.cd = 5.5; e.tele = { k: 'stomp', t: 1, max: 1, R: 170 }; tone(70, 0.3, 'sine', 0.05, 0.8); }
+    else if (e.cd2 <= 0) { e.cd2 = 8; const [ax, ay] = aim(); e.tele = { k: 'charge', t: 0.7, max: 0.7, ax, ay }; }
+  } else if (e.kind === 'queen') {
+    if (e.cd <= 0) { e.cd = 5; for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; spawn('bat', hero.x + Math.cos(a) * 300, hero.y + Math.sin(a) * 300); } tone(1200, 0.2, 'square', 0.03, 0.5); }
+    if (e.cd2 <= 0) { e.cd2 = 6.5; const [ax, ay] = aim(); e.tele = { k: 'dive', t: 0.6, max: 0.6, ax, ay }; }
+  } else if (e.kind === 'witch') {
+    if (e.cd <= 0) { e.cd = 6; puff(e.x, e.y, 30, '#a9b8e0', 10); const p = spotAround(240); e.x = p.x; e.y = p.y; e.fade = 0.5; tone(500, 0.3, 'sine', 0.04, 0.5); }
+    if (e.cd2 <= 0) { e.cd2 = 3.5; const [ax, ay] = aim(); for (let i = -2; i <= 2; i++) { const a = Math.atan2(ay, ax) + i * 0.4; eshots.push({ x: e.x, y: e.y, vx: Math.cos(a) * 110, vy: Math.sin(a) * 110, life: 5, home: true }); } }
+  }
+}
+
+// ---------- события волн ----------
+const EVENTS = ['fireflies', 'campfire', 'hunt', 'altar'];
+function startEvent() {
+  const pool = EVENTS.filter((t) => t !== lastEv), type = pool[Math.floor(Math.random() * pool.length)];
+  lastEv = type;
+  if (type === 'fireflies') {
+    ev = { type, t: 25, got: 0, need: 6, flies: Array.from({ length: 6 }, () => Object.assign(spotAround(200 + Math.random() * 280), { ph: Math.random() * 6 })) };
+    banner('Светлячки', 'Соберите шесть за 25 секунд — будет сундук');
+  } else if (type === 'campfire') {
+    ev = Object.assign(spotAround(380), { type, t: 35, have: 0, need: 8 });
+    banner('Старый костёр', 'Постойте у огня 8 секунд: новый уровень и полный запас сил');
+  } else if (type === 'hunt') {
+    const p = spotAround(320); ev = { type, t: 20, e: spawn('golden', p.x, p.y) };
+    banner('Золотая тень', 'Догоните её за 20 секунд — 25 угольков');
+  } else {
+    ev = Object.assign(spotAround(340), { type, t: 40 });
+    banner('Алтарь', 'Подойдите к нему — он предложит сделку');
+  }
+  $('evt').classList.remove('hidden');
+}
+function failEvent() {
+  if (!ev) return;
+  if (ev.type === 'hunt' && ev.e && !ev.e.dead) { ev.e.dead = true; puff(ev.e.x, ev.e.y, 10, '#ffcf4a', 8); }
+  banner({ fireflies: 'Светлячки разлетелись', campfire: 'Костёр погас', hunt: 'Золотая тень ушла', altar: 'Алтарь рассыпался' }[ev.type], '');
+  ev = null;
+}
+function updateEvent(dt) {
+  if (!ev) return;
+  ev.t -= dt;
+  const dist2 = (o) => (o.x - hero.x) ** 2 + (o.y - hero.y) ** 2;
+  if (ev.type === 'fireflies') {
+    for (const f of ev.flies) if (!f.got && dist2(f) < 30 * 30) { f.got = true; ev.got++; tone(1000 + ev.got * 120, 0.08, 'sine', 0.04); puff(f.x, f.y, 20, '#d8ff8a', 6); }
+    if (ev.got >= ev.need) { dropChest(hero.x + 40, hero.y); banner('Все светлячки собраны', 'Сундук рядом'); ev = null; return; }
+  } else if (ev.type === 'campfire') {
+    if (dist2(ev) < 80 * 80) ev.have += dt;
+    if (ev.have >= ev.need) { hero.hp = hero.maxHp; pendingLevels++; banner('Костёр разгорелся', 'Новый уровень и полный запас сил'); tone(660, 0.2); ev = null; return; }
+  } else if (ev.type === 'altar') {
+    if (dist2(ev) < 36 * 36) { ev = null; openAltar(); return; }
+  }
+  if (ev.t <= 0) failEvent();
+}
+function eventTarget() {
+  if (!ev) return null;
+  if (ev.type === 'fireflies') { let b = null, bd = Infinity; for (const f of ev.flies) if (!f.got) { const d = (f.x - hero.x) ** 2 + (f.y - hero.y) ** 2; if (d < bd) { bd = d; b = f; } } return b; }
+  if (ev.type === 'hunt') return ev.e;
+  return ev;
+}
+const DEALS = [
+  { id: 'blood', icon: 'heart', name: 'Кровь за силу', text: 'Запас сил −25, всё оружие получает уровень', ok: () => hero.maxHp > 60, apply() { hero.maxHp -= 25; hero.hp = Math.min(hero.hp, hero.maxHp); for (const k in weapons) if (weapons[k] < WEAPONS[k].max) weapons[k]++; } },
+  { id: 'greed', icon: 'magnet', name: 'Жадность', text: 'Следующая волна вдвое плотнее, зато опыт за неё двойной', ok: () => true, apply() { nextMods = { dense: 2, xp: 2 }; } },
+  { id: 'ash', icon: 'ember', name: 'Пепел', text: 'Половина угольков этой ночи сгорит, огонёк вырастет на два уровня', ok: () => runEmbers >= 2, apply() { runEmbers = Math.floor(runEmbers / 2); pendingLevels += 2; } },
+  { id: 'calm', icon: 'speed', name: 'Тишина', text: 'Следующая волна на треть реже', ok: () => true, apply() { nextMods = { dense: 0.66, xp: 1 }; } },
+  { id: 'fury', icon: 'power', name: 'Ярость', text: 'Урон +25% до конца ночи, но тени быстрее на 15%', ok: () => !fury, apply() { fury = true; } },
+];
+function openAltar() {
+  state = 'altar'; tone(220, 0.4, 'sine', 0.05, 1.5);
+  const pool = DEALS.filter((d) => d.ok()), list = [];
+  while (list.length < 2 && pool.length) list.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  $('aList').innerHTML = list.map((d, i) => `<button class="choice" data-i="${i}"><canvas width="88" height="88" data-icon="${d.icon}"></canvas><span><b>${d.name}</b><small>${d.text}</small></span></button>`).join('');
+  paintIcons($('aList'));
+  $('aList').onclick = (e) => { const b = e.target.closest('[data-i]'); if (!b) return; list[Number(b.dataset.i)].apply(); tone(330, 0.3, 'sawtooth', 0.04, 0.5); resume(); };
+  show('altar');
+}
+$('aLeave').onclick = () => { if (state === 'altar') resume(); };
 
 // ---------- оружие ----------
 function fireWeapons(dt) {
@@ -420,7 +605,7 @@ function fireWeapons(dt) {
       const n = 1 + Math.floor((l - 1) / 2);
       for (const t of targets) {
         const base = Math.atan2(t.y - hero.y, t.x - hero.x);
-        for (let i = 0; i < n; i++) { const a = base + (i - (n - 1) / 2) * 0.18; shots.push({ x: hero.x, y: hero.y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, dmg: (9 + l * 3) * D * (evo ? 1.3 : 1), pierce: evo ? 99 : l >= 4 ? 2 : 0, life: 1.4, hitSet: new Set(), dt: 's' }); }
+        for (let i = 0; i < n; i++) { const a = base + (i - (n - 1) / 2) * 0.18; shots.push({ x: hero.x, y: hero.y, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, dmg: (9 + l * 3) * D * (evo ? 1.3 : 1), pierce: evo ? 99 : l >= 4 ? 2 : 0, life: 1.4, hitSet: new Set() }); }
       }
       if (targets.length) tone(880, 0.03, 'sine', 0.02);
     }
@@ -473,12 +658,17 @@ function fireWeapons(dt) {
 function orbitPositions() {
   if (!weapons.orbit) return [];
   const l = weapons.orbit, evo = evolved.orbit, n = evo ? 9 : 1 + l, R = evo ? 110 : 60 + l * 6, sp = 2.6 + l * 0.2;
-  return Array.from({ length: n }, (_, i) => { const a = time * sp + i / n * Math.PI * 2; return { x: hero.x + Math.cos(a) * R, y: hero.y + Math.sin(a) * R, z: 16 + Math.sin(a * 2 + time * 3) * 4, dt: 'r' }; });
+  return Array.from({ length: n }, (_, i) => { const a = time * sp + i / n * Math.PI * 2; return { x: hero.x + Math.cos(a) * R, y: hero.y + Math.sin(a) * R, z: 16 + Math.sin(a * 2 + time * 3) * 4 }; });
 }
 
 // ---------- шаг ----------
 const keys = {};
 let stick = null; // { x0, y0, x, y } в экранных координатах
+function dash() {
+  if (state !== 'play' || dashCd > 0) return;
+  dashT = 0.18; dashCd = 3.5 * cdMul() * (H_().dash || 1); hero.inv = Math.max(hero.inv, 0.35);
+  tone(500, 0.12, 'sine', 0.05, 2);
+}
 function update(dt) {
   time += dt;
   let mx = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0);
@@ -486,19 +676,25 @@ function update(dt) {
   if (stick) { const dx = stick.x - stick.x0, dy = stick.y - stick.y0, d = Math.hypot(dx, dy); if (d > 6) { mx = dx / Math.max(d, 40); my = dy / Math.max(d, 40); } }
   const ml = Math.hypot(mx, my);
   if (ml > 1) { mx /= ml; my /= ml; }
+  if (ml > 0.1) { const l = Math.hypot(mx, my); hero.lmx = mx / l; hero.lmy = my / l; }
   const sp = hero.speed * (1 + P('speed') * 0.1);
-  hero.x += mx * sp * dt; hero.y += my * sp * dt;
+  if (dashT > 0) {
+    dashT -= dt; hero.x += hero.lmx * sp * 3.4 * dt; hero.y += hero.lmy * sp * 3.4 * dt;
+    if (fx.length < MAXFX) fx.push({ p: 1, add: 1, x: hero.x, y: hero.y, z: 18, vx: 0, vy: 0, vz: 10, life: 0.3, max: 0.3, c: hero.pal[1], s: 8 });
+  } else { hero.x += mx * sp * dt; hero.y += my * sp * dt; }
+  dashCd = Math.max(0, dashCd - dt);
   collide(hero, hero.r);
   hero.dir += ((mx || 0) - hero.dir) * Math.min(1, dt * 10);
   hero.inv = Math.max(0, hero.inv - dt);
   if (evolved.orbit) hero.hp = Math.min(hero.maxHp, hero.hp + dt);
-  // искорки над огоньком
-  hero.spark += dt * 22;
-  while (hero.spark > 1) { hero.spark--; fx.push({ p: 1, add: 1, x: hero.x + (Math.random() - 0.5) * 14, y: hero.y + (Math.random() - 0.5) * 6, z: 26 + Math.random() * 10, vx: -mx * 30 + (Math.random() - 0.5) * 20, vy: -my * 30, vz: 40 + Math.random() * 40, life: 0.5, max: 0.5, c: hero.pal[1], s: 2.5 }); }
+  hero.spark += dt * 16;
+  while (hero.spark > 1) { hero.spark--; if (fx.length < MAXFX) fx.push({ p: 1, add: 1, x: hero.x + (Math.random() - 0.5) * 14, y: hero.y + (Math.random() - 0.5) * 6, z: 26 + Math.random() * 10, vx: -mx * 30 + (Math.random() - 0.5) * 20, vy: -my * 30, vz: 40 + Math.random() * 40, life: 0.5, max: 0.5, c: hero.pal[1], s: 2.5 }); }
 
-  spawnWave(dt);
+  waveTick(dt);
   rebuildGrid();
   fireWeapons(dt);
+  updateEvent(dt);
+  if (state !== 'play' && state !== 'altar') return;
 
   for (const s of shots) {
     s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt;
@@ -522,33 +718,37 @@ function update(dt) {
       near(f.x, f.y, f.R, (e) => { if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 < (f.R + e.r) ** 2) hurt(e, f.dmg); });
     }
   }
+  if (state === 'over') return;
   // враги
   for (const e of enemies) {
     if (e.dead) continue;
+    const T = ENEMY[e.kind];
     const dx = hero.x - e.x, dy = hero.y - e.y, d = Math.hypot(dx, dy) || 1;
     let slow = 1;
-    for (const L of litList) if ((e.x - L.x) ** 2 + (e.y - L.y) ** 2 < 150 * 150) { slow = 0.5; e.burn = (e.burn || 0) + dt; if (e.burn > 0.5) { e.burn = 0; hurt(e, 3 + time / 60); } }
+    for (const L of litList) if ((e.x - L.x) ** 2 + (e.y - L.y) ** 2 < 150 * 150) { slow = T.boss ? 0.8 : 0.5; e.burn = (e.burn || 0) + dt; if (e.burn > 0.5) { e.burn = 0; hurt(e, 3 + wave); } }
     let vx = dx / d * e.speed * slow, vy = dy / d * e.speed * slow;
-    if (e.kind === 'bat') { e.wob += dt * 8; vx += Math.cos(e.wob) * 40; vy += Math.sin(e.wob) * 40; }
+    if (e.kind === 'golden') { vx = -vx; vy = -vy; e.wob += dt * 3; vx += Math.cos(e.wob) * 50; vy += Math.sin(e.wob) * 50; }
+    if (e.kind === 'bat' || e.kind === 'queen') { e.wob += dt * 8; vx += Math.cos(e.wob) * 40; vy += Math.sin(e.wob) * 40; }
+    if (e.kind === 'smolder') {
+      if (e.fuse == null && d < 55) { e.fuse = 0.7; tone(700, 0.4, 'square', 0.02, 1.5); }
+      if (e.fuse != null) { vx = vy = 0; e.fuse -= dt; e.hit = (e.fuse * 10) % 1 < 0.5 ? 0.12 : 0; if (e.fuse <= 0) { kill(e); if (state === 'over') return; continue; } }
+    }
+    if (T.boss) { bossAI(e, dt); if (state === 'over') return; if (e.tele) vx = vy = 0; if (e.dash) { vx = e.dash.vx; vy = e.dash.vy; e.dash.t -= dt; if (e.dash.t <= 0) e.dash = null; } }
     e.x += (vx + e.kx) * dt; e.y += (vy + e.ky) * dt;
-    e.kx *= 0.86; e.ky *= 0.86; e.hit = Math.max(0, e.hit - dt);
+    e.kx *= 0.86; e.ky *= 0.86; if (e.kind !== 'smolder' || e.fuse == null) e.hit = Math.max(0, e.hit - dt);
     near(e.x, e.y, e.r * 2, (o) => {
       if (o === e || o.dead) return;
       const ox = e.x - o.x, oy = e.y - o.y, od = Math.hypot(ox, oy) || 0.01, min = e.r + o.r;
       if (od < min) { const p = (min - od) / od * 0.25; e.x += ox * p; e.y += oy * p; }
     });
     if (!FLYING[e.kind] && d < 700) collide(e, e.r * 0.8, e.speed * dt * 0.9);
-    if (d < e.r + hero.r && hero.inv <= 0) { if (hitHero(e.dmg)) return; }
-    if (e.kind === 'boss') {
-      if (Math.random() < dt * 0.8) for (let i = 0; i < 3; i++) spawn('shade', e.x + (Math.random() - 0.5) * 80, e.y + (Math.random() - 0.5) * 80);
-      e.cd -= dt;
-      if (e.cd <= 0) { e.cd = 4.5; for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2; eshots.push({ x: e.x, y: e.y, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, life: 6, dt: 'o' }); } tone(70, 0.4, 'sawtooth', 0.05, 0.7); }
-    }
+    if (e.dmg && d < e.r + hero.r && hero.inv <= 0) { if (hitHero(e.dmg)) return; }
   }
-  enemies = enemies.filter((e) => !e.dead && Math.abs(e.x - hero.x) < 2600 && Math.abs(e.y - hero.y) < 2600);
+  enemies = enemies.filter((e) => !e.dead && Math.abs(e.x - hero.x) < 2200 && Math.abs(e.y - hero.y) < 2200);
   for (const o of eshots) {
+    if (o.home) { const a = Math.atan2(hero.y - o.y, hero.x - o.x), b = Math.atan2(o.vy, o.vx); let da = a - b; da = Math.atan2(Math.sin(da), Math.cos(da)); const nb = b + Math.max(-1.6 * dt, Math.min(1.6 * dt, da)); o.vx = Math.cos(nb) * 110; o.vy = Math.sin(nb) * 110; }
     o.x += o.vx * dt; o.y += o.vy * dt; o.life -= dt;
-    if ((o.x - hero.x) ** 2 + (o.y - hero.y) ** 2 < (hero.r + 7) ** 2 && hero.inv <= 0) { o.life = 0; if (hitHero(12)) return; }
+    if ((o.x - hero.x) ** 2 + (o.y - hero.y) ** 2 < (hero.r + 7) ** 2 && hero.inv <= 0) { o.life = 0; if (hitHero(o.home ? 10 : 12)) return; }
   }
   eshots = eshots.filter((o) => o.life > 0);
   // фонари: огонёк зажигает их, лечится и отталкивает тени
@@ -564,15 +764,14 @@ function update(dt) {
   // искры, угольки, сундуки
   const M = magnetR();
   for (const g of gems) {
-    const dx = hero.x - g.x, dy = hero.y - g.y, d = Math.hypot(dx, dy);
-    if (g.pull || d < M) { g.pull = true; g.x += dx / d * 520 * dt; g.y += dy / d * 520 * dt; }
+    const dx = hero.x - g.x, dy = hero.y - g.y, d = Math.hypot(dx, dy) || 1;
+    if (g.pull || d < M) { if (!g.pull) g.pull = 1; const v = g.pull === 2 ? 900 : 520; g.x += dx / d * v * dt; g.y += dy / d * v * dt; }
     if (d < hero.r + 8) { g.dead = true; gainXp(g.v); }
   }
   gems = gems.filter((g) => !g.dead);
-  if (gems.length > 600) gems.splice(0, gems.length - 600);
   for (const em of embers) {
-    const dx = hero.x - em.x, dy = hero.y - em.y, d = Math.hypot(dx, dy);
-    if (d < M) { em.x += dx / d * 420 * dt; em.y += dy / d * 420 * dt; }
+    const dx = hero.x - em.x, dy = hero.y - em.y, d = Math.hypot(dx, dy) || 1;
+    if (d < M || phase === 'break') { em.x += dx / d * 420 * dt; em.y += dy / d * 420 * dt; }
     if (d < hero.r + 10) { em.dead = true; runEmbers += em.v; tone(1300, 0.06, 'sine', 0.04); }
   }
   embers = embers.filter((e) => !e.dead);
@@ -593,10 +792,12 @@ function update(dt) {
   decals = decals.filter((d) => d.life > 0);
   shake = Math.max(0, shake - dt * 30);
   hud();
+  if (state !== 'play') return;
   if (pendingChest) { pendingChest = false; openChest(); }
   else if (pendingLevels) levelUp();
 }
 function hitHero(dmg) {
+  if (state === 'over') return true;
   hero.hp -= dmg; hero.inv = 0.5; shake = Math.max(shake, 6); tone(140, 0.12, 'square', 0.05);
   if (navigator.vibrate) navigator.vibrate(40);
   if (hero.hp <= 0) { die(); return true; }
@@ -605,9 +806,9 @@ function hitHero(dmg) {
 function gainXp(v) {
   xp += v * (1 + meta('xp') * 0.1);
   tone(1000 + Math.random() * 400, 0.03, 'sine', 0.015);
-  while (xp >= xpNeed) { xp -= xpNeed; lvl++; pendingLevels++; xpNeed = Math.round(6 + lvl * 4 + Math.pow(lvl, 1.6)); }
+  while (xp >= xpNeed) { xp -= xpNeed; lvl++; pendingLevels++; xpNeed = Math.round(8 + lvl * 5 + Math.pow(lvl, 1.6)); }
 }
-// После выбора улучшения или сундука — следующий в очереди, иначе обратно в игру.
+// После выбора улучшения, сундука или алтаря — следующий в очереди, иначе обратно в игру.
 function resume() {
   show(null); last = 0; state = 'play'; renderInv();
   if (pendingChest) { pendingChest = false; openChest(); } else if (pendingLevels) levelUp();
@@ -677,26 +878,28 @@ function openChest() {
 $('cTake').onclick = () => { if (state === 'chest') resume(); };
 
 function die() {
+  if (state === 'over') return;
   state = 'over'; sdk?.game.stop(); tone(200, 0.8, 'sawtooth', 0.06, 0.25);
   save.embers += runEmbers;
   if (dawned) save.dawns++;
   const sec = Math.floor(time), rec = sec > save.best;
   if (rec) save.best = sec;
   save.bestKills = Math.max(save.bestKills, kills);
+  save.bestWave = Math.max(save.bestWave, wave);
   persist();
   $('oTitle').textContent = dawned ? 'Ночь пережита' : rec && sec > 30 ? 'Новый рекорд!' : 'Огонёк погас';
   $('oStats').innerHTML = statsHTML();
   const hosted = sdk && sdk.environment.host === 'gamely';
   $('coinRevive').classList.toggle('hidden', revived || !hosted);
   $('adRevive').classList.toggle('hidden', revived || !sdk);
-  $('inv').classList.add('hidden');
+  for (const id of ['inv', 'dashBtn', 'evt']) $(id).classList.add('hidden');
   renderBoard(null); show('over');
   if (sdk && sec > 0) sdk.leaderboard.setScore(save.best).catch(() => {}).then(() => sdk.leaderboard.getEntries({ top: 5, around: 1 })).then(renderBoard, () => {});
 }
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function statsHTML() {
-  return `<div><b>${mmss(time)}</b><small>продержались</small></div><div><b>${kills}</b><small>теней развеяно</small></div>
-    <div><b>${lvl}</b><small>уровень огонька</small></div><div><b>${runEmbers}</b><small>угольков собрано</small></div>`;
+  return `<div><b>${wave}</b><small>волна</small></div><div><b>${mmss(time)}</b><small>продержались</small></div>
+    <div><b>${kills}</b><small>теней развеяно</small></div><div><b>${runEmbers}</b><small>угольков собрано</small></div>`;
 }
 function revive() {
   revived = true; hero.hp = hero.maxHp; hero.inv = 3;
@@ -704,7 +907,7 @@ function revive() {
   eshots = [];
   fx.push({ ring: true, x: hero.x, y: hero.y, r: 0, R: 300, life: 0.4 });
   save.embers -= runEmbers; if (dawned) save.dawns--; persist(); // угольки этого забега зачислятся в конце
-  state = 'play'; show(null); $('inv').classList.remove('hidden'); last = 0; sdk?.game.start();
+  state = 'play'; show(null); for (const id of ['inv', 'dashBtn']) $(id).classList.remove('hidden'); last = 0; sdk?.game.start();
 }
 function renderBoard(r) {
   const el = $('board');
@@ -717,7 +920,7 @@ function renderBoard(r) {
 
 // ---------- отрисовка ----------
 function resize() {
-  dpr = Math.min(2, devicePixelRatio || 1);
+  dpr = Math.min(coarse ? 1.5 : 2, devicePixelRatio || 1);
   W = innerWidth; H = innerHeight;
   cv.width = W * dpr; cv.height = H * dpr;
   lc.width = Math.ceil(W / 2); lc.height = Math.ceil(H / 2);
@@ -739,8 +942,7 @@ function drawFlame(c, x, y, s, pal, t, dir = 0) {
     c.bezierCurveTo(12 * k, 1 * k, -12 * k, 1 * k, -14 * k, -9 * k);
     c.fill();
   }
-  c.fillStyle = pal[3];
-  c.beginPath(); c.ellipse(-4.5 + dir * 3, -14, 2.2, 3.2, 0, 0, 7); c.ellipse(4.5 + dir * 3, -14, 2.2, 3.2, 0, 0, 7); c.fill();
+  if (pal[3]) { c.fillStyle = pal[3]; c.beginPath(); c.ellipse(-4.5 + dir * 3, -14, 2.2, 3.2, 0, 0, 7); c.ellipse(4.5 + dir * 3, -14, 2.2, 3.2, 0, 0, 7); c.fill(); }
   c.restore();
 }
 function glow(x, y, r, color, a) {
@@ -748,7 +950,10 @@ function glow(x, y, r, color, a) {
   g.addColorStop(0, `rgba(${color},${a})`); g.addColorStop(1, `rgba(${color},0)`);
   ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
 }
+function groundGlow(x, y, r, color, a) { ctx.save(); ctx.translate(x, y * TILT); ctx.scale(1, TILT); glow(0, 0, r, color, a); ctx.restore(); }
 function ellipseShadow(x, y, rx, a = 0.35) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(x, y * TILT, rx, rx * TILT * 0.8, 0, 0, 7); ctx.fill(); }
+const enemyZ = (e, T, t) => (T.fly ? T.fly + Math.sin(t * 3 + e.wob) * 4 : 0);
+const enemyK = (e, T) => (T.k || 1) * (e.elite ? 1.35 : 1);
 
 let groundPat = null;
 const lights = [];
@@ -775,10 +980,10 @@ function draw() {
     ctx.fillRect(vx0 / GS, vy0 / GS, (vx1 - vx0) / GS, (vy1 - vy0) / GS); ctx.restore();
   }
   for (const d of decals) { ctx.fillStyle = `rgba(10,6,4,${Math.min(0.35, d.life * 0.2)})`; ctx.beginPath(); ctx.ellipse(d.x, d.y * TILT, d.r, d.r * TILT, 0, 0, 7); ctx.fill(); }
-
   // круг, куда тени боятся заходить
   ctx.setLineDash([5, 9]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,190,110,.28)';
   for (const L of litList) if (vis(L.x, L.y)) { ctx.beginPath(); ctx.ellipse(L.x, L.y * TILT, 150, 150 * TILT, 0, 0, 7); ctx.stroke(); }
+  if (ev && ev.type === 'campfire') { ctx.strokeStyle = 'rgba(255,190,110,.5)'; ctx.beginPath(); ctx.ellipse(ev.x, ev.y * TILT, 80, 80 * TILT, 0, 0, 7); ctx.stroke(); }
   ctx.setLineDash([]);
 
   // объёмная часть сцены: всё, что стоит на земле, сортируется по глубине
@@ -786,6 +991,7 @@ function draw() {
   forChunks(vx0, vy0, vx1, vy1, (o) => { if (vis(o.x, o.y)) list.push(o); });
   for (const e of enemies) if (vis(e.x, e.y)) list.push(e);
   for (const c of chests) if (vis(c.x, c.y)) list.push(c);
+  if (ev && ev.type === 'altar' && vis(ev.x, ev.y)) list.push({ dt: 'a', x: ev.x, y: ev.y });
   list.push(hero);
   list.sort((a, b) => a.y - b.y);
   for (const o of list) {
@@ -804,13 +1010,16 @@ function draw() {
     } else if (o.dt === 'e') {
       const T = ENEMY[o.kind];
       if (T.glow) continue; // призраки светятся — рисуются поверх темноты
-      const z = T.fly ? T.fly + Math.sin(t * 3 + o.wob) * 4 : 0;
+      const z = enemyZ(o, T, t);
       if (T.fly) ellipseShadow(o.x, o.y, o.r * 0.9);
-      const fr = T.spr.length > 1 ? T.spr[Math.floor(t * (o.kind === 'bat' ? 10 : 3) + o.wob) % 2] : T.spr[0];
-      sprite(fr, o.x, o.y, z, T.k || 1, 1, o.hit / 0.12);
+      const fr = T.spr.length > 1 ? T.spr[Math.floor(t * (o.kind === 'bat' || o.kind === 'queen' ? 10 : 3) + o.wob) % 2] : T.spr[0];
+      sprite(fr, o.x, o.y, z, enemyK(o, T), 1, o.hit / 0.12);
     } else if (o.dt === 'c') {
       sprite('chest', o.x, o.y, Math.abs(Math.sin(t * 3)) * 3);
-      lights.push(o.x, o.y, 60, '255,210,120', 0.18);
+      lights.push(o.x, o.y, 70, '255,210,120', 0.25);
+    } else if (o.dt === 'a') {
+      sprite('rock', o.x, o.y, 0, 1.4);
+      lights.push(o.x, o.y, 90, '180,110,255', 0.35);
     }
   }
   for (const f of fx) if (f.die) sprite(f.spr, f.x, f.y, f.z, f.k * (0.6 + f.life), f.life / 0.3);
@@ -818,17 +1027,20 @@ function draw() {
   // источники света
   const flick = 1 + Math.sin(t * 9) * 0.02 + Math.sin(t * 23) * 0.012;
   lights.push(hero.x, hero.y, lightR() * flick, hero.glow, 0.2);
+  if (boss) lights.push(boss.x, boss.y, 130, '255,90,70', 0.18);
   for (const s of shots) lights.push(s.x, s.y, 46, hero.glow, 0.22);
   for (const o of orbitPositions()) lights.push(o.x, o.y, 48, hero.glow, 0.18);
   for (const f of fx) {
-    if (f.ring) lights.push(f.x, f.y, f.r + 60, hero.glow, f.life * 0.6);
+    if (f.ring) lights.push(f.x, f.y, f.r + 60, f.c || hero.glow, f.life * 0.6);
     if (f.comet && f.t <= 0 && f.boom > 0) lights.push(f.x, f.y, f.R * 1.8, '255,140,50', f.boom * 1.2);
     if (f.comet && f.t > 0) lights.push(f.x, f.y, 70 * (1 - f.t / f.t0) + 10, '255,140,50', 0.12);
     if (f.bolt) lights.push(f.x2, f.y2, 70, '170,200,255', f.life * 2);
   }
+  if (ev && ev.type === 'fireflies') for (const f of ev.flies) if (!f.got) lights.push(f.x, f.y, 60, '210,255,120', 0.3);
+  if (ev && ev.type === 'campfire') lights.push(ev.x, ev.y, 140, '255,150,60', 0.35);
 
   // темнота: карта света в половинном разрешении, светлые пятна вырезаются из тьмы
-  const night = time < 900 || state === 'menu' ? 0.88 : Math.max(0.4, 0.88 - (time - 900) / 60 * 0.48);
+  const night = state === 'menu' || !dawned ? 0.88 : Math.max(0.4, 0.88 - (time - dawnAt) / 60 * 0.48);
   lctx.setTransform(1, 0, 0, 1, 0, 0);
   lctx.globalCompositeOperation = 'source-over';
   lctx.clearRect(0, 0, lc.width, lc.height);
@@ -853,24 +1065,59 @@ function draw() {
   for (let i = 0; i < lights.length; i += 5) {
     const x = lights[i], y = lights[i + 1], r = lights[i + 2] * 0.7;
     if (x < vx0 - r || x > vx1 + r || y < vy0 - r || y > vy1 + r) continue;
-    ctx.save(); ctx.translate(x, y * TILT); ctx.scale(1, TILT); glow(0, 0, r, lights[i + 3], lights[i + 4] * 0.6); ctx.restore();
+    groundGlow(x, y, r, lights[i + 3], lights[i + 4] * 0.6);
+  }
+  // свечение под тлеющими, золотыми и сильными тенями
+  for (const e of enemies) {
+    const T = ENEMY[e.kind]; if (!(T.aura || e.elite) || !vis(e.x, e.y)) continue;
+    const pulse = e.fuse != null ? 0.5 + Math.sin(t * 40) * 0.3 : 0.35;
+    groundGlow(e.x, e.y, e.r * 2.4, T.aura || '255,200,80', pulse);
   }
   ctx.globalCompositeOperation = 'source-over';
+  // предупреждения боссов
+  for (const e of enemies) if (e.tele && vis(e.x, e.y)) {
+    const tl = e.tele, q = 1 - tl.t / tl.max;
+    if (tl.k === 'stomp') {
+      ctx.fillStyle = 'rgba(255,60,40,.14)'; ctx.beginPath(); ctx.ellipse(e.x, e.y * TILT, tl.R, tl.R * TILT, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,60,40,.22)'; ctx.beginPath(); ctx.ellipse(e.x, e.y * TILT, tl.R * q, tl.R * q * TILT, 0, 0, 7); ctx.fill();
+    } else {
+      ctx.strokeStyle = `rgba(255,60,40,${0.15 + q * 0.25})`; ctx.lineWidth = e.r * 1.6; ctx.lineCap = 'round';
+      const L = tl.k === 'dive' ? 260 : 270;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y * TILT); ctx.lineTo(e.x + tl.ax * L, (e.y + tl.ay * L) * TILT); ctx.stroke();
+    }
+  }
   // погасшие фонари мерцают, чтобы их было видно издалека
   for (const o of unlit) { const a = 0.35 + Math.sin(t * 3 + o.x) * 0.25; ctx.fillStyle = `rgba(255,220,160,${a})`; ctx.beginPath(); ctx.arc(o.x, o.y * TILT - up(0, 1.28) * 1.5, 3, 0, 7); ctx.fill(); }
   // глаза теней видны и в темноте
   for (const e of enemies) {
     const T = ENEMY[e.kind]; if (!T.eye || !vis(e.x, e.y)) continue;
-    const [edx, eby, ebz, er] = T.eye, kk = T.k || 1, z = T.fly ? T.fly + Math.sin(t * 3 + e.wob) * 4 : 0;
+    const [edx, eby, ebz, er] = T.eye, kk = enemyK(e, T), z = enemyZ(e, T, t);
     const ex = edx * U * kk, ey = e.y * TILT - up(eby, ebz) * kk - z, rr = Math.max(1.4, er * U * kk);
-    ctx.fillStyle = `rgba(${T.eyeC},.9)`;
+    ctx.fillStyle = `rgba(${e.elite ? '255,225,110' : T.eyeC},.9)`;
     ctx.beginPath(); ctx.arc(e.x - ex, ey, rr, 0, 7); ctx.arc(e.x + ex, ey, rr, 0, 7); ctx.fill();
   }
-  // призрак светится сам, но вдали от огонька еле заметен
+  // призраки и ведьма светятся сами, но вдали от огонька еле заметны
   const LR = lightR();
-  for (const e of enemies) if (ENEMY[e.kind].glow && vis(e.x, e.y)) { const near = 1 - Math.min(1, Math.hypot(e.x - hero.x, e.y - hero.y) / LR); ellipseShadow(e.x, e.y, e.r * 0.8, 0.2); sprite('ghost', e.x, e.y, 6 + Math.sin(t * 3 + e.wob) * 4, 1, 0.3 + near * 0.55, e.hit / 0.12); }
-  for (const g of gems) if (vis(g.x, g.y)) sprite(g.big ? 'gemb' : 'gem', g.x, g.y, 2 + Math.sin(t * 4 + g.ph) * 2);
-  for (const em of embers) if (vis(em.x, em.y)) { sprite('coal', em.x, em.y, 2 + Math.sin(t * 4 + em.ph) * 2); ctx.globalCompositeOperation = 'lighter'; glow(em.x, em.y * TILT - 6, 14, '255,120,40', 0.5); ctx.globalCompositeOperation = 'source-over'; }
+  for (const e of enemies) {
+    const T = ENEMY[e.kind]; if (!T.glow || !vis(e.x, e.y)) continue;
+    const nearA = 1 - Math.min(1, Math.hypot(e.x - hero.x, e.y - hero.y) / LR), fade = e.fade > 0 ? 1 - e.fade / 0.5 : 1;
+    ellipseShadow(e.x, e.y, e.r * 0.8, 0.2);
+    sprite(T.spr[0], e.x, e.y, enemyZ(e, T, t), enemyK(e, T), (T.boss ? 0.9 : 0.3 + nearA * 0.55) * fade, e.hit / 0.12);
+  }
+  for (const g of gems) if (vis(g.x, g.y)) sprite(g.big ? 'gemb' : 'gem', g.x, g.y, 2 + Math.sin(t * 4 + g.ph) * 2, g.big ? Math.min(1.8, 1 + g.v / 30) : 1);
+  for (const em of embers) if (vis(em.x, em.y)) { sprite('coal', em.x, em.y, 2 + Math.sin(t * 4 + em.ph) * 2, em.v >= 10 ? 1.6 : 1); ctx.globalCompositeOperation = 'lighter'; glow(em.x, em.y * TILT - 6, 14, '255,120,40', 0.5); ctx.globalCompositeOperation = 'source-over'; }
+  // события
+  if (ev && ev.type === 'fireflies') for (const f of ev.flies) if (!f.got) {
+    const fy = f.y * TILT - 20 - Math.sin(t * 3 + f.ph) * 6, fx_ = f.x + Math.cos(t * 2 + f.ph) * 6;
+    ctx.globalCompositeOperation = 'lighter'; glow(fx_, fy, 18, '210,255,120', 0.8); ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = '#f4ffd0'; ctx.beginPath(); ctx.arc(fx_, fy, 3, 0, 7); ctx.fill();
+  }
+  if (ev && ev.type === 'campfire') {
+    drawFlame(ctx, ev.x, ev.y * TILT, 0.9, ['#ff6a10', '#ffb547', '#fff1c4'], t + 2);
+    ctx.strokeStyle = '#ffd38a'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.ellipse(ev.x, ev.y * TILT, 80, 80 * TILT, 0, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, ev.have / ev.need)); ctx.stroke();
+  }
+  if (ev && ev.type === 'altar') { const a = 0.4 + Math.sin(t * 2) * 0.2; ctx.fillStyle = `rgba(200,150,255,${a})`; for (let i = 0; i < 3; i++) { const yy = ev.y * TILT - 30 - ((t * 20 + i * 15) % 45); ctx.fillRect(ev.x - 1.5 + Math.sin(t + i) * 8, yy, 3, 3); } }
   // кометы
   for (const f of fx) if (f.comet) {
     if (f.t > 0) {
@@ -886,11 +1133,11 @@ function draw() {
       ctx.fillStyle = '#fff1c4'; ctx.beginPath(); ctx.arc(mx, my, 7, 0, 7); ctx.fill();
     } else if (f.boom > 0) {
       ctx.globalCompositeOperation = 'lighter';
-      ctx.save(); ctx.translate(f.x, f.y * TILT); ctx.scale(1, TILT); glow(0, 0, f.R, '255,140,40', f.boom * 2.4); ctx.restore();
+      groundGlow(f.x, f.y, f.R, '255,140,40', f.boom * 2.4);
       ctx.globalCompositeOperation = 'source-over';
     }
   }
-  // снаряды, хоровод, сферы хозяина тьмы
+  // снаряды, хоровод, сферы боссов
   ctx.globalCompositeOperation = 'lighter';
   for (const s of shots) {
     const Y = s.y * TILT - 16;
@@ -898,25 +1145,27 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(s.x, Y); ctx.lineTo(s.x - s.vx * 0.04, Y - s.vy * 0.04 * TILT); ctx.stroke();
     glow(s.x, Y, 14, hero.glow, 0.8);
   }
-  for (const o of orbitPositions()) glow(o.x, o.y * TILT - o.z, 20, hero.glow, 0.85);
+  const orbs = orbitPositions();
+  for (const o of orbs) glow(o.x, o.y * TILT - o.z, 20, hero.glow, 0.85);
   ctx.globalCompositeOperation = 'source-over';
   for (const s of shots) { ctx.fillStyle = hero.pal[2]; ctx.beginPath(); ctx.arc(s.x, s.y * TILT - 16, 4, 0, 7); ctx.fill(); }
-  for (const o of orbitPositions()) { ctx.fillStyle = hero.pal[0]; ctx.beginPath(); ctx.arc(o.x, o.y * TILT - o.z, 8, 0, 7); ctx.fill(); ctx.fillStyle = hero.pal[2]; ctx.beginPath(); ctx.arc(o.x - 1.5, o.y * TILT - o.z - 1.5, 3.5, 0, 7); ctx.fill(); }
+  for (const o of orbs) { ctx.fillStyle = hero.pal[0]; ctx.beginPath(); ctx.arc(o.x, o.y * TILT - o.z, 8, 0, 7); ctx.fill(); ctx.fillStyle = hero.pal[2]; ctx.beginPath(); ctx.arc(o.x - 1.5, o.y * TILT - o.z - 1.5, 3.5, 0, 7); ctx.fill(); }
   for (const o of eshots) if (vis(o.x, o.y)) {
     ellipseShadow(o.x, o.y, 6, 0.3);
-    ctx.fillStyle = 'rgba(150,60,220,.35)'; ctx.beginPath(); ctx.arc(o.x, o.y * TILT - 14, 12, 0, 7); ctx.fill();
-    ctx.fillStyle = '#1a0d2a'; ctx.beginPath(); ctx.arc(o.x, o.y * TILT - 14, 7, 0, 7); ctx.fill();
-    ctx.strokeStyle = '#c070ff'; ctx.lineWidth = 1.5; ctx.stroke();
+    const Y = o.y * TILT - 14;
+    ctx.fillStyle = o.home ? 'rgba(160,190,255,.35)' : 'rgba(150,60,220,.35)'; ctx.beginPath(); ctx.arc(o.x, Y, 12, 0, 7); ctx.fill();
+    ctx.fillStyle = o.home ? '#dfe8ff' : '#1a0d2a'; ctx.beginPath(); ctx.arc(o.x, Y, 6, 0, 7); ctx.fill();
+    if (!o.home) { ctx.strokeStyle = '#c070ff'; ctx.lineWidth = 1.5; ctx.stroke(); }
   }
   // огонёк
   ctx.globalCompositeOperation = 'lighter';
-  ctx.save(); ctx.translate(hero.x, hero.y * TILT); ctx.scale(1, TILT); glow(0, 0, 38, hero.glow, 0.45); ctx.restore();
+  groundGlow(hero.x, hero.y, 38, hero.glow, 0.45);
   ctx.globalCompositeOperation = 'source-over';
-  if (!(hero.inv > 0 && state === 'play' && Math.floor(t * 20) % 2)) drawFlame(ctx, hero.x, hero.y * TILT - 3 - Math.sin(t * 4) * 2, 1.35, hero.pal, t, hero.dir);
+  if (!(hero.inv > 0 && dashT <= 0 && state === 'play' && Math.floor(t * 20) % 2)) drawFlame(ctx, hero.x, hero.y * TILT - 3 - Math.sin(t * 4) * 2, 1.35, hero.pal, t, hero.dir);
   // молнии, волны, частицы
   for (const f of fx) {
     if (f.ring) {
-      ctx.strokeStyle = `rgba(${hero.glow},${f.life * 2})`; ctx.lineWidth = 6;
+      ctx.strokeStyle = `rgba(${f.c || hero.glow},${f.life * 2})`; ctx.lineWidth = 6;
       ctx.beginPath(); ctx.ellipse(f.x, f.y * TILT, f.r, f.r * TILT, 0, 0, 7); ctx.stroke();
     } else if (f.bolt) {
       const x1 = f.x1, y1 = f.y1 * TILT - f.z1, x2 = f.x2, y2 = f.y2 * TILT - 14;
@@ -935,7 +1184,7 @@ function draw() {
   for (const tx of texts) { ctx.globalAlpha = Math.min(1, tx.life * 3); ctx.fillStyle = tx.c || '#fff1c4'; ctx.fillText(tx.s, tx.x, tx.y * TILT - tx.z); }
   ctx.globalAlpha = 1;
 
-  // стрелки к сундукам и хозяину тьмы за краем экрана
+  // стрелки к сундукам, событиям и боссу за краем экрана
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const arrow = (x, y, color) => {
     const px = ox + x * zoom, py = oy + y * TILT * zoom, m = 28;
@@ -945,7 +1194,11 @@ function draw() {
     ctx.save(); ctx.translate(cx + Math.cos(a) * s, cy + Math.sin(a) * s); ctx.rotate(a);
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -9); ctx.lineTo(-4, 0); ctx.lineTo(-8, 9); ctx.fill(); ctx.restore();
   };
-  if (state !== 'menu') { for (const c of chests) arrow(c.x, c.y, '#ffcf4a'); if (boss) arrow(boss.x, boss.y, '#ff5d5d'); }
+  if (state !== 'menu') {
+    for (const c of chests) arrow(c.x, c.y, '#ffcf4a');
+    if (boss) arrow(boss.x, boss.y, '#ff5d5d');
+    const et = eventTarget(); if (et) arrow(et.x, et.y, ev.type === 'altar' ? '#c896ff' : '#d8ff8a');
+  }
   if (stick) { ctx.strokeStyle = 'rgba(255,181,71,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(stick.x0, stick.y0, 40, 0, 7); ctx.stroke(); ctx.fillStyle = 'rgba(255,181,71,.4)'; const dx = stick.x - stick.x0, dy = stick.y - stick.y0, d = Math.min(40, Math.hypot(dx, dy)), a = Math.atan2(dy, dx); ctx.beginPath(); ctx.arc(stick.x0 + Math.cos(a) * d, stick.y0 + Math.sin(a) * d, 16, 0, 7); ctx.fill(); }
 }
 // Значки улучшений рисуются тем же языком, что и сама игра.
@@ -978,6 +1231,7 @@ function kitHTML() {
   const rows = [];
   for (const [k, l] of Object.entries(weapons)) rows.push(`<div><canvas width="60" height="60" data-icon="${k}" ${evolved[k] ? 'data-evo="1"' : ''}></canvas><span><b>${evolved[k] ? EVO[k].name : `${WEAPONS[k].name}, ${l} из 6`}</b><small>${evolved[k] ? EVO[k].text : `Превращение: 6 уровень и «${PASSIVES[EVO[k].need].name}», затем сундук`}</small></span></div>`);
   for (const [k, l] of Object.entries(passives)) rows.push(`<div><canvas width="60" height="60" data-icon="${k}"></canvas><span><b>${PASSIVES[k].name}, ${l} из 5</b><small>${PASSIVES[k].text}</small></span></div>`);
+  if (fury) rows.push(`<div><canvas width="60" height="60" data-icon="power"></canvas><span><b>Ярость</b><small>Урон +25%, тени быстрее на 15%</small></span></div>`);
   return rows.join('');
 }
 
@@ -986,8 +1240,14 @@ function hud() {
   $('xpBar').style.width = `${xp / xpNeed * 100}%`;
   $('hTime').textContent = mmss(time);
   $('hLvl').textContent = `Ур. ${lvl}`;
-  $('hKills').textContent = `Тени ${kills}`;
+  $('hWave').textContent = phase === 'break' ? 'Передышка' : `Волна ${wave}`;
   if (boss) $('bossBar').style.width = `${Math.max(0, boss.hp / boss.max * 100)}%`;
+  const s = Math.max(0, Math.ceil(ev ? ev.t : 0));
+  const txt = !ev ? '' : ev.type === 'fireflies' ? `Светлячки: ${ev.got} из ${ev.need}, осталось ${s} с` : ev.type === 'campfire' ? `Костёр: ${Math.floor(ev.have)} из ${ev.need} с, осталось ${s} с` : ev.type === 'hunt' ? `Золотая тень уйдёт через ${s} с` : `Алтарь ждёт ещё ${s} с`;
+  $('evt').classList.toggle('hidden', !ev || !!boss);
+  if ($('evt').textContent !== txt) $('evt').textContent = txt;
+  $('dashFill').style.height = `${dashCd / (3.5 * cdMul() * (H_().dash || 1)) * 100}%`;
+  $('dashBtn').classList.toggle('cool', dashCd > 0);
 }
 let bannerTimer = 0;
 function banner(title, sub) {
@@ -1008,14 +1268,16 @@ function frame(now) {
 }
 
 // ---------- экраны ----------
-function show(id) { for (const s of ['menu', 'shop', 'level', 'chest', 'pause', 'over']) $(s).classList.toggle('hidden', s !== id); }
+function show(id) { for (const s of ['menu', 'shop', 'level', 'chest', 'altar', 'pause', 'over']) $(s).classList.toggle('hidden', s !== id); }
 function openMenu() {
   state = 'menu'; sdk?.game.stop();
-  $('hud').classList.add('hidden'); $('inv').classList.add('hidden'); $('boss').classList.add('hidden'); $('banner').classList.remove('on');
+  for (const id of ['hud', 'inv', 'boss', 'dashBtn', 'evt']) $(id).classList.add('hidden');
+  $('banner').classList.remove('on');
   // в меню — тихий лес вокруг огонька выбранного цвета
-  worldSeed = 7; chunks.clear(); hero = makeHero(); camX = 0; camY = 0; enemies = []; shots = []; eshots = []; gems = []; embers = []; chests = []; fx = []; decals = []; lit = new Set(); litList = []; weapons = {}; passives = {}; evolved = {}; time = 0; darkUntil = 0; boss = null;
+  worldSeed = 7; chunks.clear(); hero = makeHero(); camX = 0; camY = 0; enemies = []; shots = []; eshots = []; gems = []; embers = []; chests = []; fx = []; decals = []; lit = new Set(); litList = [];
+  weapons = {}; passives = {}; evolved = {}; time = 0; darkWave = false; dawned = false; boss = null; ev = null; wave = 0; fury = false;
   $('muteBtn').textContent = save.mute ? 'Включить звук' : 'Выключить звук';
-  $('mBest').textContent = (save.best ? `Лучшая ночь: ${mmss(save.best)}. ` : '') + `Угольков в запасе: ${save.embers}` + (save.dawns ? `. Рассветов встречено: ${save.dawns}` : '');
+  $('mBest').textContent = (save.bestWave ? `Лучшая ночь: волна ${save.bestWave}, ${mmss(save.best)}. ` : '') + `Угольков в запасе: ${save.embers}` + (save.dawns ? `. Рассветов встречено: ${save.dawns}` : '');
   renderHeroes();
   show('menu');
 }
@@ -1067,11 +1329,14 @@ $('againBtn').onclick = async () => { if (sdk && runs % 2 === 0) await sdk.ads.f
 $('menuBtn').onclick = openMenu;
 $('coinRevive').onclick = async () => { $('coinRevive').disabled = true; try { const r = await sdk.coins.spend(10, 'Разгореться снова в «Огоньке»'); if (r.ok) revive(); } finally { $('coinRevive').disabled = false; } };
 $('adRevive').onclick = async () => { $('adRevive').disabled = true; try { const r = await sdk.ads.rewarded(); if (r.rewarded) revive(); } finally { $('adRevive').disabled = false; } };
+$('dashBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); audio(); dash(); });
 
 addEventListener('keydown', (e) => {
   keys[e.code] = true;
   if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
+  if (state === 'play' && (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight')) { e.preventDefault(); dash(); }
   if (state === 'level' && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) document.querySelector(`#choices [data-i="${e.code.slice(-1) - 1}"]`)?.click();
+  if (state === 'altar' && ['Digit1', 'Digit2'].includes(e.code)) document.querySelector(`#aList [data-i="${e.code.slice(-1) - 1}"]`)?.click();
   if (state === 'chest' && (e.code === 'Enter' || e.code === 'Space')) $('cTake').click();
 });
 addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -1080,7 +1345,7 @@ addEventListener('pointermove', (e) => { if (stick && e.pointerId === stick.id) 
 addEventListener('pointerup', (e) => { if (stick && e.pointerId === stick.id) stick = null; });
 addEventListener('pointercancel', () => { stick = null; });
 document.addEventListener('visibilitychange', () => { if (document.hidden) togglePause(true); });
-$('ctrlNote').textContent = matchMedia('(pointer:coarse)').matches ? 'Ведите пальцем в любом месте экрана — огонёк побежит туда.' : 'Стрелки или WASD. Esc — пауза. Улучшения можно выбирать цифрами 1–3.';
+$('ctrlNote').textContent = coarse ? 'Ведите пальцем в любом месте экрана — огонёк побежит туда. Кнопка справа внизу — рывок сквозь тени.' : 'Стрелки или WASD, пробел — рывок сквозь тени. Esc — пауза. Улучшения можно выбирать цифрами 1–3.';
 
 resize(); openMenu(); requestAnimationFrame(frame);
 $('playBtn').disabled = true; $('playBtn').textContent = 'Лес загружается';
@@ -1093,10 +1358,14 @@ if (window.Gamely) Gamely.init().then(async (s) => {
   if (state === 'menu') openMenu();
 }).catch(() => {});
 window.__game = {
-  get state() { return state; }, get time() { return time; }, get kills() { return kills; }, get lvl() { return lvl; }, get enemies() { return enemies.length; }, get hero() { return hero; }, get weapons() { return weapons; }, get evolved() { return evolved; },
-  get ready() { return assetsReady; }, newRun, give(k) { if (WEAPONS[k]) weapons[k] = (weapons[k] || 0) + 1; else passives[k] = (passives[k] || 0) + 1; renderInv(); }, setTime(t) { time = t; }, xp(n) { gainXp(n); },
-  chest() { pendingChest = true; }, setZoom(z) { zoom = z; }, get lit() { return lit.size; },
-  lanterns() { const out = []; forChunks(hero.x - 2000, hero.y - 2000, hero.x + 2000, hero.y + 2000, (o) => { if (o.t === 'lantern') out.push([o.x, o.y]); }); return out; }, dropChest() { dropChest(true); }, spawn(k, n = 1) { for (let i = 0; i < n; i++) spawn(k); },
+  get state() { return state; }, get time() { return time; }, get kills() { return kills; }, get lvl() { return lvl; }, get enemies() { return enemies.length; }, get gems() { return gems.length; }, get hero() { return hero; }, get weapons() { return weapons; }, get evolved() { return evolved; },
+  get ready() { return assetsReady; }, get wave() { return wave; }, get phase() { return phase; }, get evType() { return ev && ev.type; }, get ev() { return ev; }, skipWave() { waveT = WAVE_LEN; }, get boss() { return boss && boss.kind; }, get lit() { return lit.size; },
+  newRun, give(k) { if (WEAPONS[k]) weapons[k] = (weapons[k] || 0) + 1; else passives[k] = (passives[k] || 0) + 1; renderInv(); }, setTime(t) { time = t; }, xp(n) { gainXp(n); },
+  chest() { pendingChest = true; }, setZoom(z) { zoom = z; }, dash, gem(n) { for (let i = 0; i < n; i++) addGem(hero.x + (Math.random() - 0.5) * 900, hero.y + (Math.random() - 0.5) * 900, 1); },
+  setWave(n) { for (const e of enemies) e.dead = true; enemies = []; boss = null; $('boss').classList.add('hidden'); wave = n - 1; startWave(); },
+  event(type) { const keep = EVENTS.splice(0, EVENTS.length, type); lastEv = ''; ev = null; startEvent(); EVENTS.splice(0, EVENTS.length, ...keep); },
+  spawn(k, n = 1) { for (let i = 0; i < n; i++) spawn(k); },
+  lanterns() { const out = []; forChunks(hero.x - 2000, hero.y - 2000, hero.x + 2000, hero.y + 2000, (o) => { if (o.t === 'lantern') out.push([o.x, o.y]); }); return out; },
 };
 })();
 </script>
