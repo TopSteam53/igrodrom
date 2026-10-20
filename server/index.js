@@ -38,6 +38,7 @@ const server = createApp({
   mailer: mailerFromEnv(process.env),
   // Адрес сайта для ссылок в письмах. Берём из настроек, а не из запроса: заголовок Host можно подделать.
   siteUrl: process.env.SITE_URL || (process.env.DOMAIN ? `https://${process.env.DOMAIN}` : `http://localhost:${port}`),
+  registerGuard: true,
 });
 
 server.listen(port, () => console.log(`Игродром: http://localhost:${port}`));

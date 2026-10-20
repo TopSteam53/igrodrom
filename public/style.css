@@ -320,3 +320,13 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .notice{background:var(--panel);border:2px solid var(--key-line);border-radius:16px;padding:12px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:20px 0 0;max-width:760px}
 .notice p{margin:0;flex:1;min-width:220px}
 .prose a:not(.btn){color:var(--link)}
+
+/* 404 */
+.lost{display:flex;align-items:center;gap:36px;flex-wrap:wrap;padding:56px 0 24px}
+.lost-code{font:800 clamp(96px,22vw,180px)/.9 var(--display);color:var(--ink);letter-spacing:-.04em}
+.lost-code span{display:inline-block;width:.78em;height:.78em;border-radius:50%;background:var(--start);color:transparent;vertical-align:-.04em;margin:0 .04em;box-shadow:0 .06em 0 var(--navy);position:relative}
+.lost-code span::after{content:"";position:absolute;left:40%;top:50%;transform:translateY(-50%);border-left:.24em solid var(--navy);border-block:.15em solid transparent}
+.lost h1{margin:0 0 10px;font-size:clamp(26px,4vw,36px)}
+.lost p{margin:0 0 20px;max-width:46ch;font-size:17px}
+/* Поле-ловушка для ботов в форме регистрации: вне экрана, а не display:none — так его заполняют боты. */
+.trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}

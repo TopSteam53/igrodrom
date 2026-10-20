@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Страница не найдена — Игродром</title>
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html" aria-label="Игродром, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1C2140"/><circle cx="16" cy="16" r="10.5" fill="#FFC531"/><path d="M13.2 10.9 21.6 16l-8.4 5.1z" fill="#1C2140"/></svg><span>Игродром</span></a>
+  <form class="search" id="searchForm" action="index.html" role="search">
+    <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
+  </form>
+  <a class="btn" id="login" href="login.html">Войти</a>
+</div></header>
+
+<main class="w">
+  <section class="lost">
+    <div class="lost-code" aria-hidden="true">4<span>0</span>4</div>
+    <div>
+      <h1>Такой страницы нет</h1>
+      <p class="mut">Ссылка устарела или в адресе опечатка. Игры никуда не делись — они в каталоге.</p>
+      <a class="btn primary" href="index.html">В каталог</a>
+    </div>
+  </section>
+  <section class="sec hidden" id="trySec"><div class="sec-head"><h2>Можно сыграть, пока вы здесь</h2></div><div class="row-scroll" id="try"></div></section>
+</main>
+
+<footer><div class="w">
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a><a href="terms.html">Правила</a><a href="privacy.html">Конфиденциальность</a><a href="contacts.html">Контакты</a></nav>
+  <div>© Игродром</div>
+</div></footer>
+
+<script src="app.js"></script>
+<script>
+const { $, loadCatalog, cardHTML, initHeader } = Igr;
+initHeader();
+loadCatalog().then(({ games }) => {
+  const pick = [...games].sort(() => Math.random() - 0.5).slice(0, 5);
+  if (!pick.length) return;
+  $('try').innerHTML = pick.map(cardHTML).join('');
+  $('trySec').classList.remove('hidden');
+}).catch(() => {});
+</script>
+</body>
+</html>

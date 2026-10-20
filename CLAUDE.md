@@ -18,7 +18,7 @@
 - Бэкапы: `scripts/backup.sh` по cron в 04:30 → `/var/backups/igrodrom` (14 дней). Копии вне сервера пока не настроены.
 
 ## Стек и запуск
-Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm start` → localhost:3000, `npm test` (73 теста),
+Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm start` → localhost:3000, `npm test` (79 тестов),
 `npm run build:sdk` и `npm run build:catalog` после правок SDK/каталога (тесты ругаются, если устарело).
 Подробности: README.md, дизайн: DESIGN.md, настройки: `.env.example`.
 
@@ -35,6 +35,9 @@ Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm
 - Реклама через `.env` (`ADS_PROVIDER`: none/test/yandex/vk/google), ads.txt, счётчик показов, страницы
   contacts/terms/privacy (шаблоны, юридически не проверены).
 - Тёмная тема, шрифты Unbounded + Onest.
+- SEO и превью ссылок: robots.txt, sitemap.xml, og-теги вставляет сервер. Картинки превью `og.jpg` (у игр и общая)
+  рендерит `scripts/og-images.ps1`: для новой демо-игры его нужно запустить. Своя страница 404.
+- Защита регистрации без сторонней капчи: билет формы (≥3 с), поле-ловушка, лимит по IP, без ссылок в имени.
 
 ## Скиллы
 - `.claude/skills/frontend-design` — план дизайна без шаблонности (Anthropic).

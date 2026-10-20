@@ -23,6 +23,8 @@
   <div class="tabs" role="tablist"><span class="tab on" data-mode="login">Вход</span><span class="tab" data-mode="register">Регистрация</span></div>
   <form id="form">
     <div id="nameField" class="hidden"><label for="name">Имя</label><input id="name" maxlength="40" autocomplete="nickname"></div>
+    <!-- Ловушка для ботов: человек это поле не видит и не заполняет. -->
+    <div class="trap" aria-hidden="true"><label for="website">Сайт</label><input id="website" tabindex="-1" autocomplete="off"></div>
     <label for="email">Email</label><input id="email" type="email" required autocomplete="email">
     <label for="password">Пароль</label><input id="password" type="password" required minlength="8" autocomplete="current-password">
     <p class="mut hidden" id="passHint">Не короче 8 символов.</p>
@@ -56,7 +58,18 @@ function setMode(m) {
   $('submit').textContent = reg ? 'Создать аккаунт' : 'Войти';
   $('password').autocomplete = reg ? 'new-password' : 'current-password';
   $('err').textContent = '';
+  if (reg && !ticket) getTicket();
 }
+
+// Билет формы регистрации: сервер принимает его не раньше чем через пару секунд после выдачи.
+let ticket = '';
+let ticketAt = 0;
+function getTicket() {
+  return fetch('/api/register/ticket').then((r) => r.json())
+    .then((d) => { ticket = d.ticket || ''; ticketAt = Date.now(); }).catch(() => {});
+}
+// Если форму заполнил менеджер паролей за секунду — просто чуть подождём, а не покажем ошибку.
+const ticketReady = () => new Promise((ok) => setTimeout(ok, Math.max(0, 3200 - (Date.now() - ticketAt))));
 document.querySelector('.tabs').onclick = (e) => { if (e.target.dataset.mode) setMode(e.target.dataset.mode); };
 if (new URLSearchParams(location.search).get('mode') === 'register') setMode('register');
 
@@ -64,10 +77,16 @@ $('form').onsubmit = async (e) => {
   e.preventDefault();
   $('err').textContent = ''; $('submit').disabled = true;
   const body = { email: $('email').value, password: $('password').value };
-  if (mode === 'register') body.name = $('name').value;
   try {
+    if (mode === 'register') {
+      if (!ticket) await getTicket();
+      await ticketReady();
+      Object.assign(body, { name: $('name').value, ticket, website: $('website').value });
+    }
     const r = await fetch(`/api/${mode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
+    // Билет устарел или подпись не сошлась — берём новый, чтобы следующая попытка прошла.
+    if (!r.ok && mode === 'register' && r.status === 400 && /страниц/i.test(data.error || '')) { ticket = ''; getTicket(); }
     if (!r.ok) throw new Error(data.error || 'Сервер недоступен. Вход работает только в полной версии сайта.');
     location.replace(next);
   } catch (err) { $('err').textContent = err.message; $('submit').disabled = false; }

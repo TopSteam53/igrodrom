@@ -43,6 +43,17 @@ export const COIN_DAILY_CAP = 60;
 const MAX_SPEND = 1000;
 const BOARD_RE = /^[\w.-]{1,40}$/;
 const MAX_SCORE = 1e15;
+// Защита регистрации от ботов: форма выдаёт подписанный билет, а отправить её можно не раньше чем
+// через FORM_MIN_MS и не позже FORM_MAX_MS. Скрипт, который сразу шлёт POST, получает отказ.
+const FORM_MIN_MS = 3000;
+const FORM_MAX_MS = 6 * 3600 * 1000;
+// Ссылки и адреса в имени: имя видно в рекордах и отзывах, спамеры пишут туда свои сайты.
+const NAME_SPAM_RE = /https?:|www\.|t\.me\/|@\w|\.(ru|com|net|org|su|xyz|top|io|me|рф|cc|biz|info|pro|online|site|shop)(\/|\s|$)/i;
+// Картинка для превью ссылок (Telegram, ВК, поисковики): своя у игры, иначе растровая обложка, иначе общая.
+const OG_FILES = ['og.jpg', 'og.png'];
+const RASTER_RE = /\.(png|jpe?g|webp)$/i;
+// Страницы, которые поисковикам не нужны.
+const NOINDEX = ['/api/', '/preview/', '/cabinet', '/account.html', '/login.html', '/reset.html', '/verify.html'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
@@ -67,6 +78,8 @@ const ENCODINGS = { '.br': 'br', '.gz': 'gzip' };
 // Uploaded games run with an opaque origin: no access to our cookies, storage or API.
 const GAME_CSP = 'sandbox allow-scripts allow-pointer-lock';
 
+const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -76,6 +89,9 @@ export function createApp({
   seedDemoGames = false, ads = adsFromEnv(), site = siteFromEnv(),
   now = Date.now, statsTz = 'Europe/Moscow',
   mailer = logMailer(() => {}), siteUrl = 'http://localhost:3000',
+  // Защита регистрации (билет формы и лимит с одного адреса). На сайте её включает index.js,
+  // в тестах она выключена, чтобы заводить много аккаунтов подряд.
+  registerGuard = false, registerPerHour = 10, registerPerDay = 30,
 }) {
   siteUrl = siteUrl.replace(/\/+$/, '');
   const gamesDir = path.join(dataDir, 'games');
@@ -89,6 +105,8 @@ export function createApp({
   const scoreLimiter = createLimiter({ max: 30, windowMs: 60 * 1000 });
   const spendLimiter = createLimiter({ max: 20, windowMs: 60 * 1000 });
   const reviewLimiter = createLimiter({ max: 10, windowMs: 3600 * 1000 });
+  const registerHourLimiter = createLimiter({ max: registerPerHour, windowMs: 3600 * 1000 });
+  const registerDayLimiter = createLimiter({ max: registerPerDay, windowMs: 24 * 3600 * 1000 });
   const stats = createStats({ db, now, tz: statsTz });
 
   const q = {
@@ -278,6 +296,21 @@ export function createApp({
   }
   const withPreview = (games) => games.map((g) => ({ ...g, preview_url: previewUrl(g.id) }));
 
+  // Билет формы регистрации: время выдачи + подпись, привязанная к адресу клиента.
+  const ticketSig = (ts, ip) => createHmac('sha256', previewSecret).update(`register.${ts}.${ip}`).digest('hex').slice(0, 32);
+  const formTicket = (req) => { const ts = now(); return `${ts}.${ticketSig(ts, clientIp(req))}`; };
+  function checkTicket(req, ticket) {
+    const [ts, sig = ''] = String(ticket || '').split('.');
+    const expected = Buffer.from(ticketSig(ts, clientIp(req)));
+    const given = Buffer.from(sig);
+    if (!/^\d{13}$/.test(ts) || given.length !== expected.length || !timingSafeEqual(given, expected)) {
+      throw new HttpError(400, 'Обновите страницу и попробуйте ещё раз');
+    }
+    const age = now() - Number(ts);
+    if (age < FORM_MIN_MS) throw new HttpError(429, 'Слишком быстро. Подождите пару секунд и нажмите ещё раз');
+    if (age > FORM_MAX_MS) throw new HttpError(400, 'Страница устарела: обновите её и попробуйте ещё раз');
+  }
+
   // ---------- helpers ----------
 
   function send(res, status, body, headers = {}) {
@@ -437,15 +470,26 @@ export function createApp({
   // ---------- API ----------
 
   async function register(req, res) {
-    const { email: rawEmail, password, name: rawName } = await readJson(req);
+    const { email: rawEmail, password, name: rawName, ticket, website } = await readJson(req);
     const email = String(rawEmail || '').trim().toLowerCase();
     const name = String(rawName || '').trim();
+    // website — поле-ловушка: человек его не видит, а боты заполняют все поля подряд.
+    if (website) throw new HttpError(400, 'Не получилось создать аккаунт');
+    const ip = clientIp(req);
+    if (registerGuard) {
+      checkTicket(req, ticket);
+      if (registerHourLimiter.blocked(ip) || registerDayLimiter.blocked(ip)) {
+        throw new HttpError(429, 'С этого адреса уже создано много аккаунтов. Попробуйте позже');
+      }
+    }
     if (!EMAIL_RE.test(email) || email.length > 254) throw new HttpError(400, 'Некорректный email');
     if (typeof password !== 'string' || password.length < 8 || password.length > 200) {
       throw new HttpError(400, 'Пароль: от 8 до 200 символов');
     }
     if (name.length < 2 || name.length > 40) throw new HttpError(400, 'Имя: от 2 до 40 символов');
+    if (NAME_SPAM_RE.test(name)) throw new HttpError(400, 'В имени не должно быть ссылок и адресов');
     if (q.userByEmail.get(email)) throw new HttpError(409, 'Этот email уже зарегистрирован');
+    if (registerGuard) { registerHourLimiter.fail(ip); registerDayLimiter.fail(ip); }
 
     const { lastInsertRowid } = q.insertUser.run(email, name, await hashPassword(password), Date.now());
     const user = { id: Number(lastInsertRowid), email, name, coins: 0 };
@@ -995,6 +1039,72 @@ export function createApp({
     res.end(body.endsWith('\n') ? body : `${body}\n`);
   }
 
+  // ---------- поисковики и превью ссылок ----------
+
+  function robotsTxt(req, res) {
+    const body = ['User-agent: *', ...NOINDEX.map((p) => `Disallow: ${p}`), '', `Sitemap: ${siteUrl}/sitemap.xml`, ''].join('\n');
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    res.end(body);
+  }
+
+  function sitemapXml(req, res) {
+    const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+    const games = q.publicGames.all();
+    const newest = Math.max(0, ...games.map((g) => g.created_at));
+    const urls = [
+      { loc: `${siteUrl}/`, lastmod: newest ? day(newest) : null },
+      ...games.map((g) => ({ loc: `${siteUrl}/game.html?id=${g.id}`, lastmod: day(g.created_at) })),
+      ...['developers.html', 'terms.html', 'privacy.html', 'contacts.html'].map((f) => ({ loc: `${siteUrl}/${f}` })),
+    ];
+    const body = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+      urls.map((u) => `  <url><loc>${escHtml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`).join('\n') +
+      '\n</urlset>\n';
+    res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
+    res.end(body);
+  }
+
+  function ogImageOf(game) {
+    const own = OG_FILES.find((f) => fs.existsSync(path.join(gameDir(game.id), f)));
+    const file = own || (game.cover && RASTER_RE.test(game.cover) ? game.cover : null);
+    return file ? `${siteUrl}/play/${game.id}/${encodeURIComponent(file)}` : `${siteUrl}/og.jpg`;
+  }
+
+  // Заголовок, описание и картинка для превью — в HTML до запуска скриптов: Telegram, ВК и поисковики
+  // скрипты не выполняют. У страницы игры они свои, у остальных — из <title> и description самой страницы.
+  function withMeta(html, rel, url) {
+    const title = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+    const description = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || '';
+    let meta = { title, description, image: `${siteUrl}/og.jpg`, url: `${siteUrl}${rel === '/index.html' ? '/' : rel}`, type: 'website' };
+    if (rel === '/game.html') {
+      const id = url.searchParams.get('id');
+      const game = id && /^[0-9a-f]{16}$/.test(id) ? q.publicGame.get(id) : null;
+      if (game) {
+        const text = String(game.description || '').replace(/\s+/g, ' ').trim();
+        meta = {
+          title: `${game.title} — играть онлайн бесплатно`,
+          description: text.length > 200 ? `${text.slice(0, 197).replace(/\s+\S*$/, '')}…` : text || `${game.genre}: играйте в браузере без скачивания.`,
+          image: ogImageOf(game), url: `${siteUrl}/game.html?id=${game.id}`, type: 'website',
+        };
+      }
+    }
+    const e = escHtml;
+    const tags = [
+      `<meta property="og:type" content="${meta.type}">`,
+      `<meta property="og:title" content="${e(meta.title)}">`,
+      meta.description && `<meta property="og:description" content="${e(meta.description)}">`,
+      `<meta property="og:url" content="${e(meta.url)}">`,
+      `<meta property="og:image" content="${e(meta.image)}">`,
+      '<meta name="twitter:card" content="summary_large_image">',
+      `<link rel="canonical" href="${e(meta.url)}">`,
+    ].filter(Boolean).join('\n');
+    let out = html.replace(/<title>[^<]*<\/title>/, `<title>${e(meta.title)}</title>`);
+    if (meta.description) {
+      out = description ? out.replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${e(meta.description)}">`)
+        : out.replace('</title>', `</title>\n<meta name="description" content="${e(meta.description)}">`);
+    }
+    return out.replace('</head>', `${tags}\n</head>`);
+  }
+
   async function playEnd(req, res, id) {
     const { seconds } = await readJson(req);
     const token = cookies(req).vid;
@@ -1050,22 +1160,43 @@ export function createApp({
     });
   }
 
-  function serveStatic(req, res, pathname) {
+  const pageHeaders = (type) => ({
+    'Content-Type': type,
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'Referrer-Policy': 'same-origin',
+  });
+
+  // Нет такой страницы: человеку — страница 404 сайта, а не голый текст.
+  function pageNotFound(req, res) {
+    fs.readFile(path.join(publicDir, '404.html'), 'utf8', (err, html) => {
+      if (err) return send(res, 404, { error: 'Not found' });
+      res.writeHead(404, { ...pageHeaders(MIME['.html']), 'Cache-Control': 'no-store' });
+      // base: ссылки в странице относительные, а 404 может открыться на любом вложенном адресе.
+      res.end(req.method === 'HEAD' ? undefined
+        : html.replace('<head>', '<head>\n<base href="/">').replace('</head>', '<meta name="robots" content="noindex">\n</head>'));
+    });
+  }
+
+  function serveStatic(req, res, url) {
     let rel;
-    try { rel = decodeURIComponent(pathname); } catch { return send(res, 400, { error: 'Bad path' }); }
+    try { rel = decodeURIComponent(url.pathname); } catch { return send(res, 400, { error: 'Bad path' }); }
     if (rel === '/') rel = '/index.html';
     if (rel === '/cabinet') rel = '/cabinet.html';
     const file = path.resolve(publicDir, `.${rel}`);
-    if (!file.startsWith(publicDir + path.sep)) return send(res, 404, { error: 'Not found' });
+    if (!file.startsWith(publicDir + path.sep)) return pageNotFound(req, res);
 
     fs.stat(file, (err, st) => {
-      if (err || !st.isFile()) return send(res, 404, { error: 'Not found' });
-      res.writeHead(200, {
-        'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'SAMEORIGIN',
-        'Referrer-Policy': 'same-origin',
-      });
+      if (err || !st.isFile() || rel === '/404.html') return pageNotFound(req, res);
+      const ext = path.extname(file);
+      if (ext === '.html') {
+        return fs.readFile(file, 'utf8', (readErr, html) => {
+          if (readErr) return pageNotFound(req, res);
+          res.writeHead(200, pageHeaders(MIME[ext]));
+          res.end(req.method === 'HEAD' ? undefined : withMeta(html, rel, url));
+        });
+      }
+      res.writeHead(200, pageHeaders(MIME[ext] || 'application/octet-stream'));
       if (req.method === 'HEAD') return res.end();
       fs.createReadStream(file).pipe(res);
     });
@@ -1085,6 +1216,9 @@ export function createApp({
     }
     if (p === '/api/config' && m === 'GET') return send(res, 200, { ...publicConfig(ads, site), mail: mailer.enabled });
     if (p === '/ads.txt' && (m === 'GET' || m === 'HEAD')) return adsTxt(req, res);
+    if (p === '/robots.txt' && (m === 'GET' || m === 'HEAD')) return robotsTxt(req, res);
+    if (p === '/sitemap.xml' && (m === 'GET' || m === 'HEAD')) return sitemapXml(req, res);
+    if (p === '/api/register/ticket' && m === 'GET') return send(res, 200, { ticket: formTicket(req) });
     if (p === '/api/register' && m === 'POST') return register(req, res);
     if (p === '/api/login' && m === 'POST') return login(req, res);
     if (p === '/api/logout' && m === 'POST') return logout(req, res);
@@ -1187,7 +1321,7 @@ export function createApp({
       return previewGame(req, res, mm[1], mm[2], mm[3], mm[4]);
     }
     if (p.startsWith('/api/')) throw new HttpError(404, 'Нет такого метода');
-    if (isRead) return serveStatic(req, res, p);
+    if (isRead) return serveStatic(req, res, url);
     throw new HttpError(405, 'Метод не поддерживается');
   }
 
