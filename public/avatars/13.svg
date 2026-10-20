@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Поросёнок</title><rect width="256" height="256" fill="#0E9F9A"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M58 104 L60 52 L104 82Z" fill="#F9A8C0"/><path d="M198 104 L196 52 L152 82Z" fill="#F9A8C0"/>
+    <circle cx="128" cy="144" r="84" fill="#FBB6CE"/>
+    <circle cx="94" cy="122" r="11" fill="#1C2140"/><circle cx="162" cy="122" r="11" fill="#1C2140"/><circle cx="97.85" cy="118.15" r="3.8499999999999996" fill="#fff"/><circle cx="165.85" cy="118.15" r="3.8499999999999996" fill="#fff"/><ellipse cx="128" cy="164" rx="32" ry="24" fill="#F472B6"/>
+    <ellipse cx="118" cy="164" rx="6" ry="9" fill="#9D174D"/><ellipse cx="138" cy="164" rx="6" ry="9" fill="#9D174D"/><path d="M116 196 Q128 208 140 196" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>

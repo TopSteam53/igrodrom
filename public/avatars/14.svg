@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Обезьянка</title><rect width="256" height="256" fill="#2E6BFF"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <circle cx="48" cy="140" r="30" fill="#8B5A2B"/><circle cx="208" cy="140" r="30" fill="#8B5A2B"/>
+    <circle cx="48" cy="140" r="16" fill="#E8C29A"/><circle cx="208" cy="140" r="16" fill="#E8C29A"/>
+    <circle cx="128" cy="138" r="82" fill="#8B5A2B"/>
+    <path d="M128 112 Q100 84 82 110 Q66 140 92 160 Q76 200 128 206 Q180 200 164 160 Q190 140 174 110 Q156 84 128 112Z" fill="#E8C29A"/>
+    <circle cx="104" cy="132" r="11" fill="#1C2140"/><circle cx="152" cy="132" r="11" fill="#1C2140"/><circle cx="107.85" cy="128.15" r="3.8499999999999996" fill="#fff"/><circle cx="155.85" cy="128.15" r="3.8499999999999996" fill="#fff"/><circle cx="120" cy="164" r="4" fill="#1C2140"/><circle cx="136" cy="164" r="4" fill="#1C2140"/><path d="M114 180 Q128 194 142 180" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>

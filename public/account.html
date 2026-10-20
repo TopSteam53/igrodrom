@@ -223,8 +223,8 @@ function toSquare(file) {
 $('avaBtn').onclick = () => {
   const body = document.createElement('div');
   body.innerHTML = `<div class="ava-grid">${Array.from({ length: PRESETS }, (_, i) => i + 1).map((n) => `
-      <button type="button" class="ava-pick ${user.avatar === `/avatars/${n}.webp` ? 'on' : ''}" data-n="${n}" aria-label="Аватарка ${n}">
-        <img src="/avatars/${n}.webp" width="64" height="64" alt=""></button>`).join('')}</div>
+      <button type="button" class="ava-pick ${user.avatar === `/avatars/${n}.svg` ? 'on' : ''}" data-n="${n}" aria-label="Аватарка ${n}">
+        <img src="/avatars/${n}.svg" width="64" height="64" alt=""></button>`).join('')}</div>
     <label class="btn ava-upload"><input type="file" accept="image/png,image/jpeg,image/webp" hidden>Загрузить свою картинку</label>
     <p class="mut" style="margin:8px 0 0">Своя картинка появится у всех после проверки модератором. Без чужих фото и неприличного.</p>`;
   const close = dialog({ title: 'Аватарка', body, buttons: [

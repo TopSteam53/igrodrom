@@ -1,4 +1,4 @@
-// Аватарки игроков: одна из готовых (public/avatars/<n>.webp, рисуются scripts/blender/avatars.py)
+// Аватарки игроков: одна из готовых (public/avatars/<n>.svg, рисует scripts/avatars-svg.mjs)
 // или своя картинка. Своя видна другим только после проверки модератором; до этого — прежняя.
 // В users.avatar: 'p:<n>' — готовая, 'u:<файл>' — своя (DATA_DIR/avatars), NULL — буква имени.
 import fs from 'node:fs';
@@ -21,7 +21,7 @@ export function migrateAvatars(db) {
 
 export function avatarUrl(value) {
   const v = String(value || '');
-  if (/^p:\d{1,2}$/.test(v)) return `/avatars/${v.slice(2)}.webp`;
+  if (/^p:\d{1,2}$/.test(v)) return `/avatars/${v.slice(2)}.svg`;
   if (v.startsWith('u:') && FILE_RE.test(v.slice(2))) return `/avatars/u/${v.slice(2)}`;
   return null;
 }

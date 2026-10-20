@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Коала</title><rect width="256" height="256" fill="#8B5CF6"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <circle cx="56" cy="96" r="40" fill="#9CA3AF"/><circle cx="200" cy="96" r="40" fill="#9CA3AF"/>
+    <circle cx="56" cy="96" r="24" fill="#F3F4F6"/><circle cx="200" cy="96" r="24" fill="#F3F4F6"/>
+    <circle cx="128" cy="144" r="80" fill="#9CA3AF"/>
+    <circle cx="94" cy="128" r="11" fill="#1C2140"/><circle cx="162" cy="128" r="11" fill="#1C2140"/><circle cx="97.85" cy="124.15" r="3.8499999999999996" fill="#fff"/><circle cx="165.85" cy="124.15" r="3.8499999999999996" fill="#fff"/><ellipse cx="128" cy="160" rx="22" ry="28" fill="#1C2140"/><ellipse cx="122" cy="150" rx="6" ry="8" fill="#fff" opacity=".4"/>
+    <path d="M118 194 Q128 204 138 194" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>

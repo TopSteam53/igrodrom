@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Лиса</title><rect width="256" height="256" fill="#1C2140"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M56 120 L58 40 L112 86Z" fill="#F26B21"/><path d="M200 120 L198 40 L144 86Z" fill="#F26B21"/>
+    <path d="M68 100 L68 60 L98 86Z" fill="#1C2140" opacity=".85"/><path d="M188 100 L188 60 L158 86Z" fill="#1C2140" opacity=".85"/>
+    <path d="M128 216 L44 132 Q60 70 128 70 Q196 70 212 132 Z" fill="#F26B21"/>
+    <path d="M128 216 L60 142 Q92 150 128 172 Q164 150 196 142 Z" fill="#FFF4E8"/>
+    <circle cx="94" cy="128" r="11" fill="#1C2140"/><circle cx="162" cy="128" r="11" fill="#1C2140"/><circle cx="97.85" cy="124.15" r="3.8499999999999996" fill="#fff"/><circle cx="165.85" cy="124.15" r="3.8499999999999996" fill="#fff"/><path d="M116 190 Q128 186 140 190 Q128 206 116 190Z" fill="#1C2140"/></svg>

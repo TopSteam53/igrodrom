@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Медведь</title><rect width="256" height="256" fill="#F2434F"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <circle cx="66" cy="76" r="30" fill="#8B5A2B"/><circle cx="190" cy="76" r="30" fill="#8B5A2B"/>
+    <circle cx="66" cy="76" r="15" fill="#D9A877"/><circle cx="190" cy="76" r="15" fill="#D9A877"/>
+    <circle cx="128" cy="140" r="84" fill="#8B5A2B"/>
+    <ellipse cx="128" cy="166" rx="44" ry="34" fill="#D9A877"/>
+    <circle cx="94" cy="126" r="12" fill="#1C2140"/><circle cx="162" cy="126" r="12" fill="#1C2140"/><circle cx="98.2" cy="121.8" r="4.199999999999999" fill="#fff"/><circle cx="166.2" cy="121.8" r="4.199999999999999" fill="#fff"/><path d="M114 150 Q128 146 142 150 Q128 166 114 150Z" fill="#1C2140"/><path d="M116 172 Q128 184 140 172" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>

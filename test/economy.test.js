@@ -168,13 +168,13 @@ test('аватарки: готовая сразу, своя — после пр�
   assert.equal(me.avatar, null);
 
   assert.equal((await p('PUT', '/api/me/avatar', { preset: 17 })).status, 400);
-  assert.equal((await p('PUT', '/api/me/avatar', { preset: 7 })).data.avatar, '/avatars/7.webp');
+  assert.equal((await p('PUT', '/api/me/avatar', { preset: 7 })).data.avatar, '/avatars/7.svg');
 
   assert.equal((await p('POST', '/api/me/avatar', Buffer.from('not an image'.padEnd(64)), 'image/png')).status, 400);
   assert.equal((await p('POST', '/api/me/avatar', png(20, 20), 'image/png')).status, 400, 'слишком маленькая');
   const up = await p('POST', '/api/me/avatar', png(256, 256), 'image/png');
   assert.equal(up.status, 201);
-  assert.equal(up.data.avatar, '/avatars/7.webp', 'пока на проверке — прежняя');
+  assert.equal(up.data.avatar, '/avatars/7.svg', 'пока на проверке — прежняя');
   assert.match(up.data.avatarPending, /^\/avatars\/u\/[0-9a-f]{32}\.png$/);
   const file = await fetch(base + up.data.avatarPending);
   assert.equal(file.headers.get('content-type'), 'image/png');
@@ -189,7 +189,7 @@ test('аватарки: готовая сразу, своя — после пр�
   // Отказ — с причиной, картинка удаляется.
   assert.equal((await owner('POST', `/api/admin/avatars/${id}`, { action: 'reject', reason: 'Чужое фото' })).status, 200);
   me = (await p('GET', '/api/me')).data.user;
-  assert.deepEqual([me.avatar, me.avatarPending, me.avatarNote], ['/avatars/7.webp', null, 'Чужое фото']);
+  assert.deepEqual([me.avatar, me.avatarPending, me.avatarNote], ['/avatars/7.svg', null, 'Чужое фото']);
   assert.equal((await fetch(base + up.data.avatarPending)).status, 404);
 
   // Одобрение — своя становится аватаркой и видна в таблицах рекордов и отзывах.

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Зайка</title><rect width="256" height="256" fill="#FFC531"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <ellipse cx="96" cy="66" rx="22" ry="58" fill="#EEF1F7"/><ellipse cx="160" cy="66" rx="22" ry="58" fill="#EEF1F7"/>
+    <ellipse cx="96" cy="70" rx="11" ry="42" fill="#FFB3C6"/><ellipse cx="160" cy="70" rx="11" ry="42" fill="#FFB3C6"/>
+    <circle cx="128" cy="150" r="78" fill="#EEF1F7"/>
+    <circle cx="98" cy="140" r="12" fill="#1C2140"/><circle cx="158" cy="140" r="12" fill="#1C2140"/><circle cx="102.2" cy="135.8" r="4.199999999999999" fill="#fff"/><circle cx="162.2" cy="135.8" r="4.199999999999999" fill="#fff"/><path d="M119 156 Q128 152 137 156 Q128 172 119 156Z" fill="#F2557A"/>
+    <path d="M128 162 V172 M114 176 Q128 186 142 176" stroke="#1C2140" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <rect x="118" y="178" width="20" height="16" rx="4" fill="#fff" stroke="#1C2140" stroke-width="3"/><ellipse cx="70" cy="172" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/><ellipse cx="186" cy="172" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/></svg>

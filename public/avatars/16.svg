@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Енот</title><rect width="256" height="256" fill="#FFC531"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M56 112 L60 48 L106 84Z" fill="#6B7280"/><path d="M200 112 L196 48 L150 84Z" fill="#6B7280"/>
+    <path d="M70 96 L72 66 L96 84Z" fill="#F3F4F6"/><path d="M186 96 L184 66 L160 84Z" fill="#F3F4F6"/>
+    <ellipse cx="128" cy="144" rx="88" ry="78" fill="#9CA3AF"/>
+    <path d="M44 130 Q90 100 128 132 Q166 100 212 130 Q190 160 160 150 Q128 140 96 150 Q66 160 44 130Z" fill="#1C2140"/>
+    <path d="M128 132 Q108 170 128 214 Q148 170 128 132Z" fill="#F3F4F6"/>
+    <circle cx="96" cy="134" r="12" fill="#fff"/><circle cx="160" cy="134" r="12" fill="#fff"/><circle cx="98" cy="134" r="6" fill="#1C2140"/><circle cx="158" cy="134" r="6" fill="#1C2140"/>
+    <path d="M117 172 Q128 168 139 172 Q128 188 117 172Z" fill="#1C2140"/></svg>

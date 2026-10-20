@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Единорог</title><rect width="256" height="256" fill="#F2434F"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M70 120 L78 58 L112 94Z" fill="#fff"/><path d="M186 120 L178 58 L144 94Z" fill="#fff"/>
+    <path d="M128 18 L144 82 L112 82Z" fill="#FFC531"/><path d="M118 42 L138 50 M115 58 L141 66" stroke="#E09B00" stroke-width="5"/>
+    <path d="M60 120 Q40 60 98 66 Q80 96 92 120Z" fill="#C084FC"/><path d="M196 120 Q216 60 158 66 Q176 96 164 120Z" fill="#F472B6"/>
+    <ellipse cx="128" cy="148" rx="76" ry="74" fill="#fff"/>
+    <circle cx="98" cy="136" r="12" fill="#1C2140"/><circle cx="158" cy="136" r="12" fill="#1C2140"/><circle cx="102.2" cy="131.8" r="4.199999999999999" fill="#fff"/><circle cx="162.2" cy="131.8" r="4.199999999999999" fill="#fff"/><ellipse cx="74" cy="164" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/><ellipse cx="182" cy="164" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/><path d="M114 176 Q128 190 142 176" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>

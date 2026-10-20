@@ -175,8 +175,11 @@ function shapePath(c,t){
   else{c.arc(0,0,.88,0,Math.PI*2)}
   c.closePath();
 }
+// Камни отрендерены в Blender (scripts/blender/gems.py); пока картинки грузятся — рисуем простые фигуры.
+var GEM_IMG=[0,1,2,3,4,5].map(function(i){var im=new Image();im.onload=function(){if(GEM_IMG.every(function(x){return x.complete&&x.naturalWidth}))makeSprites()};im.src='img/gem'+i+'.webp';return im});
 function makeSprite(t,px){
   var o=document.createElement('canvas');o.width=o.height=px;var c=o.getContext('2d');
+  if(t<T&&GEM_IMG[t]&&GEM_IMG[t].complete&&GEM_IMG[t].naturalWidth){c.drawImage(GEM_IMG[t],0,0,px,px);return o}
   c.translate(px/2,px/2);var R=px*.425;c.scale(R,R);c.lineJoin='round';
   if(t===COLOR_BOMB){
     // Радужная бомба: тёмный шар с цветными искрами.
@@ -555,7 +558,7 @@ function render(now){
   rrect(0,0,S,S,14);var bg=ctx.createLinearGradient(0,0,0,S);bg.addColorStop(0,'#2a1a56');bg.addColorStop(1,'#1d1240');ctx.fillStyle=bg;ctx.fill();
   ctx.strokeStyle='#4a2f8a';ctx.lineWidth=2;ctx.stroke();
   for(var r=0;r<N;r++)for(var c=0;c<N;c++){
-    ctx.fillStyle=(r+c)%2?'rgba(255,255,255,.035)':'rgba(255,255,255,.08)';rrect(P+c*CS+1,P+r*CS+1,CS-2,CS-2,CS*.14);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.07)';rrect(P+c*CS+2,P+r*CS+2,CS-4,CS-4,CS*.16);ctx.fill();
     if(ice&&ice[r][c]>0){
       ctx.fillStyle=ice[r][c]>1?'rgba(170,225,255,.55)':'rgba(170,225,255,.3)';rrect(P+c*CS+2,P+r*CS+2,CS-4,CS-4,CS*.16);ctx.fill();
       ctx.strokeStyle='rgba(230,248,255,.7)';ctx.lineWidth=1.5;ctx.stroke();
@@ -574,7 +577,8 @@ function render(now){
     if(r*N+c===sel)s=1+.07*Math.sin(now/120);
     if(g.t===COLOR_BOMB)s=1+.05*Math.sin(now/200);
     if(g.land){sq=1-.12*Math.sin(g.land*Math.PI)}
-    var w=CS*s,h=CS*s*sq,x=P+g.x*CS+(CS-w)/2,y=P+g.y*CS+(CS-h)-(CS-CS*s)/2;
+    // Камень по центру своей клетки, чуть меньше её: между камнями видна сетка.
+    var w=CS*.9*s,h=CS*.9*s*sq,x=P+g.x*CS+(CS-w)/2,y=P+g.y*CS+(CS-h)/2+(CS*.9*s-h)/2;
     ctx.drawImage(sprites[g.t],x,y,w,h);
     drawSpecial(g,x,y,w,now);
   }

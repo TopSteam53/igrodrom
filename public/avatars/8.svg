@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Сова</title><rect width="256" height="256" fill="#0E9F9A"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M58 70 L84 104 L60 116Z" fill="#7A5230"/><path d="M198 70 L172 104 L196 116Z" fill="#7A5230"/>
+    <ellipse cx="128" cy="146" rx="80" ry="82" fill="#A0703F"/>
+    <path d="M70 170 Q128 120 186 170 Q186 226 128 226 Q70 226 70 170Z" fill="#E8C9A0"/>
+    <circle cx="96" cy="124" r="30" fill="#FFF4D6"/><circle cx="160" cy="124" r="30" fill="#FFF4D6"/>
+    <circle cx="96" cy="124" r="15" fill="#1C2140"/><circle cx="160" cy="124" r="15" fill="#1C2140"/><circle cx="101.25" cy="118.75" r="5.25" fill="#fff"/><circle cx="165.25" cy="118.75" r="5.25" fill="#fff"/><path d="M116 150 L140 150 L128 172Z" fill="#F59E0B"/>
+    <path d="M100 196 l8 -8 l8 8 M124 196 l8 -8 l8 8 M148 196 l8 -8 l8 8" stroke="#B58A5A" stroke-width="4" fill="none"/></svg>

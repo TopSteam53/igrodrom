@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Пингвин</title><rect width="256" height="256" fill="#FFC531"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <ellipse cx="128" cy="142" rx="86" ry="84" fill="#1C2140"/>
+    <path d="M128 222 Q56 222 60 150 Q62 100 100 100 Q120 100 128 118 Q136 100 156 100 Q194 100 196 150 Q200 222 128 222Z" fill="#fff"/>
+    <circle cx="100" cy="132" r="12" fill="#1C2140"/><circle cx="156" cy="132" r="12" fill="#1C2140"/><circle cx="104.2" cy="127.8" r="4.199999999999999" fill="#fff"/><circle cx="160.2" cy="127.8" r="4.199999999999999" fill="#fff"/><path d="M108 156 Q128 146 148 156 Q128 178 108 156Z" fill="#F59E0B"/><ellipse cx="76" cy="170" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/><ellipse cx="180" cy="170" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/></svg>

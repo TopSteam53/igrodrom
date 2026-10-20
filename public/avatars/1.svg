@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Кот</title><rect width="256" height="256" fill="#2E6BFF"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M58 118 L66 44 L112 84Z" fill="#F59E42"/><path d="M198 118 L190 44 L144 84Z" fill="#F59E42"/>
+    <path d="M70 100 L74 62 L100 86Z" fill="#FFC9A8"/><path d="M186 100 L182 62 L156 86Z" fill="#FFC9A8"/>
+    <ellipse cx="128" cy="142" rx="84" ry="74" fill="#F59E42"/>
+    <path d="M104 74 Q110 96 100 108 M128 70 Q132 94 128 106 M152 74 Q146 96 156 108" stroke="#D9761E" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <ellipse cx="128" cy="162" rx="40" ry="28" fill="#FFE6D1"/>
+    <circle cx="96" cy="132" r="12" fill="#1C2140"/><circle cx="160" cy="132" r="12" fill="#1C2140"/><circle cx="100.2" cy="127.8" r="4.199999999999999" fill="#fff"/><circle cx="164.2" cy="127.8" r="4.199999999999999" fill="#fff"/><path d="M119 146 Q128 142 137 146 Q128 162 119 146Z" fill="#E5536D"/><path d="M112 160 Q120 172 128 160 Q136 172 144 160" fill="none" stroke="#1C2140" stroke-width="5" stroke-linecap="round"/>
+    <path d="M60 150 H28 M62 162 H32 M196 150 H228 M194 162 H224" stroke="#1C2140" stroke-width="4" stroke-linecap="round" opacity=".6"/></svg>

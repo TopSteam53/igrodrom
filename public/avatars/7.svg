@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Лягушка</title><rect width="256" height="256" fill="#2E6BFF"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <circle cx="88" cy="88" r="34" fill="#4ADE80"/><circle cx="168" cy="88" r="34" fill="#4ADE80"/>
+    <ellipse cx="128" cy="152" rx="94" ry="70" fill="#4ADE80"/>
+    <circle cx="88" cy="86" r="22" fill="#fff"/><circle cx="168" cy="86" r="22" fill="#fff"/><circle cx="88" cy="86" r="15" fill="#1C2140"/><circle cx="168" cy="86" r="15" fill="#1C2140"/><circle cx="93.25" cy="80.75" r="5.25" fill="#fff"/><circle cx="173.25" cy="80.75" r="5.25" fill="#fff"/>
+    <path d="M70 160 Q128 214 186 160" fill="none" stroke="#1C2140" stroke-width="7" stroke-linecap="round"/>
+    <ellipse cx="58" cy="150" rx="14" ry="9" fill="#FF7AA2" opacity=".7"/><ellipse cx="198" cy="150" rx="14" ry="9" fill="#FF7AA2" opacity=".7"/><circle cx="116" cy="130" r="4" fill="#1C2140"/><circle cx="140" cy="130" r="4" fill="#1C2140"/></svg>

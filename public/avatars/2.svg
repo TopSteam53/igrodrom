@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Собака</title><rect width="256" height="256" fill="#17B26A"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <ellipse cx="128" cy="140" rx="78" ry="78" fill="#C98A4B"/>
+    <path d="M58 92 Q30 100 34 168 Q48 186 70 160 Z" fill="#7A4A23"/><path d="M198 92 Q226 100 222 168 Q208 186 186 160 Z" fill="#7A4A23"/>
+    <ellipse cx="160" cy="118" rx="26" ry="24" fill="#E8C7A0"/>
+    <ellipse cx="128" cy="170" rx="44" ry="32" fill="#F2DCC2"/>
+    <circle cx="98" cy="124" r="12" fill="#1C2140"/><circle cx="158" cy="124" r="12" fill="#1C2140"/><circle cx="102.2" cy="119.8" r="4.199999999999999" fill="#fff"/><circle cx="162.2" cy="119.8" r="4.199999999999999" fill="#fff"/><ellipse cx="128" cy="154" rx="16" ry="11" fill="#1C2140"/>
+    <path d="M128 164 V176 M112 178 Q128 188 144 178" stroke="#1C2140" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M120 184 Q128 210 136 184Z" fill="#F2557A"/></svg>
