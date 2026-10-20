@@ -1,33 +1,370 @@
-<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body{margin:0;height:100%;background:#1b1030;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;user-select:none}
-#b{font-size:90px;background:#2a1a4d;border:0;border-radius:50%;width:170px;height:170px;cursor:pointer;transition:transform .05s}#b:active{transform:scale(.92)}
-button.u{background:#7c3aed;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:15px;cursor:pointer}button.u:disabled{opacity:.4}
-#away{min-height:20px;font-size:14px;color:#c9b8ff}</style>
-<div style="font-size:32px;font-weight:800"><span id="n">0</span> 🍪</div><button id="b">🍪</button>
-<button class="u" id="u1">+1 за клик (цена <span id="p1">10</span>)</button>
-<button class="u" id="u2">Автопечь +1/сек (цена <span id="p2">50</span>)</button>
-<div id="away"></div>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Печенье</title>
+<style>
+*{box-sizing:border-box}
+.hidden{display:none!important}
+html,body{margin:0;height:100%;background:radial-gradient(circle at 30% 20%,#3a1f63,#160b2b 70%);color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none;overflow:hidden}
+#app{position:fixed;inset:0;display:grid;grid-template-columns:minmax(0,1fr) 380px}
+@media (max-width:760px){#app{grid-template-columns:1fr;grid-template-rows:minmax(300px,48vh) 1fr}}
+#left{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;overflow:hidden;padding:12px}
+#count{font:800 clamp(30px,6vw,46px)/1 system-ui;text-align:center;font-variant-numeric:tabular-nums;text-shadow:0 4px 18px rgba(0,0,0,.4)}
+#cps{color:#d8c7ff;font-weight:600;font-size:15px}
+#boost{background:#FFC531;color:#2a1450;font-weight:800;border-radius:999px;padding:4px 12px;font-size:14px}
+#cookie{width:min(56vw,250px);height:min(56vw,250px);border-radius:50%;border:0;cursor:pointer;background:none;padding:0;position:relative;transition:transform .06s;-webkit-tap-highlight-color:transparent}
+#cookie:active{transform:scale(.94)}
+#cookie svg{width:100%;height:100%;filter:drop-shadow(0 14px 30px rgba(0,0,0,.45))}
+#cookie::before{content:"";position:absolute;inset:-14%;border-radius:50%;background:conic-gradient(from 0deg,rgba(255,220,140,.0),rgba(255,220,140,.18),rgba(255,220,140,0) 30%,rgba(255,220,140,.18) 50%,rgba(255,220,140,0) 70%);animation:spin 18s linear infinite;z-index:-1}
+@keyframes spin{to{transform:rotate(360deg)}}
+.float{position:absolute;font:800 22px system-ui;color:#fff;pointer-events:none;text-shadow:0 2px 6px rgba(0,0,0,.6);animation:fl 1s forwards}
+@keyframes fl{to{transform:translateY(-80px);opacity:0}}
+.crumb{position:absolute;top:-30px;font-size:22px;pointer-events:none;animation:fall linear forwards;opacity:.7}
+@keyframes fall{to{transform:translateY(110vh) rotate(360deg)}}
+#golden{position:absolute;width:64px;height:64px;font-size:52px;line-height:64px;text-align:center;cursor:pointer;filter:drop-shadow(0 0 14px #FFC531) hue-rotate(10deg) saturate(1.6);animation:gl 1.2s ease-in-out infinite alternate;z-index:3}
+@keyframes gl{to{transform:scale(1.15) rotate(12deg)}}
+#tools{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.tb{border:0;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font:700 14px system-ui;padding:8px 12px;cursor:pointer}
+.tb.gold{background:#FFC531;color:#2a1450}
+#right{background:rgba(10,4,24,.55);border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;min-height:0}
+@media (max-width:760px){#right{border-left:0;border-top:1px solid rgba(255,255,255,.08)}}
+.tabs{display:flex;padding:8px 8px 0;gap:4px}
+.tab{flex:1;border:0;border-radius:10px 10px 0 0;background:transparent;color:#bba8e8;font:700 14px system-ui;padding:10px 4px;cursor:pointer}
+.tab.on{background:rgba(255,255,255,.08);color:#fff}
+.mult{display:flex;gap:4px;padding:8px}
+.mult button{flex:1;border:0;border-radius:8px;background:rgba(255,255,255,.08);color:#ddd;font:700 13px system-ui;padding:6px;cursor:pointer}
+.mult button.on{background:#7c3aed;color:#fff}
+#list{flex:1;overflow:auto;padding:0 8px 12px}
+.item{display:grid;grid-template-columns:46px 1fr auto;gap:10px;align-items:center;width:100%;border:0;text-align:left;background:rgba(255,255,255,.06);color:#fff;border-radius:14px;padding:9px 10px;margin:6px 0;cursor:pointer;font:inherit}
+.item:hover:not(:disabled){background:rgba(255,255,255,.12)}
+.item:disabled{opacity:.45;cursor:default}
+.item .ic{font-size:32px;text-align:center}
+.item b{display:block;font-size:15px}
+.item small{color:#c9b8ff;font-size:12px}
+.item .own{font:800 22px system-ui;color:rgba(255,255,255,.35)}
+.item .price{color:#ffd88a;font-weight:700;font-size:13px}
+.item.locked .ic{filter:brightness(0)}
+.ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px;padding-top:8px}
+.ach div{aspect-ratio:1;border-radius:12px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:28px}
+.ach div.off{filter:grayscale(1) brightness(.4)}
+.stats p{margin:6px 0;color:#d8c7ff}.stats b{color:#fff}
+.btn{display:block;width:100%;margin:10px 0;padding:13px;border:0;border-radius:14px;font:700 16px system-ui;cursor:pointer;color:#2a1450;background:#FFC531;box-shadow:0 4px 0 #b8860b}
+.btn:disabled{opacity:.45}
+#toasts{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;z-index:9;pointer-events:none}
+.toast{background:#2a1450;border:1px solid #7c3aed;border-radius:14px;padding:10px 16px;font-weight:700;animation:tin .3s;white-space:nowrap}
+@keyframes tin{from{transform:translateY(20px);opacity:0}}
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="left">
+    <div id="count">0 🍪</div>
+    <div id="cps">0 в секунду</div>
+    <div id="boost" class="hidden"></div>
+    <button id="cookie" aria-label="Печенье">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <defs><radialGradient id="cg" cx="40%" cy="35%"><stop offset="0" stop-color="#f7c77e"/><stop offset=".7" stop-color="#d9913f"/><stop offset="1" stop-color="#a8621f"/></radialGradient></defs>
+        <circle cx="100" cy="100" r="92" fill="url(#cg)"/>
+        <circle cx="100" cy="100" r="92" fill="none" stroke="#8a4c16" stroke-width="5" opacity=".5"/>
+        <g fill="#4a2510"><ellipse cx="62" cy="58" rx="12" ry="10"/><ellipse cx="128" cy="48" rx="10" ry="9"/><ellipse cx="148" cy="98" rx="12" ry="11"/><ellipse cx="96" cy="96" rx="11" ry="10"/><ellipse cx="52" cy="118" rx="10" ry="9"/><ellipse cx="112" cy="146" rx="13" ry="11"/><ellipse cx="72" cy="156" rx="8" ry="7"/><ellipse cx="150" cy="140" rx="7" ry="6"/></g>
+        <g fill="#fff" opacity=".25"><ellipse cx="58" cy="54" rx="4" ry="3"/><ellipse cx="124" cy="44" rx="3" ry="2"/><ellipse cx="92" cy="92" rx="3" ry="3"/></g>
+      </svg>
+    </button>
+    <div id="tools">
+      <button class="tb gold hidden" id="coinBoost">⚡ ×3 на 10 мин за 🪙 5</button>
+      <button class="tb" id="muteBtn">🔊</button>
+    </div>
+  </section>
+  <aside id="right">
+    <div class="tabs">
+      <button class="tab on" data-tab="shop">Пекарня</button>
+      <button class="tab" data-tab="up">Улучшения</button>
+      <button class="tab" data-tab="ach">Награды</button>
+      <button class="tab" data-tab="stats">Ещё</button>
+    </div>
+    <div class="mult" id="mult"><button class="on" data-m="1">×1</button><button data-m="10">×10</button><button data-m="max">Макс</button></div>
+    <div id="list"></div>
+  </aside>
+</div>
+
 <script src="../../sdk/v1.js"></script>
 <script>
-let n=0,k=1,a=0,p1=10,p2=50;const $=i=>document.getElementById(i);
-function r(){$('n').textContent=n|0;$('p1').textContent=p1;$('p2').textContent=p2;$('u1').disabled=n<p1;$('u2').disabled=n<p2}
+'use strict';
+const $ = (id) => document.getElementById(id);
+const BUILDINGS = [
+  { id: 'cursor', name: 'Курсор', icon: '👆', base: 15, cps: 0.1, text: 'Нажимает на печенье за вас' },
+  { id: 'grandma', name: 'Бабушка', icon: '👵', base: 100, cps: 1, text: 'Печёт по семейному рецепту' },
+  { id: 'oven', name: 'Духовка', icon: '🔥', base: 1100, cps: 8, text: 'Горячая и всегда занята' },
+  { id: 'bakery', name: 'Пекарня', icon: '🏠', base: 12000, cps: 47, text: 'Целая команда пекарей' },
+  { id: 'factory', name: 'Фабрика', icon: '🏭', base: 130000, cps: 260, text: 'Конвейер без выходных' },
+  { id: 'mine', name: 'Сахарная шахта', icon: '⛏️', base: 1.4e6, cps: 1400, text: 'Добывает шоколадную руду' },
+  { id: 'rocket', name: 'Ракета', icon: '🚀', base: 2e7, cps: 7800, text: 'Возит печенье с Луны' },
+  { id: 'portal', name: 'Портал', icon: '🌀', base: 3.3e8, cps: 44000, text: 'Печенье из другого измерения' },
+  { id: 'time', name: 'Машина времени', icon: '⏳', base: 5.1e9, cps: 260000, text: 'Печёт вчерашнее печенье завтра' },
+  { id: 'galaxy', name: 'Печеньевая галактика', icon: '🌌', base: 7.5e10, cps: 1.6e6, text: 'Звёзды из теста' },
+];
+// Разовые улучшения: удвоение постройки при 1/10/25/50/100 штуках и усиление клика.
+const UPGRADES = [];
+for (const b of BUILDINGS) for (const [need, mult] of [[1, 2], [10, 2], [25, 2], [50, 2], [100, 3]]) {
+  UPGRADES.push({ id: `${b.id}${need}`, icon: b.icon, name: `${b.name}: ×${mult}`, text: `Нужно ${need} шт.`, price: b.base * need * 8, req: (s) => (s.own[b.id] || 0) >= need, apply: (m) => { m[b.id] *= mult; } });
+}
+for (const [i, need] of [[1, 100], [2, 1e4], [3, 1e6], [4, 1e8], [5, 1e10]]) {
+  UPGRADES.push({ id: `click${i}`, icon: '🖱️', name: `Сильный клик ${i}`, text: 'Клик ×2 и +1% от дохода в секунду', price: need * 5, req: (s) => s.total >= need / 2, apply: (m) => { m.click *= 2; m.clickCps += 0.01; } });
+}
+const ACH = [
+  ['🍪', 'Первое печенье', (s) => s.total >= 1], ['🥠', '1 000 печенья', (s) => s.total >= 1e3], ['🍩', 'Миллион', (s) => s.total >= 1e6],
+  ['🎂', 'Миллиард', (s) => s.total >= 1e9], ['🏆', 'Триллион', (s) => s.total >= 1e12], ['👑', 'Квадриллион', (s) => s.total >= 1e15],
+  ['👆', '100 кликов', (s) => s.clicks >= 100], ['💪', '1 000 кликов', (s) => s.clicks >= 1000], ['🦾', '10 000 кликов', (s) => s.clicks >= 1e4],
+  ['👵', '10 бабушек', (s) => (s.own.grandma || 0) >= 10], ['🏭', 'Первая фабрика', (s) => (s.own.factory || 0) >= 1], ['🚀', 'На Луну!', (s) => (s.own.rocket || 0) >= 1],
+  ['🌀', 'Портал открыт', (s) => (s.own.portal || 0) >= 1], ['🌌', 'Галактика', (s) => (s.own.galaxy || 0) >= 1], ['🏗️', '100 построек', (s) => Object.values(s.own).reduce((a, b) => a + b, 0) >= 100],
+  ['✨', 'Золотое печенье', (s) => s.goldens >= 1], ['🌟', '10 золотых', (s) => s.goldens >= 10], ['⚡', '10 в секунду', (s) => cps() >= 10],
+  ['🔥', '1 000 в секунду', (s) => cps() >= 1e3], ['💥', 'Миллион в секунду', (s) => cps() >= 1e6], ['♻️', 'Перерождение', (s) => s.prestiges >= 1],
+  ['🛠️', '10 улучшений', (s) => s.ups.length >= 10], ['🧰', '30 улучшений', (s) => s.ups.length >= 30], ['🌙', 'Пекарь-полуночник', (s) => s.away >= 3600],
+];
+const MAX_AWAY = 3 * 3600;
+const AWAY_RATE = 0.5;
 
-// Сохранение через Gamely SDK: прогресс переживает перезагрузку, автопечь работает, пока игрока нет (до 2 часов).
-const MAX_AWAY_SEC=2*3600;
-let sdk=null;
-function save(){if(sdk)sdk.data.set({n,k,a,p1,p2,t:Date.now()}).catch(()=>{})}
-if(window.Gamely)Gamely.init().then(async s=>{
-  // Писать начинаем только после чтения: иначе ранний клик затрёт старое сохранение.
-  const d=await s.data.get().catch(()=>null);sdk=s;
-  if(d&&typeof d.n==='number'){
-    ({n,k,a,p1,p2}=d);
-    const away=Math.min(MAX_AWAY_SEC,Math.max(0,(Date.now()-d.t)/1000|0)),earned=away*a;
-    if(earned>0){n+=earned;$('away').textContent=`Пока вас не было, автопечь испекла ${earned} 🍪`}
-    r();
-  }
+let S = { v: 2, cookies: 0, total: 0, allTime: 0, clicks: 0, own: {}, ups: [], ach: [], goldens: 0, chips: 0, prestiges: 0, away: 0, mute: false, t: Date.now() };
+let sdk = null, mult = '1', tab = 'shop', boostUntil = 0, boostMul = 1, frenzyUntil = 0;
+
+// ---------- расчёты ----------
+function mods() {
+  const m = { click: 1, clickCps: 0 };
+  for (const b of BUILDINGS) m[b.id] = 1;
+  for (const id of S.ups) UPGRADES.find((u) => u.id === id)?.apply(m);
+  return m;
+}
+let M = mods();
+const prestigeMul = () => 1 + S.chips * 0.02;
+const timeMul = () => (Date.now() < boostUntil ? boostMul : 1) * (Date.now() < frenzyUntil ? 7 : 1);
+function baseCps() { return BUILDINGS.reduce((n, b) => n + (S.own[b.id] || 0) * b.cps * M[b.id], 0) * prestigeMul(); }
+function cps() { return baseCps() * timeMul(); }
+function clickValue() { return (M.click + baseCps() * M.clickCps) * prestigeMul() * timeMul(); }
+const price = (b, owned) => Math.ceil(b.base * Math.pow(1.15, owned));
+function bulk(b) {
+  let owned = S.own[b.id] || 0, n = 0, cost = 0;
+  const want = mult === 'max' ? Infinity : Number(mult);
+  while (n < want) { const p = price(b, owned + n); if (mult === 'max' && cost + p > S.cookies) break; cost += p; n++; if (n > 1000) break; }
+  return { n: Math.max(n, mult === 'max' ? 0 : n), cost };
+}
+
+// ---------- числа ----------
+const UNITS = [[1e18, 'квинт'], [1e15, 'квадр'], [1e12, 'трлн'], [1e9, 'млрд'], [1e6, 'млн'], [1e3, 'тыс']];
+function fmt(n) {
+  n = Math.floor(n);
+  if (n < 1e4) return n.toLocaleString('ru-RU');
+  for (const [v, u] of UNITS) if (n >= v) return `${(n / v).toFixed(n / v < 100 ? 2 : 1).replace('.', ',')} ${u}`;
+  return n.toLocaleString('ru-RU');
+}
+const fmtF = (n) => (n < 10 ? n.toFixed(1).replace('.', ',') : fmt(n));
+
+// ---------- звук ----------
+let ac = null;
+function audio() { if (!ac) try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} if (ac && ac.state === 'suspended') ac.resume(); }
+function tone(f, d = 0.05, type = 'triangle', vol = 0.05) {
+  if (S.mute || !ac) return;
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+  o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d);
+}
+
+// ---------- действия ----------
+function gain(n) { S.cookies += n; S.total += n; S.allTime += n; }
+$('cookie').addEventListener('pointerdown', (e) => {
+  audio();
+  const v = clickValue();
+  gain(v); S.clicks++;
+  tone(300 + Math.random() * 120, 0.04, 'sine', 0.05);
+  const r = $('left').getBoundingClientRect();
+  const f = document.createElement('div');
+  f.className = 'float'; f.textContent = `+${fmtF(v)}`;
+  f.style.left = `${e.clientX - r.left - 20 + Math.random() * 20}px`; f.style.top = `${e.clientY - r.top - 30}px`;
+  $('left').append(f); setTimeout(() => f.remove(), 1000);
+  if (Math.random() < 0.3) crumb();
+  render();
 });
+function crumb() {
+  const c = document.createElement('div');
+  c.className = 'crumb'; c.textContent = '🍪';
+  c.style.left = `${Math.random() * 100}%`; c.style.animationDuration = `${2.5 + Math.random() * 2}s`; c.style.fontSize = `${14 + Math.random() * 18}px`;
+  $('left').append(c); setTimeout(() => c.remove(), 5000);
+}
 
-$('b').onclick=()=>{n+=k;r();save()};$('u1').onclick=()=>{n-=p1;k++;p1=Math.ceil(p1*1.6);r();save()};
-$('u2').onclick=()=>{n-=p2;a++;p2=Math.ceil(p2*1.7);r();save()};
-setInterval(()=>{n+=a;r()},1000);setInterval(save,5000);r();
+function buy(id) {
+  const b = BUILDINGS.find((x) => x.id === id);
+  const { n, cost } = bulk(b);
+  if (!n || cost > S.cookies) return;
+  S.cookies -= cost; S.own[id] = (S.own[id] || 0) + n;
+  tone(520, 0.08); tone(780, 0.1); render(true); persist();
+}
+function buyUp(id) {
+  const u = UPGRADES.find((x) => x.id === id);
+  if (S.ups.includes(id) || S.cookies < u.price || !u.req(S)) return;
+  S.cookies -= u.price; S.ups.push(id); M = mods();
+  tone(660, 0.1); tone(990, 0.14); render(true); persist();
+}
+
+// Перерождение: всё печенье и постройки сгорают, зато каждая звёздная крошка навсегда даёт +2% к доходу.
+const chipsFor = (total) => Math.floor(Math.sqrt(total / 1e9) * 10);
+function prestige() {
+  const add = chipsFor(S.total) - 0;
+  if (add < 1) return;
+  if (!confirm(`Переродиться? Всё печенье, постройки и улучшения сгорят, а вы получите ${add} звёздных крошек — +${add * 2}% к доходу навсегда.`)) return;
+  S.chips += add; S.prestiges++;
+  S.cookies = 0; S.total = 0; S.own = {}; S.ups = []; M = mods();
+  toast(`♻️ +${add} звёздных крошек`); render(true); persist();
+}
+
+// ---------- золотое печенье ----------
+let goldenTimer = null;
+function scheduleGolden() { clearTimeout(goldenTimer); goldenTimer = setTimeout(spawnGolden, (40 + Math.random() * 70) * 1000); }
+function spawnGolden() {
+  const g = document.createElement('div');
+  g.id = 'golden'; g.textContent = '🍪';
+  g.style.left = `${10 + Math.random() * 70}%`; g.style.top = `${15 + Math.random() * 60}%`;
+  $('left').append(g);
+  tone(1200, 0.2, 'sine', 0.05);
+  const gone = setTimeout(() => { g.remove(); scheduleGolden(); }, 12000);
+  g.onpointerdown = (e) => {
+    e.stopPropagation(); clearTimeout(gone); g.remove(); S.goldens++;
+    if (Math.random() < 0.5) { frenzyUntil = Date.now() + 20000; toast('✨ Безумие! Доход ×7 на 20 секунд'); }
+    else { const lump = Math.max(13, Math.min(S.cookies * 0.15, cps() * 900)); gain(lump); toast(`✨ Удача! +${fmt(lump)} 🍪`); }
+    [880, 1100, 1320].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'sine', 0.06), i * 80));
+    render(true); scheduleGolden();
+  };
+}
+
+function toast(t) {
+  let box = $('toasts');
+  if (!box) { box = document.createElement('div'); box.id = 'toasts'; document.body.append(box); }
+  if (box.children.length >= 3) box.firstChild.remove();
+  const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; box.append(d); setTimeout(() => d.remove(), 2600);
+}
+
+// ---------- отрисовка ----------
+function renderList() {
+  const L = $('list');
+  $('mult').classList.toggle('hidden', tab !== 'shop');
+  if (tab === 'shop') {
+    let shown = 0;
+    L.innerHTML = BUILDINGS.map((b, i) => {
+      const owned = S.own[b.id] || 0;
+      // Следующая непокупавшаяся постройка видна силуэтом, остальные дальше — скрыты.
+      const seen = owned > 0 || i === 0 || (S.own[BUILDINGS[i - 1].id] || 0) > 0 || S.total >= b.base * 0.5;
+      if (!seen) { if (shown++) return ''; }
+      const { n, cost } = bulk(b);
+      const known = owned > 0 || S.allTime >= b.base;
+      return `<button class="item ${known ? '' : 'locked'}" data-buy="${b.id}" ${n && cost <= S.cookies ? '' : 'disabled'}>
+        <span class="ic">${b.icon}</span><span><b>${known ? b.name : '???'}${mult !== '1' && n ? ` ×${n}` : ''}</b>
+        <small>${known ? `${b.text} · +${fmtF(b.cps * M[b.id] * prestigeMul())}/с` : 'Скоро откроется'}</small><br><span class="price">🍪 ${fmt(cost || price(b, owned))}</span></span>
+        <span class="own">${owned || ''}</span></button>`;
+    }).join('');
+  } else if (tab === 'up') {
+    const avail = UPGRADES.filter((u) => !S.ups.includes(u.id) && u.req(S)).sort((a, b) => a.price - b.price);
+    L.innerHTML = avail.length ? avail.slice(0, 30).map((u) => `<button class="item" data-up="${u.id}" ${S.cookies >= u.price ? '' : 'disabled'}>
+      <span class="ic">${u.icon}</span><span><b>${u.name}</b><small>${u.text}</small><br><span class="price">🍪 ${fmt(u.price)}</span></span><span></span></button>`).join('')
+      : '<p style="color:#c9b8ff;padding:10px">Новые улучшения появятся, когда купите больше построек.</p>';
+    L.innerHTML += `<p style="color:#c9b8ff;font-size:13px;padding:0 6px">Куплено улучшений: ${S.ups.length} из ${UPGRADES.length}</p>`;
+  } else if (tab === 'ach') {
+    L.innerHTML = `<p style="color:#c9b8ff;padding:4px 6px">Получено ${S.ach.length} из ${ACH.length}</p><div class="ach">${ACH.map(([icon, name], i) =>
+      `<div class="${S.ach.includes(i) ? '' : 'off'}" title="${name}">${icon}</div>`).join('')}</div>`;
+  } else {
+    const add = chipsFor(S.total);
+    L.innerHTML = `<div class="stats" style="padding:6px">
+      <p>Испечено в этой жизни: <b>${fmt(S.total)}</b></p><p>Испечено за всё время: <b>${fmt(S.allTime)}</b></p>
+      <p>Кликов: <b>${fmt(S.clicks)}</b> · Золотых печений: <b>${S.goldens}</b></p>
+      <p>Звёздные крошки: <b>${S.chips}</b> (+${S.chips * 2}% к доходу)</p>
+      <button class="btn" id="prestigeBtn" ${add >= 1 ? '' : 'disabled'}>♻️ Переродиться: +${add} крошек</button>
+      <p style="font-size:13px">Перерождение сбрасывает печенье и постройки, но навсегда ускоряет пекарню. Первая крошка — после миллиарда.</p></div>`;
+    $('prestigeBtn').onclick = prestige;
+  }
+}
+let lastList = 0;
+function render(force) {
+  $('count').textContent = `${fmt(S.cookies)} 🍪`;
+  $('cps').textContent = `${fmtF(cps())} в секунду`;
+  const now = Date.now();
+  const b = [];
+  if (now < frenzyUntil) b.push(`✨ ×7 ${Math.ceil((frenzyUntil - now) / 1000)} с`);
+  if (now < boostUntil) b.push(`⚡ ×${boostMul} ${Math.ceil((boostUntil - now) / 60000)} мин`);
+  $('boost').classList.toggle('hidden', !b.length); $('boost').textContent = b.join(' · ');
+  document.title = `${fmt(S.cookies)} 🍪 — Печенье`;
+  if (force || now - lastList > 400) { lastList = now; renderList(); }
+}
+
+// ---------- сохранение ----------
+function persist() { S.t = Date.now(); if (sdk) sdk.data.set(S).catch(() => {}); }
+function load(d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.v === 2) {
+    for (const k of ['cookies', 'total', 'allTime', 'clicks', 'goldens', 'chips', 'prestiges', 'away']) if (typeof d[k] === 'number' && isFinite(d[k])) S[k] = Math.max(0, d[k]);
+    if (d.own && typeof d.own === 'object') for (const b of BUILDINGS) if (Number.isInteger(d.own[b.id])) S.own[b.id] = Math.max(0, d.own[b.id]);
+    if (Array.isArray(d.ups)) S.ups = d.ups.filter((id) => UPGRADES.some((u) => u.id === id));
+    if (Array.isArray(d.ach)) S.ach = d.ach.filter((i) => Number.isInteger(i) && i < ACH.length);
+    S.mute = !!d.mute;
+  } else if (typeof d.n === 'number') {
+    // Старое «Печенье»: печенье сохраняем, автопечи становятся бабушками, клик — курсорами.
+    S.cookies = Math.max(0, d.n); S.total = S.allTime = S.cookies;
+    S.own.grandma = Math.max(0, Math.floor(d.a || 0)); S.own.cursor = Math.max(0, Math.floor((d.k || 1) - 1));
+  }
+  M = mods();
+  // Пока игрока не было, пекарня работала вполсилы (до 3 часов).
+  if (typeof d.t === 'number') {
+    const away = Math.min(MAX_AWAY, Math.max(0, (Date.now() - d.t) / 1000));
+    const earned = baseCps() * away * AWAY_RATE;
+    if (earned >= 1) { gain(earned); S.away = Math.max(S.away, away); setTimeout(() => toast(`Пока вас не было, испеклось ${fmt(earned)} 🍪`), 600); }
+  }
+}
+
+// ---------- цикл ----------
+let last = performance.now();
+setInterval(() => {
+  const now = performance.now(), dt = (now - last) / 1000; last = now;
+  gain(cps() * dt);
+  for (let i = 0; i < ACH.length; i++) if (!S.ach.includes(i) && ACH[i][2](S)) { S.ach.push(i); toast(`🏅 ${ACH[i][1]}`); tone(990, 0.15); }
+  if (cps() > 0 && Math.random() < Math.min(0.6, cps() / 200)) crumb();
+  render();
+}, 100);
+setInterval(persist, 5000);
+// Рекорд — испечённое за всё время, раз в минуту.
+setInterval(() => { if (sdk && S.allTime >= 1) sdk.leaderboard.setScore(Math.min(1e15, Math.floor(S.allTime))).catch(() => {}); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
+
+$('list').onclick = (e) => {
+  audio();
+  const b = e.target.closest('[data-buy]'); if (b && !b.disabled) buy(b.dataset.buy);
+  const u = e.target.closest('[data-up]'); if (u && !u.disabled) buyUp(u.dataset.up);
+};
+document.querySelector('.tabs').onclick = (e) => {
+  const t = e.target.closest('[data-tab]'); if (!t) return;
+  tab = t.dataset.tab; document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === t)); render(true);
+};
+$('mult').onclick = (e) => {
+  const m = e.target.closest('[data-m]'); if (!m) return;
+  mult = m.dataset.m; document.querySelectorAll('#mult button').forEach((x) => x.classList.toggle('on', x === m)); render(true);
+};
+$('muteBtn').onclick = () => { audio(); S.mute = !S.mute; $('muteBtn').textContent = S.mute ? '🔇' : '🔊'; persist(); };
+$('coinBoost').onclick = async () => {
+  $('coinBoost').disabled = true;
+  try {
+    const r = await sdk.coins.spend(5, 'Ускорение пекарни ×3 на 10 минут');
+    if (r.ok) { boostMul = 3; boostUntil = Date.now() + 10 * 60000; toast('⚡ Пекарня ×3 на 10 минут!'); }
+  } finally { $('coinBoost').disabled = false; }
+};
+
+render(true);
+scheduleGolden();
+if (window.Gamely) Gamely.init().then(async (s) => {
+  // Пишем только после чтения, иначе ранний клик затрёт сохранение.
+  const d = await s.data.get().catch(() => null);
+  load(d); sdk = s;
+  $('coinBoost').classList.toggle('hidden', s.environment.host !== 'gamely');
+  $('muteBtn').textContent = S.mute ? '🔇' : '🔊';
+  s.game.ready(); s.game.start();
+  render(true);
+}).catch(() => {});
 </script>
+</body>
+</html>
