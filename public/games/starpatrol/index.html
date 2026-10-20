@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Звёздный патруль</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#05060f;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.scr{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(4,6,18,.55);z-index:5}
+.scr.on{display:flex}
+.hidden{display:none!important}
+.card{width:min(380px,100%);max-height:100%;overflow:auto;background:rgba(14,17,40,.92);border:1px solid rgba(140,160,255,.25);border-radius:18px;padding:22px 22px 20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.card h1{margin:0 0 4px;font-size:30px;font-weight:900;letter-spacing:.02em;line-height:1.05;text-shadow:0 0 18px rgba(80,170,255,.55)}
+.card h2{margin:0 0 12px;font-size:22px;font-weight:800}
+.sub{color:#aab3e0;font-size:14px;margin:0 0 16px}
+.stats{display:flex;justify-content:center;gap:22px;margin:4px 0 14px}
+.stats div{font-size:12px;color:#9aa3d6;text-transform:uppercase;letter-spacing:.06em}
+.stats b{display:block;font-size:26px;color:#fff;letter-spacing:0;margin-top:2px;font-variant-numeric:tabular-nums}
+.btns{display:flex;flex-direction:column;gap:10px}
+.b{font:800 16px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#10132b;border:0;border-radius:12px;padding:13px 18px;cursor:pointer;background:#ffc531;box-shadow:0 4px 0 #a7780a;display:flex;align-items:center;justify-content:center;gap:8px}
+.b:active{transform:translateY(3px);box-shadow:0 1px 0 #a7780a}
+.b.alt{background:#2b3266;color:#fff;box-shadow:0 4px 0 #161a3a}
+.b.alt:active{box-shadow:0 1px 0 #161a3a}
+.b.teal{background:#2fd3b4;box-shadow:0 4px 0 #13806b}
+.b:disabled{opacity:.45;cursor:default;transform:none}
+.b:focus-visible{outline:3px solid #8fb4ff;outline-offset:3px}
+.row2{display:flex;gap:10px}.row2 .b{flex:1}
+.cr{display:inline-flex;align-items:center;gap:5px;font-weight:800;font-variant-numeric:tabular-nums}
+.cr img{width:18px;height:18px}
+.coin{width:18px;height:18px;flex:none}
+.note{color:#aab3e0;font-size:13px;margin:12px 0 0;line-height:1.4}
+.up{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;text-align:left;background:rgba(255,255,255,.05);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.up b{font-size:15px}.up small{color:#9aa3d6;font-size:12px;grid-column:1}
+.pips{display:flex;gap:4px;grid-column:1}.pips i{width:16px;height:6px;border-radius:3px;background:rgba(255,255,255,.15)}.pips i.on{background:#2fd3b4}
+.up .b{grid-row:1/4;grid-column:2;padding:9px 12px;font-size:14px}
+.lb{list-style:none;margin:12px 0 0;padding:0;text-align:left;font-size:14px;border-top:1px solid rgba(255,255,255,.1)}
+.lb li{display:grid;grid-template-columns:26px 1fr auto;gap:8px;padding:6px 2px;border-bottom:1px solid rgba(255,255,255,.07)}
+.lb li.me{color:#ffd76a;font-weight:700}.lb span:first-child{color:#8f98c8}.lb span:last-child{font-variant-numeric:tabular-nums;font-weight:700}
+.lb-title{margin:14px 0 0;font-size:13px;color:#9aa3d6;text-transform:uppercase;letter-spacing:.06em}
+#hudBtns{position:fixed;top:10px;right:10px;display:none;gap:8px;z-index:4}
+#hudBtns.on{display:flex}
+.ib{width:40px;height:40px;border-radius:12px;border:1px solid rgba(160,180,255,.3);background:rgba(10,12,30,.55);color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center;padding:0}
+.ib svg{width:20px;height:20px}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#aab3e0;font-size:15px;z-index:6;background:#05060f}
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="0" aria-label="Звёздный патруль: игровое поле"></canvas>
+<div id="loading">Готовим корабль…</div>
+
+<div id="hudBtns">
+  <button class="ib" id="muteBtn" type="button" aria-label="Звук"></button>
+  <button class="ib" id="pauseBtn" type="button" aria-label="Пауза"><svg viewBox="0 0 20 20" fill="#fff"><rect x="4" y="3" width="4" height="14" rx="1.5"/><rect x="12" y="3" width="4" height="14" rx="1.5"/></svg></button>
+</div>
+
+<div class="scr" id="menu"><div class="card">
+  <h1>Звёздный патруль</h1>
+  <p class="sub">Расчистите пояс астероидов и не пустите рой к станции</p>
+  <div class="stats"><div>Рекорд<b id="mBest">0</b></div><div>Кристаллы<b class="cr" id="mCr">0</b></div></div>
+  <div class="btns">
+    <button class="b" id="playBtn" type="button">В полёт</button>
+    <button class="b alt" id="hangarBtn" type="button">Ангар</button>
+  </div>
+  <p class="note" id="ctrlNote"></p>
+</div></div>
+
+<div class="scr" id="hangar"><div class="card">
+  <h2>Ангар</h2>
+  <p class="sub">Кристаллы: <span class="cr" id="hCr">0</span></p>
+  <div id="ups"></div>
+  <div class="btns"><button class="b alt" id="hBack" type="button">Назад</button></div>
+</div></div>
+
+<div class="scr" id="paused"><div class="card">
+  <h2>Пауза</h2>
+  <div class="btns">
+    <button class="b" id="resumeBtn" type="button">Продолжить</button>
+    <button class="b alt" id="quitBtn" type="button">В меню</button>
+  </div>
+</div></div>
+
+<div class="scr" id="over"><div class="card">
+  <h2 id="oTitle">Корабль подбит</h2>
+  <div class="stats"><div>Очки<b id="oScore">0</b></div><div>Рекорд<b id="oBest">0</b></div><div>Кристаллы<b class="cr" id="oCr">0</b></div></div>
+  <div class="btns" id="revive">
+    <div class="row2">
+      <button class="b teal" id="coinRevive" type="button"></button>
+      <button class="b teal" id="adRevive" type="button">За рекламу</button>
+    </div>
+  </div>
+  <div class="btns" style="margin-top:10px">
+    <button class="b" id="againBtn" type="button">Ещё раз</button>
+    <button class="b alt" id="oHangar" type="button">Ангар</button>
+  </div>
+  <div id="board"></div>
+</div></div>
+
+<script src="../../sdk/v1.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+const TAU = Math.PI * 2;
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const COIN_SVG = '<svg class="coin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#10132b" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#10132b" stroke-width="1.4"/></svg>';
+const REVIVE_COST = 15;
+
+// ---------- картинки (рендер Blender: scripts/blender/starpatrol.py) ----------
+const IMG = {};
+const NAMES = ['ship', 'enemy_wasp', 'enemy_cruiser', 'mine', 'rock1', 'rock2', 'rock3', 'crystal', 'planet', 'nebula'];
+function loadImages() {
+  return Promise.all(NAMES.map((n) => new Promise((res) => {
+    const im = new Image();
+    im.onload = () => { IMG[n] = im; res(); };
+    im.onerror = () => res(); // без картинки игра всё равно запустится
+    im.src = `img/${n}.webp`;
+  })));
+}
+
+// ---------- сохранение через Игродром SDK ----------
+let sdk = null;
+const save = { v: 1, best: 0, crystals: 0, up: { gun: 0, armor: 0, magnet: 0 }, runs: 0, mute: false };
+function persist() { if (sdk) sdk.data.set(save).catch(() => {}); }
+function applySave(d) {
+  if (!d || typeof d !== 'object') return;
+  const num = (v, max) => (typeof v === 'number' && isFinite(v) ? clamp(Math.floor(v), 0, max) : 0);
+  save.best = Math.max(save.best, num(d.best, 1e9));
+  save.crystals = Math.max(save.crystals, num(d.crystals, 1e7));
+  save.runs = Math.max(save.runs, num(d.runs, 1e7));
+  if (d.up && typeof d.up === 'object') for (const k of Object.keys(save.up)) save.up[k] = Math.max(save.up[k], num(d.up[k], UPS[k].prices.length));
+  if (typeof d.mute === 'boolean') save.mute = d.mute;
+}
+
+// ---------- улучшения ----------
+const UPS = {
+  gun: { name: 'Пушки', desc: 'Чаще стреляют, с первого улучшения — два ствола', prices: [30, 70, 130, 220] },
+  armor: { name: 'Броня', desc: '+1 к прочности корпуса', prices: [40, 100, 180] },
+  magnet: { name: 'Магнит', desc: 'Притягивает кристаллы издалека', prices: [25, 60, 110] },
+};
+
+// ---------- экран ----------
+const VH = 720;           // логическая высота поля
+let VW = 420, scale = 1, offX = 0, offY = 0, dpr = 1, sw = 0, sh = 0;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  sw = innerWidth; sh = innerHeight;
+  cv.width = Math.round(sw * dpr); cv.height = Math.round(sh * dpr);
+  // Поле — вертикальное: на широком экране оно в центре, по бокам — космос.
+  VW = Math.round(clamp(VH * sw / sh, 380, 900));
+  scale = Math.min(sh / VH, sw / VW);
+  offX = (sw - VW * scale) / 2; offY = (sh - VH * scale) / 2;
+  if (player) { player.x = clamp(player.x, 30, VW - 30); }
+}
+addEventListener('resize', resize);
+
+// ---------- звук: синтез WebAudio, без файлов ----------
+let ac = null, master = null, noiseBuf = null;
+function audio() {
+  if (ac) return ac;
+  try {
+    ac = new (window.AudioContext || window.webkitAudioContext)();
+    master = ac.createGain(); master.gain.value = save.mute ? 0 : 0.5; master.connect(ac.destination);
+    noiseBuf = ac.createBuffer(1, ac.sampleRate * 0.6, ac.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  } catch (e) { ac = null; }
+  return ac;
+}
+function tone(type, f0, f1, dur, vol, delay = 0) {
+  if (!ac || save.mute || ac.state !== 'running') return;
+  const t = ac.currentTime + delay;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.02);
+}
+function boom(size = 1) {
+  if (!ac || save.mute || ac.state !== 'running') return;
+  const t = ac.currentTime;
+  const s = ac.createBufferSource(); s.buffer = noiseBuf;
+  const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(1400 * size, t); f.frequency.exponentialRampToValueAtTime(80, t + 0.5 * size);
+  const g = ac.createGain(); g.gain.setValueAtTime(0.35 * Math.min(1.4, size), t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55 * size);
+  s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + 0.6);
+}
+const sfx = {
+  shot: () => tone('square', 1300, 500, 0.06, 0.025),
+  hit: () => tone('triangle', 260, 120, 0.06, 0.05),
+  crystal: () => { tone('sine', 1250, 1900, 0.07, 0.08); },
+  power: () => { tone('sine', 520, 780, 0.1, 0.1); tone('sine', 780, 1170, 0.12, 0.1, 0.09); },
+  hurt: () => { tone('sawtooth', 180, 50, 0.35, 0.18); boom(0.6); },
+  buy: () => { tone('sine', 660, 990, 0.08, 0.1); tone('sine', 990, 1320, 0.1, 0.1, 0.07); },
+};
+function setMute(m) {
+  save.mute = m;
+  if (master) master.gain.value = m ? 0 : 0.5;
+  $('muteBtn').innerHTML = m
+    ? '<svg viewBox="0 0 20 20" fill="#fff"><path d="M3 7h3l4-3v12l-4-3H3z"/><path d="m13 7 5 6m0-6-5 6" stroke="#fff" stroke-width="2"/></svg>'
+    : '<svg viewBox="0 0 20 20" fill="#fff"><path d="M3 7h3l4-3v12l-4-3H3z"/><path d="M13 6.5a5 5 0 0 1 0 7M15.5 4a8.5 8.5 0 0 1 0 12" stroke="#fff" stroke-width="1.8" fill="none"/></svg>';
+}
+
+// ---------- мир ----------
+let state = 'loading';  // loading | menu | play | paused | dying | over
+let player = null, bullets = [], foes = [], shots = [], drops = [], parts = [], texts = [];
+let score = 0, runCrystals = 0, time = 0, sector = 1, shake = 0, revived = false, flash = 0;
+let spawnT = {}, bgY = 0, banner = null;
+const stars = [];
+for (let i = 0; i < 160; i++) stars.push({ x: Math.random(), y: Math.random(), z: pick([0.25, 0.5, 1]), p: Math.random() * TAU });
+let planet = { x: 0.8, y: 0.02, s: 0.5, v: 6 };
+
+function newPlayer() {
+  const hp = 3 + save.up.armor;
+  return { x: VW / 2, y: VH - 120, tx: VW / 2, ty: VH - 120, vx: 0, r: 17, hp, max: hp, cd: 0, inv: 0, shield: 0, triple: 0, bank: 0, alive: true };
+}
+
+function startRun() {
+  audio(); if (ac && ac.state === 'suspended') ac.resume();
+  player = newPlayer();
+  bullets = []; foes = []; shots = []; drops = []; parts = []; texts = [];
+  score = 0; runCrystals = 0; time = 0; sector = 1; shake = 0; revived = false; flash = 0;
+  spawnT = { rock: 0.6, wasp: 7, mine: 22, cruiser: 40, power: 25 };
+  banner = { text: 'Сектор 1', t: 2.2 };
+  show(null);
+  state = 'play';
+  $('hudBtns').classList.add('on');
+  sdk?.game.start();
+  cv.focus({ preventScroll: true });
+}
+
+// ---------- враги ----------
+const ROCK = { L: { r: 44, hp: 7, pts: 40, cr: 3 }, M: { r: 28, hp: 3, pts: 20, cr: 2 }, S: { r: 16, hp: 1, pts: 10, cr: 1 } };
+function addRock(size, x, y, vx, vy) {
+  const k = ROCK[size];
+  foes.push({ kind: 'rock', size, x, y, vx, vy, r: k.r, hp: k.hp + (sector > 3 ? 1 : 0), rot: rnd(0, TAU), vr: rnd(-1.4, 1.4), img: pick(['rock1', 'rock2', 'rock3']), hit: 0 });
+}
+function spawnRock() {
+  const size = Math.random() < 0.35 ? 'L' : Math.random() < 0.6 ? 'M' : 'S';
+  addRock(size, rnd(40, VW - 40), -60, rnd(-30, 30), rnd(70, 110) + sector * 8);
+}
+function spawnWasps() {
+  const n = Math.min(3 + sector, 7);
+  const base = rnd(90, VW - 90);
+  const phase = rnd(0, TAU);
+  for (let i = 0; i < n; i++) {
+    foes.push({ kind: 'wasp', x: base, bx: base, y: -50 - i * 58, vy: 115 + sector * 6, r: 22, hp: 3, amp: Math.min(150, VW * 0.22), ph: phase + i * 0.45, t: 0, cd: rnd(1.2, 3), hit: 0 });
+  }
+}
+function spawnMine() { foes.push({ kind: 'mine', x: rnd(50, VW - 50), y: -40, vx: rnd(-20, 20), vy: rnd(50, 70), r: 19, hp: 2, rot: 0, arm: 0, hit: 0 }); }
+function spawnCruiser() {
+  foes.push({ kind: 'cruiser', x: rnd(120, VW - 120), y: -90, vy: 70, r: 44, hp: 16 + sector * 4, max: 16 + sector * 4, cd: 1.5, dir: Math.random() < 0.5 ? -1 : 1, hit: 0 });
+}
+
+// ---------- частицы ----------
+function burst(x, y, n, colors, speed, life, size = 3) {
+  for (let i = 0; i < n && parts.length < 600; i++) {
+    const a = rnd(0, TAU), v = rnd(speed * 0.3, speed);
+    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(life * 0.5, life), max: life, c: pick(colors), s: rnd(size * 0.5, size), glow: true });
+  }
+}
+function smoke(x, y, n, r = 14) {
+  for (let i = 0; i < n && parts.length < 600; i++) {
+    const a = rnd(0, TAU), v = rnd(10, 60);
+    parts.push({ x: x + rnd(-r, r) * 0.5, y: y + rnd(-r, r) * 0.5, vx: Math.cos(a) * v, vy: Math.sin(a) * v + 20, life: rnd(0.5, 1.1), max: 1.1, c: '#5b5f78', s: rnd(r * 0.5, r), glow: false, smoke: true });
+  }
+}
+function ring(x, y, r, c = '#ffd27a') { parts.push({ ring: true, x, y, r: 4, R: r, life: 0.35, max: 0.35, c }); }
+function explode(x, y, big = 1) {
+  burst(x, y, 16 * big, ['#fff3c4', '#ffc531', '#ff8a2a', '#ff4d2a'], 260 * big, 0.6, 3.2);
+  smoke(x, y, 6 * big, 14 * big);
+  ring(x, y, 46 * big);
+  shake = Math.max(shake, 5 * big);
+  boom(Math.min(1.6, 0.6 + big * 0.4));
+}
+function floatText(x, y, t, c = '#fff') { texts.push({ x, y, t, c, life: 0.9 }); }
+
+// ---------- выстрелы ----------
+function fire() {
+  const p = player;
+  const lvl = save.up.gun;
+  p.cd = 0.17 - lvl * 0.018;
+  const twin = lvl >= 1;
+  const xs = twin ? [-9, 9] : [0];
+  for (const dx of xs) bullets.push({ x: p.x + dx, y: p.y - 34, vx: 0, vy: -900, dmg: 1 });
+  if (p.triple > 0) {
+    bullets.push({ x: p.x - 14, y: p.y - 26, vx: -230, vy: -860, dmg: 1 });
+    bullets.push({ x: p.x + 14, y: p.y - 26, vx: 230, vy: -860, dmg: 1 });
+  }
+  sfx.shot();
+}
+function enemyShot(x, y, angle, speed = 270, c = '#ff4d6d') { shots.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, r: 6, c }); }
+
+// ---------- урон ----------
+function damageFoe(f, dmg) {
+  f.hp -= dmg; f.hit = 0.08;
+  if (f.hp > 0) { sfx.hit(); return; }
+  killFoe(f);
+}
+function dropCrystals(x, y, n) {
+  for (let i = 0; i < n; i++) drops.push({ kind: 'crystal', x: x + rnd(-10, 10), y: y + rnd(-10, 10), vx: rnd(-60, 60), vy: rnd(-80, 20), t: rnd(0, TAU) });
+}
+function killFoe(f) {
+  f.dead = true;
+  let pts = 0;
+  if (f.kind === 'rock') {
+    const k = ROCK[f.size]; pts = k.pts;
+    burst(f.x, f.y, 10, ['#9b8a78', '#6b5d50', '#c9b8a2'], 180, 0.7, 4);
+    smoke(f.x, f.y, 4, f.r * 0.6);
+    boom(f.size === 'L' ? 1 : 0.6);
+    if (f.size !== 'S') {
+      const next = f.size === 'L' ? 'M' : 'S';
+      for (const s of [-1, 1]) addRock(next, f.x + s * f.r * 0.4, f.y, f.vx + s * rnd(50, 90), f.vy * 0.8 + rnd(-10, 20));
+    }
+    if (Math.random() < 0.7) dropCrystals(f.x, f.y, Math.random() < 0.5 ? k.cr : 1);
+  } else if (f.kind === 'wasp') {
+    pts = 50; explode(f.x, f.y, 0.8); if (Math.random() < 0.6) dropCrystals(f.x, f.y, 2);
+  } else if (f.kind === 'mine') {
+    pts = 30; explode(f.x, f.y, 0.7); dropCrystals(f.x, f.y, 1);
+  } else if (f.kind === 'cruiser') {
+    pts = 250; explode(f.x, f.y, 1.8); setTimeout(() => explode(f.x + 20, f.y - 15, 1), 120);
+    dropCrystals(f.x, f.y, 8);
+    if (Math.random() < 0.7) drops.push({ kind: Math.random() < 0.5 ? 'shield' : 'triple', x: f.x, y: f.y, vx: 0, vy: 40, t: 0 });
+  }
+  if (f.kind !== 'rock' && Math.random() < 0.04) drops.push({ kind: Math.random() < 0.5 ? 'shield' : 'triple', x: f.x, y: f.y, vx: 0, vy: 60, t: 0 });
+  score += pts;
+  floatText(f.x, f.y - 10, `+${pts}`, '#ffe9a8');
+}
+function mineBlast(f) {
+  f.dead = true;
+  explode(f.x, f.y, 1);
+  for (let i = 0; i < 10; i++) enemyShot(f.x, f.y, (i / 10) * TAU, 230, '#ff6a3d');
+}
+function hurtPlayer() {
+  const p = player;
+  if (p.inv > 0 || !p.alive) return;
+  if (p.shield > 0) { p.shield = 0; ring(p.x, p.y, 60, '#7fd8ff'); p.inv = 0.6; sfx.power(); return; }
+  p.hp -= 1; p.inv = 1.6; shake = 12; flash = 0.25;
+  sfx.hurt();
+  burst(p.x, p.y, 14, ['#ffffff', '#9fd4ff', '#ffc531'], 220, 0.5, 3);
+  if (p.hp <= 0) {
+    p.alive = false;
+    explode(p.x, p.y, 2.2);
+    setTimeout(() => explode(p.x - 20, p.y + 10, 1.2), 150);
+    state = 'dying';
+    sdk?.game.stop();
+    setTimeout(gameOver, 1300);
+  }
+}
+
+// ---------- шаг игры ----------
+function update(dt) {
+  time += dt;
+  bgY += dt * 14;
+  for (const s of stars) { s.y += dt * 0.02 * s.z * (state === 'play' ? 1.6 : 0.5); if (s.y > 1) { s.y -= 1; s.x = Math.random(); } }
+  planet.y += dt * planet.v / VH;
+  if (planet.y > 1.4) planet = { x: rnd(0.15, 0.85), y: -0.6, s: rnd(0.35, 0.55), v: rnd(4, 8) };
+  updateParts(dt);
+  if (state !== 'play' && state !== 'dying') return;
+
+  const p = player;
+  // сектор и сложность
+  const newSector = 1 + Math.floor(time / 40);
+  if (newSector !== sector) { sector = newSector; banner = { text: `Сектор ${sector}`, t: 2.2 }; }
+  if (banner) { banner.t -= dt; if (banner.t <= 0) banner = null; }
+  const d = 1 + (sector - 1) * 0.25;
+
+  if (state === 'play') {
+    // управление
+    const k = keys;
+    const kx = (k.ArrowRight || k.KeyD ? 1 : 0) - (k.ArrowLeft || k.KeyA ? 1 : 0);
+    const ky = (k.ArrowDown || k.KeyS ? 1 : 0) - (k.ArrowUp || k.KeyW ? 1 : 0);
+    if (kx || ky) { p.tx = p.x + kx * 520 * dt * 3; p.ty = p.y + ky * 520 * dt * 3; }
+    p.tx = clamp(p.tx, 26, VW - 26); p.ty = clamp(p.ty, 60, VH - 40);
+    const ox = p.x;
+    const maxStep = 1100 * dt;
+    const dx = p.tx - p.x, dy = p.ty - p.y, dist = Math.hypot(dx, dy);
+    const step = Math.min(dist, Math.max(maxStep * 0.15, dist * Math.min(1, dt * 16)), maxStep);
+    if (dist > 0.01) { p.x += dx / dist * step; p.y += dy / dist * step; }
+    p.vx = (p.x - ox) / Math.max(dt, 1e-3);
+    p.bank += (clamp(p.vx / 700, -1, 1) - p.bank) * Math.min(1, dt * 10);
+    p.cd -= dt; if (p.cd <= 0) fire();
+    p.inv = Math.max(0, p.inv - dt); p.shield = Math.max(0, p.shield - dt); p.triple = Math.max(0, p.triple - dt);
+    // появление врагов
+    spawnT.rock -= dt; if (spawnT.rock <= 0) { spawnRock(); spawnT.rock = rnd(1.1, 1.9) / d * (420 / Math.max(420, VW)) ** 0.5; }
+    spawnT.wasp -= dt; if (spawnT.wasp <= 0) { spawnWasps(); spawnT.wasp = rnd(7, 10) / d; }
+    if (time > 20) { spawnT.mine -= dt; if (spawnT.mine <= 0) { spawnMine(); spawnT.mine = rnd(8, 12) / d; } }
+    if (time > 40) {
+      spawnT.cruiser -= dt;
+      if (spawnT.cruiser <= 0 && foes.filter((f) => f.kind === 'cruiser').length < Math.min(2, sector - 1)) { spawnCruiser(); spawnT.cruiser = rnd(16, 22) / d; }
+    }
+  }
+  flash = Math.max(0, flash - dt);
+  shake = Math.max(0, shake - dt * 30);
+
+  // пули игрока
+  for (const b of bullets) { b.x += b.vx * dt; b.y += b.vy * dt; if (b.y < -30 || b.x < -30 || b.x > VW + 30) b.dead = true; }
+  // враги
+  for (const f of foes) {
+    f.hit = Math.max(0, f.hit - dt);
+    if (f.kind === 'rock') { f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vr * dt; if (f.x < f.r || f.x > VW - f.r) f.vx *= -1; }
+    else if (f.kind === 'wasp') {
+      f.t += dt; f.y += f.vy * dt; f.x = f.bx + Math.sin(f.t * 1.8 + f.ph) * f.amp;
+      f.cd -= dt;
+      if (f.cd <= 0 && f.y > 20 && f.y < p.y - 120 && state === 'play') {
+        f.cd = rnd(2.2, 3.6) / Math.sqrt(d);
+        enemyShot(f.x, f.y + 18, Math.atan2(p.y - f.y, p.x - f.x), 250 + sector * 10);
+      }
+    } else if (f.kind === 'mine') {
+      f.x += f.vx * dt; f.y += f.vy * dt; f.rot += dt * 0.8;
+      if (f.arm > 0) { f.arm -= dt; if (f.arm <= 0) mineBlast(f); }
+      else if (p.alive && Math.hypot(p.x - f.x, p.y - f.y) < 110) f.arm = 0.7;
+    } else if (f.kind === 'cruiser') {
+      if (f.y < 120) f.y += f.vy * dt;
+      else { f.x += f.dir * 60 * dt; if (f.x < 90 || f.x > VW - 90) f.dir *= -1; f.y += 4 * dt; }
+      f.cd -= dt;
+      if (f.cd <= 0 && f.y > 40 && state === 'play') {
+        f.cd = 1.7 / Math.sqrt(d);
+        const a = Math.atan2(p.y - f.y, p.x - f.x);
+        for (const s of [-0.28, 0, 0.28]) enemyShot(f.x, f.y + 40, a + s, 230, '#c77dff');
+      }
+    }
+    if (f.y > VH + 80) f.dead = true;
+  }
+  // попадания
+  for (const b of bullets) {
+    if (b.dead) continue;
+    for (const f of foes) {
+      if (f.dead) continue;
+      const rr = f.r + 4;
+      if ((b.x - f.x) ** 2 + (b.y - f.y) ** 2 < rr * rr) {
+        b.dead = true;
+        burst(b.x, b.y, 3, ['#fff3c4', '#ffd27a'], 120, 0.25, 2);
+        if (f.kind === 'mine') { killFoe(f); break; }
+        damageFoe(f, b.dmg);
+        break;
+      }
+    }
+  }
+  // столкновения с кораблём
+  if (p.alive) {
+    for (const f of foes) {
+      if (f.dead) continue;
+      const rr = f.r * 0.82 + p.r;
+      if ((p.x - f.x) ** 2 + (p.y - f.y) ** 2 < rr * rr) {
+        if (f.kind === 'mine') mineBlast(f);
+        else if (f.kind !== 'cruiser') { killFoe(f); }
+        hurtPlayer();
+      }
+    }
+    for (const s of shots) {
+      if ((p.x - s.x) ** 2 + (p.y - s.y) ** 2 < (p.r + s.r - 3) ** 2) { s.dead = true; hurtPlayer(); }
+    }
+  }
+  for (const s of shots) { s.x += s.vx * dt; s.y += s.vy * dt; if (s.y > VH + 20 || s.y < -20 || s.x < -20 || s.x > VW + 20) s.dead = true; }
+  // кристаллы и усиления
+  const magnet = 70 + save.up.magnet * 45;
+  for (const c of drops) {
+    c.t += dt;
+    const dx = p.x - c.x, dy = p.y - c.y, dist = Math.hypot(dx, dy);
+    if (p.alive && dist < magnet) { c.vx += dx / dist * 1600 * dt; c.vy += dy / dist * 1600 * dt; }
+    else { c.vx *= 1 - Math.min(1, dt * 2); c.vy += (60 - c.vy) * Math.min(1, dt * 2); }
+    c.x += c.vx * dt; c.y += c.vy * dt;
+    if (p.alive && dist < p.r + 14) {
+      c.dead = true;
+      if (c.kind === 'crystal') { runCrystals++; score += 5; sfx.crystal(); }
+      else if (c.kind === 'shield') { p.shield = 9; sfx.power(); floatText(p.x, p.y - 40, 'Щит', '#8fdcff'); }
+      else { p.triple = 10; sfx.power(); floatText(p.x, p.y - 40, 'Тройной огонь', '#ffb36b'); }
+    }
+    if (c.y > VH + 30) c.dead = true;
+  }
+  bullets = bullets.filter((b) => !b.dead); foes = foes.filter((f) => !f.dead);
+  shots = shots.filter((s) => !s.dead); drops = drops.filter((c) => !c.dead);
+}
+
+function updateParts(dt) {
+  for (const q of parts) {
+    q.life -= dt;
+    if (q.ring) { q.r += (q.R - q.r) * Math.min(1, dt * 12); continue; }
+    q.x += q.vx * dt; q.y += q.vy * dt;
+    const f = q.smoke ? 1.5 : 3; q.vx -= q.vx * f * dt; q.vy -= q.vy * f * dt;
+  }
+  parts = parts.filter((q) => q.life > 0);
+  for (const t of texts) { t.life -= dt; t.y -= 40 * dt; }
+  texts = texts.filter((t) => t.life > 0);
+}
+
+// ---------- рисование ----------
+function drawImg(name, x, y, size, rot = 0, alpha = 1, sx = 1) {
+  const im = IMG[name];
+  if (!im) { ctx.fillStyle = '#888'; ctx.beginPath(); ctx.arc(x, y, size / 3, 0, TAU); ctx.fill(); return; }
+  const w = size, h = size * im.height / im.width;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); if (rot) ctx.rotate(rot); if (sx !== 1) ctx.scale(sx, 1);
+  ctx.drawImage(im, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+function glowDot(x, y, r, inner, outer) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, inner); g.addColorStop(0.35, outer); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+}
+
+function drawBackground() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#05060f'; ctx.fillRect(0, 0, sw, sh);
+  const neb = IMG.nebula;
+  if (neb) {
+    const w = sw, h = neb.height * (w / neb.width);
+    // Плитка бесшовная; рисуем с нахлёстом в 2 px, чтобы на стыке не было светлой линии от сглаживания.
+    let y = Math.floor((bgY * scale) % h - h);
+    for (; y < sh; y += Math.floor(h)) ctx.drawImage(neb, 0, y, w, Math.floor(h) + 2);
+  }
+  // звёзды: три слоя с разной скоростью
+  for (const s of stars) {
+    const tw = 0.6 + 0.4 * Math.sin(time * 2 + s.p);
+    ctx.globalAlpha = (0.35 + s.z * 0.6) * tw;
+    ctx.fillStyle = s.z === 1 ? '#ffffff' : '#bcd0ff';
+    const r = s.z * 1.3 * Math.max(1, scale);
+    ctx.fillRect(s.x * sw, s.y * sh, r, r * (state === 'play' ? 1 + s.z * 2 : 1));
+  }
+  ctx.globalAlpha = 1;
+  if (IMG.planet) {
+    const w = Math.min(sw, VW * scale) * planet.s;
+    ctx.globalAlpha = 0.7;
+    ctx.drawImage(IMG.planet, offX + planet.x * VW * scale - w / 2, planet.y * sh - w * 0.31, w, w * IMG.planet.height / IMG.planet.width);
+    ctx.globalAlpha = 1;
+  }
+  // поле игры: по бокам на широком экране чуть темнее
+  if (offX > 1) {
+    ctx.fillStyle = 'rgba(2,3,10,.45)';
+    ctx.fillRect(0, 0, offX, sh); ctx.fillRect(sw - offX, 0, offX, sh);
+    ctx.fillStyle = 'rgba(140,170,255,.18)';
+    ctx.fillRect(offX - 1, 0, 1, sh); ctx.fillRect(sw - offX, 0, 1, sh);
+  }
+}
+
+function drawFlame(x, y, len, w, up = false) {
+  const dir = up ? -1 : 1;
+  const g = ctx.createLinearGradient(x, y, x, y + dir * len);
+  g.addColorStop(0, 'rgba(255,250,220,.95)'); g.addColorStop(0.3, 'rgba(255,190,80,.8)'); g.addColorStop(1, 'rgba(255,80,20,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.moveTo(x - w, y); ctx.quadraticCurveTo(x, y + dir * len * 1.1, x + w, y); ctx.closePath(); ctx.fill();
+}
+
+function drawWorld() {
+  const sx = shake ? rnd(-shake, shake) : 0, sy = shake ? rnd(-shake, shake) : 0;
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * (offX + sx), dpr * (offY + sy));
+  ctx.save(); ctx.beginPath(); ctx.rect(-40, -40, VW + 80, VH + 80); ctx.clip();
+
+  // кристаллы и усиления
+  for (const c of drops) {
+    if (c.kind === 'crystal') {
+      ctx.globalCompositeOperation = 'lighter';
+      glowDot(c.x, c.y, 16, 'rgba(120,255,220,.5)', 'rgba(40,200,170,.18)');
+      ctx.globalCompositeOperation = 'source-over';
+      drawImg('crystal', c.x, c.y + Math.sin(c.t * 4) * 2, 26, Math.sin(c.t * 2) * 0.4);
+    } else {
+      const col = c.kind === 'shield' ? ['rgba(160,230,255,.9)', 'rgba(60,160,255,.35)'] : ['rgba(255,220,150,.9)', 'rgba(255,120,40,.35)'];
+      ctx.globalCompositeOperation = 'lighter';
+      glowDot(c.x, c.y, 26 + Math.sin(c.t * 5) * 3, col[0], col[1]);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      if (c.kind === 'shield') { ctx.arc(c.x, c.y, 9, 0, TAU); }
+      else { for (const a of [-0.5, 0, 0.5]) { ctx.moveTo(c.x, c.y + 7); ctx.lineTo(c.x + Math.sin(a) * 11, c.y - Math.cos(a) * 9); } }
+      ctx.stroke();
+    }
+  }
+
+  // враги
+  for (const f of foes) {
+    const bright = f.hit > 0;
+    if (f.kind === 'rock') drawImg(f.img, f.x, f.y, f.r * 2.45, f.rot);
+    else if (f.kind === 'wasp') {
+      ctx.globalCompositeOperation = 'lighter'; drawFlame(f.x, f.y - 26, 16 + Math.random() * 6, 5, true); ctx.globalCompositeOperation = 'source-over';
+      drawImg('enemy_wasp', f.x, f.y, 70, Math.cos(f.t * 1.8 + f.ph) * 0.25);
+    } else if (f.kind === 'mine') {
+      drawImg('mine', f.x, f.y, 50, f.rot);
+      const blink = f.arm > 0 ? (Math.sin(time * 40) > 0) : (Math.sin(time * 5) > 0.6);
+      if (blink) { ctx.globalCompositeOperation = 'lighter'; glowDot(f.x, f.y, f.arm > 0 ? 34 : 18, 'rgba(255,90,60,.9)', 'rgba(255,40,20,.3)'); ctx.globalCompositeOperation = 'source-over'; }
+    } else if (f.kind === 'cruiser') {
+      ctx.globalCompositeOperation = 'lighter';
+      for (const dx of [-11, 0, 11]) drawFlame(f.x + dx, f.y - 52, 22 + Math.random() * 10, 5, true);
+      ctx.globalCompositeOperation = 'source-over';
+      drawImg('enemy_cruiser', f.x, f.y, 116);
+      // полоска прочности
+      ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(f.x - 36, f.y - 66, 72, 5);
+      ctx.fillStyle = '#c77dff'; ctx.fillRect(f.x - 36, f.y - 66, 72 * Math.max(0, f.hp / f.max), 5);
+    }
+    if (bright) {
+      ctx.globalCompositeOperation = 'lighter';
+      glowDot(f.x, f.y, f.r * 1.2, 'rgba(255,255,255,.55)', 'rgba(255,220,180,.15)');
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  // корабль
+  const p = player;
+  if (p && p.alive && (p.inv <= 0 || Math.sin(time * 30) > -0.3)) {
+    ctx.globalCompositeOperation = 'lighter';
+    const fl = 22 + Math.random() * 10 + (keys.ArrowUp || keys.KeyW ? 8 : 0);
+    for (const dx of [-7.6, 7.6]) drawFlame(p.x + dx * (1 - Math.abs(p.bank) * 0.25), p.y + 40, fl, 5);
+    glowDot(p.x, p.y + 44, 20, 'rgba(255,170,60,.35)', 'rgba(255,90,20,.12)');
+    ctx.globalCompositeOperation = 'source-over';
+    drawImg('ship', p.x, p.y, 92, p.bank * 0.12, 1, 1 - Math.abs(p.bank) * 0.22);
+    if (p.shield > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      const a = p.shield < 2 ? (Math.sin(time * 20) > 0 ? 0.9 : 0.3) : 0.9;
+      ctx.globalAlpha = a;
+      glowDot(p.x, p.y, 54, 'rgba(60,150,255,0)', 'rgba(80,180,255,.12)');
+      ctx.strokeStyle = 'rgba(140,220,255,.75)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 46, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  // снаряды
+  ctx.globalCompositeOperation = 'lighter';
+  for (const b of bullets) {
+    ctx.fillStyle = 'rgba(255,170,40,.28)'; ctx.fillRect(b.x - 5, b.y - 15, 10, 30);
+    ctx.fillStyle = 'rgba(255,210,90,.6)'; ctx.fillRect(b.x - 2.5, b.y - 12, 5, 24);
+    ctx.fillStyle = '#fffbe6'; ctx.fillRect(b.x - 1, b.y - 10, 2, 20);
+  }
+  for (const s of shots) glowDot(s.x, s.y, 13, '#fff', s.c);
+  // частицы
+  for (const q of parts) {
+    const k = Math.max(0, q.life / q.max);
+    if (q.ring) {
+      ctx.strokeStyle = q.c; ctx.globalAlpha = k; ctx.lineWidth = 3 * k + 1;
+      ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+    } else if (q.smoke) {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = k * 0.35; ctx.fillStyle = q.c;
+      ctx.beginPath(); ctx.arc(q.x, q.y, q.s * (1.6 - k * 0.6), 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'lighter';
+    } else {
+      ctx.globalAlpha = k; ctx.fillStyle = q.c;
+      ctx.fillRect(q.x - q.s / 2, q.y - q.s / 2, q.s, q.s);
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  // всплывающие очки
+  ctx.textAlign = 'center'; ctx.font = '800 15px system-ui,sans-serif';
+  for (const t of texts) { ctx.globalAlpha = Math.min(1, t.life * 2); ctx.fillStyle = t.c; ctx.fillText(t.t, t.x, t.y); }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawHud() {
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * offX, dpr * offY);
+  if (flash > 0) { ctx.fillStyle = `rgba(255,60,60,${flash * 0.8})`; ctx.fillRect(0, 0, VW, VH); }
+  if (state !== 'play' && state !== 'dying' && state !== 'paused') return;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 6;
+  ctx.fillStyle = '#fff'; ctx.font = '900 28px system-ui,sans-serif';
+  ctx.fillText(score.toLocaleString('ru-RU'), 16, 14);
+  if (IMG.crystal) ctx.drawImage(IMG.crystal, 14, 50, 22, 22);
+  ctx.font = '800 17px system-ui,sans-serif'; ctx.fillStyle = '#8ff5dc';
+  ctx.fillText(String(runCrystals), 40, 53);
+  // прочность корпуса
+  const p = player;
+  ctx.shadowBlur = 0;
+  for (let i = 0; i < p.max; i++) {
+    const x = 16 + i * 22, y = 82;
+    ctx.fillStyle = i < p.hp ? '#ffc531' : 'rgba(255,255,255,.15)';
+    ctx.beginPath(); ctx.moveTo(x, y + 4); ctx.lineTo(x + 8, y); ctx.lineTo(x + 16, y + 4); ctx.lineTo(x + 16, y + 10); ctx.lineTo(x + 8, y + 15); ctx.lineTo(x, y + 10); ctx.closePath(); ctx.fill();
+  }
+  // таймеры усилений
+  let ty = 106;
+  for (const [t, max, c, label] of [[p.shield, 9, '#7fd8ff', 'Щит'], [p.triple, 10, '#ffb36b', 'Огонь ×3']]) {
+    if (t <= 0) continue;
+    ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(16, ty + 14, 80, 4);
+    ctx.fillStyle = c; ctx.fillRect(16, ty + 14, 80 * t / max, 4);
+    ctx.font = '700 12px system-ui,sans-serif'; ctx.fillText(label, 16, ty); ty += 26;
+  }
+  if (banner) {
+    const a = Math.min(1, banner.t, 2.2 - banner.t + 0.2);
+    ctx.globalAlpha = clamp(a, 0, 1); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '900 34px system-ui,sans-serif'; ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(80,170,255,.8)'; ctx.shadowBlur = 18;
+    ctx.fillText(banner.text, VW / 2, VH * 0.36);
+    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  }
+  ctx.textBaseline = 'alphabetic'; ctx.shadowBlur = 0;
+}
+
+// ---------- цикл ----------
+let last = 0;
+function frame(t) {
+  const dt = Math.min(0.05, (t - last) / 1000 || 0);
+  last = t;
+  if (state !== 'paused') update(dt);
+  drawBackground();
+  if (player && state !== 'menu') drawWorld();
+  if (player && state !== 'menu') drawHud();
+  requestAnimationFrame(frame);
+}
+
+// ---------- управление ----------
+const keys = {};
+addEventListener('keydown', (e) => {
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+  if ((e.code === 'Escape' || e.code === 'KeyP') && (state === 'play' || state === 'paused')) togglePause();
+});
+addEventListener('keyup', (e) => { keys[e.code] = false; });
+let drag = null;
+const toWorld = (e) => ({ x: (e.clientX - offX) / scale, y: (e.clientY - offY) / scale });
+cv.addEventListener('pointerdown', (e) => {
+  if (state !== 'play' || !player) return;
+  const w = toWorld(e);
+  // Мышь: корабль летит к курсору. Палец: корабль сдвигается вслед за пальцем и не прячется под ним.
+  drag = { id: e.pointerId, mouse: e.pointerType === 'mouse', sx: w.x, sy: w.y, px: player.tx, py: player.ty };
+  if (drag.mouse) { player.tx = w.x; player.ty = w.y; }
+  cv.setPointerCapture?.(e.pointerId);
+});
+cv.addEventListener('pointermove', (e) => {
+  if (state !== 'play' || !player) return;
+  const w = toWorld(e);
+  if (e.pointerType === 'mouse') { player.tx = w.x; player.ty = w.y; return; }
+  if (!drag || drag.id !== e.pointerId) return;
+  player.tx = drag.px + (w.x - drag.sx) * 1.25; player.ty = drag.py + (w.y - drag.sy) * 1.25;
+});
+const endDrag = (e) => { if (drag && drag.id === e.pointerId) drag = null; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+
+function togglePause(force) {
+  if (state === 'play' && force !== false) { state = 'paused'; show('paused'); sdk?.game.stop(); }
+  else if (state === 'paused' && force !== true) { state = 'play'; show(null); sdk?.game.start(); last = performance.now(); cv.focus({ preventScroll: true }); }
+}
+addEventListener('blur', () => { if (state === 'play') togglePause(true); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') togglePause(true); });
+
+// ---------- экраны ----------
+function show(id) {
+  for (const s of document.querySelectorAll('.scr')) s.classList.toggle('on', s.id === id);
+  $('hudBtns').classList.toggle('on', state === 'play' || state === 'paused' || id === 'paused');
+  const first = id && $(id).querySelector('.b:not(:disabled)');
+  if (first) first.focus({ preventScroll: true });
+}
+function crystalsHTML(n) { return `<img src="img/crystal.webp" alt="">${n.toLocaleString('ru-RU')}`; }
+function openMenu() {
+  state = 'menu'; player = null;
+  $('mBest').textContent = save.best.toLocaleString('ru-RU');
+  $('mCr').innerHTML = crystalsHTML(save.crystals);
+  $('hudBtns').classList.remove('on');
+  show('menu');
+}
+function openHangar(from) {
+  const back = from || 'menu';
+  $('hCr').innerHTML = crystalsHTML(save.crystals);
+  $('ups').innerHTML = Object.entries(UPS).map(([k, u]) => {
+    const lvl = save.up[k], max = u.prices.length, price = u.prices[lvl];
+    return `<div class="up"><b>${u.name}</b><small>${u.desc}</small>
+      <div class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</div>
+      ${lvl >= max ? '<button class="b alt" disabled>Максимум</button>'
+        : `<button class="b teal" data-up="${k}" ${save.crystals < price ? 'disabled' : ''}><span class="cr">${crystalsHTML(price)}</span></button>`}</div>`;
+  }).join('');
+  $('hBack').onclick = () => (back === 'over' ? show('over') : openMenu());
+  show('hangar');
+}
+$('ups').onclick = (e) => {
+  const b = e.target.closest('[data-up]'); if (!b) return;
+  const k = b.dataset.up, price = UPS[k].prices[save.up[k]];
+  if (price == null || save.crystals < price) return;
+  audio(); save.crystals -= price; save.up[k]++; persist(); sfx.buy();
+  const from = $('hBack').onclick;
+  openHangar(); $('hBack').onclick = from;
+};
+
+async function gameOver() {
+  state = 'over';
+  $('hudBtns').classList.remove('on');
+  const isBest = score > save.best;
+  save.best = Math.max(save.best, score);
+  save.crystals += runCrystals; save.runs++;
+  persist();
+  $('oTitle').textContent = isBest && score > 0 ? 'Новый рекорд!' : 'Корабль подбит';
+  $('oScore').textContent = score.toLocaleString('ru-RU');
+  $('oBest').textContent = save.best.toLocaleString('ru-RU');
+  $('oCr').innerHTML = crystalsHTML(runCrystals);
+  // Продолжить полёт можно один раз за вылет: за монетки площадки или за рекламу.
+  const hosted = sdk && sdk.environment.host === 'igrodrom';
+  $('revive').classList.toggle('hidden', revived || !sdk);
+  $('coinRevive').classList.toggle('hidden', !hosted);
+  $('coinRevive').innerHTML = `Продолжить ${COIN_SVG} ${REVIVE_COST}`;
+  show('over');
+  runCrystals = 0; // кристаллы уже в копилке; при продолжении считаем заново
+  renderBoard(null);
+  if (sdk && score > 0) {
+    try { await sdk.leaderboard.setScore(save.best); } catch (e) { /* гость: в таблице только вошедшие */ }
+    renderBoard(await sdk.leaderboard.getEntries({ top: 5, around: 1 }).catch(() => null));
+  }
+}
+
+function renderBoard(r) {
+  const el = $('board');
+  if (!r || !sdk || sdk.environment.host !== 'igrodrom') { el.innerHTML = ''; return; }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const rows = r.entries.slice();
+  for (const e of r.around || []) if (!rows.some((x) => x.rank === e.rank)) rows.push(e);
+  const note = sdk.player.anonymous ? '<p class="note">Войдите на сайте, чтобы ваш результат попал в таблицу рекордов.</p>' : '';
+  el.innerHTML = rows.length ? `<p class="lb-title">Таблица рекордов</p><ol class="lb">${rows.map((e) =>
+    `<li class="${e.me ? 'me' : ''}"><span>${e.rank}</span><span>${esc(e.name)}</span><span>${e.score.toLocaleString('ru-RU')}</span></li>`).join('')}</ol>${note}` : note;
+}
+
+function revive() {
+  revived = true;
+  const p = player;
+  p.hp = p.max; p.alive = true; p.inv = 3; p.shield = 4;
+  shots = [];
+  for (const f of foes) if (Math.hypot(f.x - p.x, f.y - p.y) < 260 && f.kind !== 'cruiser') { f.dead = true; explode(f.x, f.y, 0.6); }
+  ring(p.x, p.y, 200, '#7fd8ff');
+  // Кристаллы этого вылета уже записаны; дальше копим новые.
+  state = 'play'; show(null); $('hudBtns').classList.add('on'); last = performance.now();
+  sdk?.game.start();
+  cv.focus({ preventScroll: true });
+}
+
+$('coinRevive').onclick = async () => {
+  $('coinRevive').disabled = true;
+  try {
+    const r = await sdk.coins.spend(REVIVE_COST, 'Продолжить полёт');
+    if (r.ok) revive();
+  } finally { $('coinRevive').disabled = false; }
+};
+$('adRevive').onclick = async () => {
+  $('adRevive').disabled = true;
+  try {
+    const r = await sdk.ads.rewarded();
+    if (r.rewarded) revive();
+  } finally { $('adRevive').disabled = false; }
+};
+$('againBtn').onclick = async () => {
+  // Между вылетами — естественная пауза для полноэкранной рекламы (площадка сама решает, показывать ли).
+  if (sdk && save.runs > 1) await sdk.ads.fullscreen().catch(() => {});
+  startRun();
+};
+$('oHangar').onclick = () => openHangar('over');
+$('playBtn').onclick = startRun;
+$('hangarBtn').onclick = () => openHangar('menu');
+$('resumeBtn').onclick = () => togglePause(false);
+$('quitBtn').onclick = () => { sdk?.game.stop(); openMenu(); };
+$('pauseBtn').onclick = () => togglePause();
+$('muteBtn').onclick = () => { audio(); setMute(!save.mute); persist(); };
+$('ctrlNote').textContent = matchMedia('(pointer: coarse)').matches
+  ? 'Ведите пальцем в любом месте экрана — корабль повторит движение. Стреляет он сам.'
+  : 'Мышь или стрелки — полёт, стреляет корабль сам. Esc — пауза.';
+
+// ---------- запуск ----------
+resize();
+setMute(false);
+requestAnimationFrame(frame);
+const sdkReady = window.Igrodrom
+  ? Igrodrom.init().then(async (s) => {
+    const d = await s.data.get().catch(() => null);
+    applySave(d);
+    sdk = s;
+    setMute(save.mute);
+    s.on('pause', () => { if (state === 'play') togglePause(true); if (ac) ac.suspend().catch(() => {}); });
+    s.on('resume', () => { if (ac) ac.resume().catch(() => {}); });
+  }).catch(() => {})
+  : Promise.resolve();
+Promise.all([loadImages(), sdkReady]).then(() => {
+  $('loading').remove();
+  openMenu();
+  sdk?.game.ready();
+});
+})();
+</script>
+</body>
+</html>

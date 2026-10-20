@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Мурмерж</title>
+  <!-- SDK: на Яндекс Играх это /sdk.js. В каталоге Игродрома — совместимый SDK площадки (public/sdk.js);
+       путь относительный, чтобы игра работала и на сервере, и в статической копии на GitHub Pages. -->
+  <script src="../../sdk.js"></script>
+  <style>html,body{touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;background:#ffd6b8;width:100%;height:100%;margin:0;padding:0;overflow:hidden}#game{position:fixed;inset:0}#game canvas{touch-action:none;display:block}#loader{z-index:10;background:linear-gradient(#ffe3b3,#ffb8c6);flex-direction:column;justify-content:center;align-items:center;gap:28px;transition:opacity .4s;display:flex;position:fixed;inset:0}#loader.hide{opacity:0;pointer-events:none}#loader svg{width:110px;height:110px;animation:.7s ease-in-out infinite alternate hop}#loader .bar{background:#fff4e6;border:4px solid #4a2e3f;border-radius:7px;width:200px;height:14px;overflow:hidden}#loader .fill{background:#ff8fb0;border-radius:7px;width:10%;height:100%;transition:width .3s}@keyframes hop{0%{transform:translateY(0)rotate(-6deg)}to{transform:translateY(-18px)rotate(6deg)}}</style>
+  <script type="module" crossorigin src="./index-ePj7WSr4.js"></script>
+  <link rel="stylesheet" crossorigin href="./index-BiZoW5GJ.css">
+</head>
+<body>
+  <div id="loader">
+    <svg viewBox="0 0 128 128" aria-hidden="true">
+      <g fill="#fff" stroke="#4A2E3F" stroke-width="6" stroke-linejoin="round">
+        <path d="M64 58 C 88 58 102 80 98 96 C 95 108 82 108 64 104 C 46 108 33 108 30 96 C 26 80 40 58 64 58 Z"/>
+        <ellipse cx="30" cy="54" rx="12" ry="15" transform="rotate(-20 30 54)"/>
+        <ellipse cx="50" cy="32" rx="12" ry="16" transform="rotate(-6 50 32)"/>
+        <ellipse cx="78" cy="32" rx="12" ry="16" transform="rotate(6 78 32)"/>
+        <ellipse cx="98" cy="54" rx="12" ry="15" transform="rotate(20 98 54)"/>
+      </g>
+    </svg>
+    <div class="bar"><div class="fill" id="loaderFill"></div></div>
+  </div>
+  <div id="game"></div>
+</body>
+</html>

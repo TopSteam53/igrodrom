@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Летучая птичка</title>
+<style>
+html,body{margin:0;height:100%;overflow:hidden;background:#0f1226;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+body{display:flex;align-items:center;justify-content:center}
+#wrap{position:relative;touch-action:none}
+canvas{display:block;touch-action:none;outline:none;border-radius:10px;cursor:pointer}
+#over{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(10,8,30,.55);border-radius:10px}
+#over.show{display:flex}
+.card{background:linear-gradient(180deg,#2a1d5c,#1b1030);border:2px solid #9b5de5;border-radius:16px;padding:16px 22px 18px;text-align:center;min-width:180px;max-width:80%;box-shadow:0 10px 40px rgba(0,0,0,.5);animation:pop .25s ease-out}
+@keyframes pop{from{transform:scale(.8);opacity:0}to{transform:none;opacity:1}}
+.card h2{margin:0 0 8px;font-size:22px;font-weight:800}
+.row{display:flex;justify-content:center;gap:18px;margin:6px 0 4px}
+.row div{font-size:12px;color:#c9c6ff;text-transform:uppercase;letter-spacing:.5px}
+.row b{display:block;font-size:26px;color:#fff;letter-spacing:0}
+#nb{color:#ffd166;font-weight:700;font-size:14px;min-height:18px;margin-bottom:8px}
+#again{font:800 17px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;border:0;border-radius:12px;padding:11px 26px;cursor:pointer;background:linear-gradient(180deg,#ff8c42,#f15b2a);box-shadow:0 4px 0 #a33a12}
+#again:active{transform:translateY(2px);box-shadow:0 2px 0 #a33a12}
+#again:focus-visible{outline:3px solid #ffd166;outline-offset:3px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="c" tabindex="0" aria-label="Летучая птичка: игровое поле"></canvas>
+  <div id="over" role="dialog" aria-label="Игра окончена">
+    <div class="card">
+      <h2>Игра окончена</h2>
+      <div class="row"><div>Счёт<b id="sc">0</b></div><div>Рекорд<b id="bs">0</b></div></div>
+      <div id="nb"></div>
+      <button id="again" type="button">Ещё раз</button>
+    </div>
+  </div>
+</div>
+<script src="../../sdk/v1.js"></script>
+<script>
+(() => {
+'use strict';
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const wrap = document.getElementById('wrap'), overEl = document.getElementById('over');
+const $ = id => document.getElementById(id);
+
+// ---------- рекорд через Игродром SDK ----------
+// sdk присваиваем только после чтения, чтобы ранняя попытка не затёрла старый рекорд.
+let sdk = null;
+function save() { if (sdk) sdk.data.set({ v: 1, best }).catch(() => {}); }
+if (window.Igrodrom) Igrodrom.init().then(async (s) => {
+  const d = await s.data.get().catch(() => null);
+  sdk = s;
+  const b = d && typeof d === 'object' && typeof d.best === 'number' && isFinite(d.best) ? Math.floor(d.best) : 0;
+  if (b > best) { best = b; if (state === 'over') $('bs').textContent = best; }
+  else if (best > 0) save();
+}).catch(() => {});
+
+// ---------- мир ----------
+const H = 512, GROUND = 64, GY = H - GROUND;
+const G = 1500, FLAP = -430, MAXV = 640, PW = 62;
+let W = 400, scale = 1, dpr = 1;
+const bird = { x: 120, y: H / 2, vy: 0, r: 13, rot: 0, wing: 0 };
+let pipes = [], state = 'ready', score = 0, best = 0;
+let time = 0, groundOff = 0, farOff = 0, flash = 0, overAt = 0, newBest = false;
+
+// звёзды и силуэт города (детерминированно)
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const stars = Array.from({ length: 70 }, () => ({ x: rnd(), y: rnd() * 0.65, s: rnd() * 1.6 + 0.4, p: rnd() * 6 }));
+const towers = Array.from({ length: 24 }, (_, i) => ({ x: i * 46 + rnd() * 10, w: 30 + rnd() * 18, h: 40 + rnd() * 90 }));
+const TOWERS_W = 24 * 46;
+
+function speed() { return 160 + Math.min(score, 40) * 1.5; }
+function gap() { return 150 - Math.min(score, 30); }
+
+function reset() {
+  pipes = []; score = 0; newBest = false; time = 0;
+  bird.y = H * 0.45; bird.vy = 0; bird.rot = 0;
+  state = 'ready'; overEl.classList.remove('show');
+  cv.focus({ preventScroll: true });
+}
+
+function addPipe(x) {
+  const g = gap();
+  const prev = pipes.length ? pipes[pipes.length - 1].cy : GY / 2;
+  const min = 70 + g / 2, max = GY - 50 - g / 2;
+  let cy = prev + (Math.random() * 2 - 1) * 150;
+  cy = Math.max(min, Math.min(max, cy));
+  pipes.push({ x, cy, g, passed: false });
+}
+
+function flap() {
+  if (state === 'ready') { state = 'play'; addPipe(W + 60); }
+  if (state === 'pause') state = 'play';
+  if (state !== 'play') return;
+  bird.vy = FLAP; bird.wing = 0;
+}
+
+function die() {
+  if (state !== 'play') return;
+  state = 'dead'; flash = 0.25;
+  if (bird.vy < 0) bird.vy = 0;
+  if (score > best) { best = score; newBest = true; save(); }
+}
+
+function showOver() {
+  state = 'over'; overAt = performance.now();
+  $('sc').textContent = score; $('bs').textContent = best;
+  $('nb').textContent = newBest && score > 0 ? 'Новый рекорд!' : '';
+  overEl.classList.add('show');
+  $('again').focus({ preventScroll: true });
+}
+
+function again() { if (state === 'over' && performance.now() - overAt > 350) reset(); }
+
+// ---------- размеры ----------
+function resize() {
+  const vw = Math.max(200, window.innerWidth), vh = Math.max(200, window.innerHeight);
+  W = Math.round(Math.min(900, Math.max(300, H * vw / vh)));
+  scale = Math.min(vw / W, vh / H);
+  dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const cw = Math.floor(W * scale), ch = Math.floor(H * scale);
+  cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+  wrap.style.width = cw + 'px'; wrap.style.height = ch + 'px';
+  cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
+  bird.x = Math.round(Math.max(80, Math.min(190, W * 0.28)));
+  draw();
+}
+
+// ---------- ввод ----------
+cv.addEventListener('pointerdown', e => {
+  e.preventDefault(); cv.focus({ preventScroll: true });
+  if (e.button !== undefined && e.button > 0) return;
+  flap();
+});
+cv.addEventListener('contextmenu', e => e.preventDefault());
+overEl.addEventListener('pointerdown', e => { if (e.target === overEl) e.preventDefault(); });
+$('again').addEventListener('click', again);
+window.addEventListener('keydown', e => {
+  const k = e.key;
+  if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ц' || k === 'Ц' || k === 'Enter') {
+    e.preventDefault();
+    if (e.repeat) return;
+    if (state === 'over') again(); else flap();
+  } else if (k === 'p' || k === 'P' || k === 'з' || k === 'З' || k === 'Escape') {
+    if (state === 'play') state = 'pause'; else if (state === 'pause') state = 'play';
+  }
+});
+const autoPause = () => { if (state === 'play') state = 'pause'; };
+window.addEventListener('blur', autoPause);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause(); });
+window.addEventListener('resize', resize);
+
+// ---------- логика ----------
+function circleRect(cx, cy, r, x, y, w, h) {
+  const nx = Math.max(x, Math.min(cx, x + w)), ny = Math.max(y, Math.min(cy, y + h));
+  return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r;
+}
+
+function update(dt) {
+  time += dt;
+  if (flash > 0) flash = Math.max(0, flash - dt);
+  const moving = state === 'ready' || state === 'play';
+  if (moving) {
+    groundOff = (groundOff + speed() * dt) % 24;
+    farOff = (farOff + speed() * 0.2 * dt) % TOWERS_W;
+  }
+  bird.wing += dt * (state === 'play' ? 14 : 9);
+
+  if (state === 'ready') {
+    bird.y = H * 0.45 + Math.sin(time * 3) * 8; bird.rot = 0;
+    return;
+  }
+  if (state === 'pause' || state === 'over') return;
+
+  bird.vy = Math.min(MAXV, bird.vy + G * dt);
+  bird.y += bird.vy * dt;
+  const targetRot = Math.max(-0.45, Math.min(1.35, bird.vy / 520));
+  bird.rot += (targetRot - bird.rot) * Math.min(1, dt * 10);
+  if (bird.y < -30) { bird.y = -30; bird.vy = 0; }
+
+  if (state === 'dead') {
+    if (bird.y + bird.r >= GY) { bird.y = GY - bird.r; showOver(); }
+    return;
+  }
+
+  const s = speed();
+  for (const p of pipes) p.x -= s * dt;
+  while (pipes.length && pipes[0].x + PW < -10) pipes.shift();
+  const last = pipes[pipes.length - 1];
+  if (!last || last.x < W - 230) addPipe((last ? last.x : W) + 230);
+
+  const hr = bird.r - 2;
+  for (const p of pipes) {
+    if (!p.passed && p.x + PW < bird.x - hr) { p.passed = true; score++; }
+    const top = p.cy - p.g / 2, bot = p.cy + p.g / 2;
+    if (circleRect(bird.x, bird.y, hr, p.x, -200, PW, top + 200) || circleRect(bird.x, bird.y, hr, p.x, bot, PW, GY - bot)) die();
+  }
+  if (bird.y + bird.r >= GY) { bird.y = GY - bird.r; die(); showOver(); }
+}
+
+// ---------- отрисовка ----------
+function rr(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function text(s, x, y, size, color, weight, stroke) {
+  ctx.font = (weight || 800) + ' ' + size + 'px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (stroke) { ctx.lineWidth = stroke; ctx.strokeStyle = '#1b1030'; ctx.lineJoin = 'round'; ctx.strokeText(s, x, y); }
+  ctx.fillStyle = color; ctx.fillText(s, x, y);
+}
+
+function drawPipe(p) {
+  const top = p.cy - p.g / 2, bot = p.cy + p.g / 2;
+  const g = ctx.createLinearGradient(p.x, 0, p.x + PW, 0);
+  g.addColorStop(0, '#3fbf4a'); g.addColorStop(0.35, '#9cf06b'); g.addColorStop(1, '#23862f');
+  ctx.fillStyle = g;
+  ctx.fillRect(p.x + 4, -10, PW - 8, top - 18 + 10);
+  ctx.fillRect(p.x + 4, bot + 18, PW - 8, GY - bot - 18);
+  ctx.strokeStyle = '#123d1a'; ctx.lineWidth = 2;
+  ctx.strokeRect(p.x + 4, -10, PW - 8, top - 18 + 10);
+  ctx.strokeRect(p.x + 4, bot + 18, PW - 8, GY - bot - 18);
+  // «шапки»
+  rr(p.x - 2, top - 22, PW + 4, 22, 5); ctx.fillStyle = g; ctx.fill(); ctx.stroke();
+  rr(p.x - 2, bot, PW + 4, 22, 5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.35)';
+  ctx.fillRect(p.x + 8, top - 18, 5, 14); ctx.fillRect(p.x + 8, bot + 4, 5, 14);
+}
+
+function drawBird() {
+  ctx.save();
+  ctx.translate(bird.x, bird.y); ctx.rotate(bird.rot);
+  // хвост
+  ctx.fillStyle = '#f15bb5';
+  ctx.beginPath(); ctx.moveTo(-12, -2); ctx.lineTo(-24, -9); ctx.lineTo(-21, 1); ctx.lineTo(-25, 8); ctx.lineTo(-12, 5); ctx.fill();
+  // тело
+  ctx.fillStyle = '#ffd166'; ctx.strokeStyle = '#7a3e00'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(0, 0, 17, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // брюшко
+  ctx.fillStyle = '#ffe9b0';
+  ctx.beginPath(); ctx.ellipse(2, 6, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
+  // глаз
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(7, -5, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#1b1030'; ctx.beginPath(); ctx.arc(9, -5, 2.8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(10, -6.2, 1, 0, Math.PI * 2); ctx.fill();
+  // клюв
+  ctx.fillStyle = '#ff6b35'; ctx.strokeStyle = '#7a2a00';
+  ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(24, 3); ctx.lineTo(13, 7); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // щёчка
+  ctx.fillStyle = 'rgba(241,91,181,.5)'; ctx.beginPath(); ctx.arc(4, 4, 3, 0, Math.PI * 2); ctx.fill();
+  // крыло
+  const wa = state === 'dead' || state === 'over' ? 0.2 : Math.sin(bird.wing) * 0.7;
+  ctx.save(); ctx.translate(-4, 1); ctx.rotate(wa);
+  ctx.fillStyle = '#ff9f1c'; ctx.strokeStyle = '#7a3e00';
+  ctx.beginPath(); ctx.ellipse(-3, 0, 10, 6, -0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+}
+
+function draw() {
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+  // небо
+  const sky = ctx.createLinearGradient(0, 0, 0, GY);
+  sky.addColorStop(0, '#0f1226'); sky.addColorStop(0.6, '#2a1650'); sky.addColorStop(1, '#4b2470');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  for (const s of stars) {
+    ctx.globalAlpha = 0.45 + 0.45 * Math.sin(time * 2 + s.p);
+    ctx.fillStyle = '#fff'; ctx.fillRect(s.x * W, s.y * GY, s.s, s.s);
+  }
+  ctx.globalAlpha = 1;
+  // луна
+  ctx.save();
+  ctx.beginPath(); ctx.arc(W - 70, 70, 26, 0, Math.PI * 2); ctx.clip();
+  ctx.beginPath(); ctx.arc(W - 70, 70, 26, 0, Math.PI * 2); ctx.moveTo(W - 58 + 22, 62); ctx.arc(W - 58, 62, 22, 0, Math.PI * 2);
+  ctx.fillStyle = '#fde68a'; ctx.fill('evenodd');
+  ctx.restore();
+  // город вдали
+  ctx.fillStyle = '#2c1a5a';
+  for (let rep = 0; rep < 2; rep++) {
+    for (const t of towers) {
+      const x = t.x - farOff + rep * TOWERS_W;
+      if (x > W || x + t.w < 0) continue;
+      ctx.fillRect(x, GY - t.h, t.w, t.h);
+    }
+  }
+  ctx.fillStyle = 'rgba(255,209,102,.35)';
+  for (let rep = 0; rep < 2; rep++) {
+    for (const t of towers) {
+      const x = t.x - farOff + rep * TOWERS_W;
+      if (x > W || x + t.w < 0) continue;
+      for (let wy = GY - t.h + 10; wy < GY - 10; wy += 16) ctx.fillRect(x + 7, wy, 4, 5);
+    }
+  }
+
+  for (const p of pipes) drawPipe(p);
+
+  // земля
+  ctx.fillStyle = '#3a2470'; ctx.fillRect(0, GY, W, GROUND);
+  ctx.fillStyle = '#84cc16'; ctx.fillRect(0, GY, W, 12);
+  ctx.fillStyle = '#4d7c0f'; ctx.fillRect(0, GY + 12, W, 3);
+  ctx.fillStyle = 'rgba(255,255,255,.07)';
+  for (let x = -groundOff; x < W + 24; x += 24) {
+    ctx.beginPath(); ctx.moveTo(x, GY + 15); ctx.lineTo(x + 12, GY + 15); ctx.lineTo(x, H); ctx.lineTo(x - 12, H); ctx.fill();
+  }
+  ctx.fillStyle = '#a3e635';
+  for (let x = -groundOff; x < W + 24; x += 24) ctx.fillRect(x, GY, 12, 4);
+
+  drawBird();
+
+  if (state === 'play' || state === 'dead' || state === 'pause') text(String(score), W / 2, 56, 46, '#fff', 900, 7);
+  if (state === 'ready') {
+    text('Летучая птичка', W / 2, H * 0.22, 32, '#ffd166', 900, 6);
+    text('Тап, клик или «Пробел» — взмах', W / 2, H * 0.62, 17, '#fff', 700, 4);
+    text('Пролетайте между трубами', W / 2, H * 0.62 + 26, 15, '#c9c6ff', 600, 4);
+    if (best > 0) text('Рекорд: ' + best, W / 2, H * 0.22 + 36, 16, '#fff', 700, 4);
+  }
+  if (state === 'pause') {
+    ctx.fillStyle = 'rgba(10,8,30,.55)'; ctx.fillRect(0, 0, W, H);
+    text('Пауза', W / 2, H * 0.42, 34, '#fff', 900, 6);
+    text('Тап или «Пробел» — продолжить', W / 2, H * 0.42 + 36, 16, '#c9c6ff', 700, 4);
+  }
+  if (flash > 0) { ctx.fillStyle = 'rgba(255,255,255,' + (flash * 2.4).toFixed(2) + ')'; ctx.fillRect(0, 0, W, H); }
+}
+
+let lastT = 0;
+function frame(t) {
+  const dt = lastT ? Math.min((t - lastT) / 1000, 0.05) : 0;
+  lastT = t;
+  update(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+window.__game = { get state() { return { state, score, best, birdY: bird.y, vy: bird.vy, birdX: bird.x, pipes: pipes.map(p => ({ x: p.x, cy: p.cy, g: p.g })), W }; } };
+
+reset();
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

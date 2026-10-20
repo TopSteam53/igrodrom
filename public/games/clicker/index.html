@@ -1,0 +1,33 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#1b1030;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;user-select:none}
+#b{font-size:90px;background:#2a1a4d;border:0;border-radius:50%;width:170px;height:170px;cursor:pointer;transition:transform .05s}#b:active{transform:scale(.92)}
+button.u{background:#7c3aed;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:15px;cursor:pointer}button.u:disabled{opacity:.4}
+#away{min-height:20px;font-size:14px;color:#c9b8ff}</style>
+<div style="font-size:32px;font-weight:800"><span id="n">0</span> 🍪</div><button id="b">🍪</button>
+<button class="u" id="u1">+1 за клик (цена <span id="p1">10</span>)</button>
+<button class="u" id="u2">Автопечь +1/сек (цена <span id="p2">50</span>)</button>
+<div id="away"></div>
+<script src="../../sdk/v1.js"></script>
+<script>
+let n=0,k=1,a=0,p1=10,p2=50;const $=i=>document.getElementById(i);
+function r(){$('n').textContent=n|0;$('p1').textContent=p1;$('p2').textContent=p2;$('u1').disabled=n<p1;$('u2').disabled=n<p2}
+
+// Сохранение через Игродром SDK: прогресс переживает перезагрузку, автопечь работает, пока игрока нет (до 2 часов).
+const MAX_AWAY_SEC=2*3600;
+let sdk=null;
+function save(){if(sdk)sdk.data.set({n,k,a,p1,p2,t:Date.now()}).catch(()=>{})}
+if(window.Igrodrom)Igrodrom.init().then(async s=>{
+  // Писать начинаем только после чтения: иначе ранний клик затрёт старое сохранение.
+  const d=await s.data.get().catch(()=>null);sdk=s;
+  if(d&&typeof d.n==='number'){
+    ({n,k,a,p1,p2}=d);
+    const away=Math.min(MAX_AWAY_SEC,Math.max(0,(Date.now()-d.t)/1000|0)),earned=away*a;
+    if(earned>0){n+=earned;$('away').textContent=`Пока вас не было, автопечь испекла ${earned} 🍪`}
+    r();
+  }
+});
+
+$('b').onclick=()=>{n+=k;r();save()};$('u1').onclick=()=>{n-=p1;k++;p1=Math.ceil(p1*1.6);r();save()};
+$('u2').onclick=()=>{n-=p2;a++;p2=Math.ceil(p2*1.7);r();save()};
+setInterval(()=>{n+=a;r()},1000);setInterval(save,5000);r();
+</script>

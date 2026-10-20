@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 464 261" width="464" height="261">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffb84a"/><stop offset=".45" stop-color="#ff6b45"/><stop offset="1" stop-color="#9e2766"/></linearGradient>
+<radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff2b0" stop-opacity=".7"/><stop offset="1" stop-color="#fff2b0" stop-opacity="0"/></radialGradient>
+<radialGradient id="glow2" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#5a1650" stop-opacity=".55"/><stop offset="1" stop-color="#5a1650" stop-opacity="0"/></radialGradient>
+<linearGradient id="paper" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffcf4"/><stop offset="1" stop-color="#fbeedb"/></linearGradient>
+<linearGradient id="frame" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6b3374"/><stop offset="1" stop-color="#3a1745"/></linearGradient>
+<linearGradient id="chip" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6e6"/><stop offset="1" stop-color="#ffd59a"/></linearGradient>
+<linearGradient id="pencil" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd84d"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#3a0a2a" flood-opacity=".55"/></filter>
+<filter id="tsh" x="-20%" y="-30%" width="140%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#5a1236" flood-opacity=".6"/></filter>
+</defs>
+<rect width="464" height="261" fill="url(#bg)"/>
+<circle cx="110" cy="40" r="150" fill="url(#glow)"/>
+<circle cx="420" cy="250" r="160" fill="url(#glow2)"/>
+<path d="M40 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M80 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M120 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M160 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M200 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M240 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M280 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M320 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M360 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M400 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M440 0V261" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M0 40H464" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M0 80H464" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M0 120H464" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M0 160H464" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M0 200H464" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<path d="M0 240H464" stroke="#fff" stroke-opacity=".06" stroke-width="1"/>
+<g transform="rotate(7 364.0 126.0)" filter="url(#sh)">
+<rect x="265" y="27" width="198" height="198" rx="16" fill="url(#frame)"/>
+<rect x="272" y="34" width="184" height="184" rx="8" fill="url(#paper)"/>
+<rect x="272" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="34" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="292.4" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="54.4" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="312.9" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="74.9" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="333.3" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="95.3" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="374.2" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="136.2" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="394.7" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="156.7" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="415.1" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="177.1" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="435.6" y="115.8" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="197.6" width="20.4" height="20.4" fill="#f7e2c4"/>
+<rect x="353.8" y="115.8" width="20.4" height="20.4" fill="#ffc35a"/>
+<path d="M292.4 34V218M272 54.4H456" stroke="#dcc2a0" stroke-width="1"/>
+<path d="M312.9 34V218M272 74.9H456" stroke="#dcc2a0" stroke-width="1"/>
+<path d="M353.8 34V218M272 115.8H456" stroke="#dcc2a0" stroke-width="1"/>
+<path d="M374.2 34V218M272 136.2H456" stroke="#dcc2a0" stroke-width="1"/>
+<path d="M415.1 34V218M272 177.1H456" stroke="#dcc2a0" stroke-width="1"/>
+<path d="M435.6 34V218M272 197.6H456" stroke="#dcc2a0" stroke-width="1"/>
+<path d="M333.3 34V218M272 95.3H456" stroke="#5b2c63" stroke-width="2.6"/>
+<path d="M394.7 34V218M272 156.7H456" stroke="#5b2c63" stroke-width="2.6"/>
+<text x="282.2" y="48.7" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">5</text>
+<text x="302.7" y="48.7" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">3</text>
+<text x="323.1" y="48.7" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2a63d4">4</text>
+<text x="364" y="48.7" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">7</text>
+<text x="282.2" y="69.2" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">6</text>
+<text x="302.7" y="69.2" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2a63d4">7</text>
+<text x="343.6" y="69.2" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">1</text>
+<text x="364" y="69.2" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">9</text>
+<text x="384.4" y="69.2" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">5</text>
+<text x="282.2" y="89.6" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2a63d4">1</text>
+<text x="302.7" y="89.6" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">9</text>
+<text x="323.1" y="89.6" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">8</text>
+<text x="425.3" y="89.6" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">6</text>
+<text x="282.2" y="110.1" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">8</text>
+<text x="364" y="110.1" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2a63d4">6</text>
+<text x="445.8" y="110.1" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">3</text>
+<text x="282.2" y="130.5" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">4</text>
+<text x="343.6" y="130.5" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">8</text>
+<text x="364" y="130.5" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2a63d4">5</text>
+<text x="384.4" y="130.5" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">3</text>
+<text x="445.8" y="130.5" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">1</text>
+<text x="282.2" y="150.9" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">7</text>
+<text x="364" y="150.9" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">2</text>
+<text x="445.8" y="150.9" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">6</text>
+<text x="302.7" y="171.4" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">6</text>
+<text x="404.9" y="171.4" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">2</text>
+<text x="425.3" y="171.4" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">8</text>
+<text x="343.6" y="191.8" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">4</text>
+<text x="364" y="191.8" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">1</text>
+<text x="384.4" y="191.8" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">9</text>
+<text x="445.8" y="191.8" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">5</text>
+<text x="364" y="212.3" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">8</text>
+<text x="425.3" y="212.3" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">7</text>
+<text x="445.8" y="212.3" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="800" font-size="15" fill="#2b1838">9</text>
+<text x="337.8" y="81.8" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="700" font-size="6" fill="#9a6f8c">1</text>
+<text x="349.3" y="81.8" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="700" font-size="6" fill="#9a6f8c">3</text>
+<text x="337.8" y="94.1" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="700" font-size="6" fill="#9a6f8c">7</text>
+</g>
+<g transform="rotate(38 300 220)" filter="url(#tsh)">
+<rect x="250" y="210" width="96" height="18" rx="3" fill="url(#pencil)"/>
+<rect x="250" y="210" width="96" height="6" rx="3" fill="#fff" opacity=".35"/>
+<rect x="238" y="210" width="16" height="18" rx="3" fill="#ff7a9a"/><rect x="250" y="210" width="6" height="18" fill="#c7c7d6"/>
+<path d="M346 210L368 219L346 228Z" fill="#ffe2b8"/><path d="M361 216.2L368 219L361 221.8Z" fill="#3b1f4a"/>
+</g>
+<g transform="rotate(-8 52 72)" filter="url(#tsh)"><rect x="30" y="50" width="44" height="44" rx="10" fill="url(#chip)"/><rect x="33" y="88" width="38" height="4" rx="2" fill="#b0631e" opacity=".3"/><text x="52" y="82" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="28" fill="#3b1f4a">5</text></g>
+<g transform="rotate(5 102 60)" filter="url(#tsh)"><rect x="80" y="38" width="44" height="44" rx="10" fill="url(#chip)"/><rect x="83" y="76" width="38" height="4" rx="2" fill="#b0631e" opacity=".3"/><text x="102" y="70" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="28" fill="#2a63d4">3</text></g>
+<g transform="rotate(-3 152 74)" filter="url(#tsh)"><rect x="130" y="52" width="44" height="44" rx="10" fill="url(#chip)"/><rect x="133" y="90" width="38" height="4" rx="2" fill="#b0631e" opacity=".3"/><text x="152" y="84" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="28" fill="#3b1f4a">9</text></g>
+<text x="26" y="168" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="54" letter-spacing="-1.5" fill="#3a0f3a" opacity=".35" transform="translate(0 5)">Судоку</text>
+<text x="26" y="168" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="54" letter-spacing="-1.5" fill="#fff" stroke="#7a1f55" stroke-width="3" stroke-opacity=".5" paint-order="stroke">Судоку</text>
+<rect x="30" y="186" width="120" height="7" rx="3.5" fill="#fff" opacity=".5"/><rect x="158" y="186" width="34" height="7" rx="3.5" fill="#fff" opacity=".3"/>
+<path d="M214 26Q214 34 222 34Q214 34 214 42Q214 34 206 34Q214 34 214 26Z" fill="#fff3c4" opacity="0.9"/>
+<path d="M24 220Q24 226 30 226Q24 226 24 232Q24 226 18 226Q24 226 24 220Z" fill="#fff3c4" opacity="0.7"/>
+<path d="M236 229Q236 236 243 236Q236 236 236 243Q236 236 229 236Q236 236 236 229Z" fill="#fff3c4" opacity="0.8"/>
+<path d="M448 14Q448 20 454 20Q448 20 448 26Q448 20 442 20Q448 20 448 14Z" fill="#fff3c4" opacity="0.7"/>
+<path d="M196 113Q196 118 201 118Q196 118 196 123Q196 118 191 118Q196 118 196 113Z" fill="#fff3c4" opacity="0.6"/>
+</svg>

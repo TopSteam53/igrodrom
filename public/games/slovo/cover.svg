@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 464 261" width="464" height="261">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#145350"/><stop offset=".5" stop-color="#0d3438"/><stop offset="1" stop-color="#0a2430"/></linearGradient>
+<radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#3fe08d" stop-opacity=".45"/><stop offset="1" stop-color="#3fe08d" stop-opacity="0"/></radialGradient>
+<radialGradient id="glow2" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#5ff0d0" stop-opacity=".22"/><stop offset="1" stop-color="#ffc94a" stop-opacity="0"/></radialGradient>
+<linearGradient id="gc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#52e893"/><stop offset="1" stop-color="#15a257"/></linearGradient>
+<linearGradient id="gp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffdc6c"/><stop offset="1" stop-color="#f0a022"/></linearGradient>
+<linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4f636c"/><stop offset="1" stop-color="#34454d"/></linearGradient>
+<linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="title" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#b7ffd9"/></linearGradient>
+<linearGradient id="title2" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffe36b"/><stop offset="1" stop-color="#ffab2e"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".5"/></filter>
+<filter id="tsh" x="-20%" y="-30%" width="140%" height="160%"><feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#021a14" flood-opacity=".7"/></filter>
+</defs>
+<rect width="464" height="261" fill="url(#bg)"/>
+<circle cx="345" cy="130" r="150" fill="url(#glow)"/>
+<circle cx="90" cy="60" r="120" fill="url(#glow2)"/>
+<g transform="rotate(8 345 130)" filter="url(#sh)">
+<rect x="238" y="26" width="224" height="182" rx="14" fill="#0b2a2d" stroke="#2b5f5d" stroke-width="2"/>
+<rect x="248" y="36" width="36" height="36" rx="6" fill="url(#ga)"/><rect x="248" y="36" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="251" y="67" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="266.0" y="61.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#c9d6db">В</text>
+<rect x="290" y="36" width="36" height="36" rx="6" fill="url(#gp)"/><rect x="290" y="36" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="293" y="67" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="308.0" y="61.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#4a2a00">Е</text>
+<rect x="332" y="36" width="36" height="36" rx="6" fill="url(#ga)"/><rect x="332" y="36" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="335" y="67" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="350.0" y="61.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#c9d6db">Т</text>
+<rect x="374" y="36" width="36" height="36" rx="6" fill="url(#ga)"/><rect x="374" y="36" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="377" y="67" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="392.0" y="61.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#c9d6db">Е</text>
+<rect x="416" y="36" width="36" height="36" rx="6" fill="url(#gp)"/><rect x="416" y="36" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="419" y="67" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="434.0" y="61.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#4a2a00">Р</text>
+<rect x="248" y="78" width="36" height="36" rx="6" fill="url(#ga)"/><rect x="248" y="78" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="251" y="109" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="266.0" y="103.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#c9d6db">Г</text>
+<rect x="290" y="78" width="36" height="36" rx="6" fill="url(#gp)"/><rect x="290" y="78" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="293" y="109" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="308.0" y="103.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#4a2a00">О</text>
+<rect x="332" y="78" width="36" height="36" rx="6" fill="url(#gc)"/><rect x="332" y="78" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="335" y="109" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="350.0" y="103.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#fff">Л</text>
+<rect x="374" y="78" width="36" height="36" rx="6" fill="url(#ga)"/><rect x="374" y="78" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="377" y="109" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="392.0" y="103.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#c9d6db">О</text>
+<rect x="416" y="78" width="36" height="36" rx="6" fill="url(#gc)"/><rect x="416" y="78" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="419" y="109" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="434.0" y="103.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#fff">С</text>
+<rect x="248" y="120" width="36" height="36" rx="6" fill="url(#gc)"/><rect x="248" y="120" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="251" y="151" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="266.0" y="145.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#fff">С</text>
+<rect x="290" y="120" width="36" height="36" rx="6" fill="url(#gc)"/><rect x="290" y="120" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="293" y="151" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="308.0" y="145.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#fff">Л</text>
+<rect x="332" y="120" width="36" height="36" rx="6" fill="url(#gc)"/><rect x="332" y="120" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="335" y="151" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="350.0" y="145.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#fff">О</text>
+<rect x="374" y="120" width="36" height="36" rx="6" fill="url(#gc)"/><rect x="374" y="120" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="377" y="151" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="392.0" y="145.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#fff">В</text>
+<rect x="416" y="120" width="36" height="36" rx="6" fill="url(#gc)"/><rect x="416" y="120" width="36" height="18.0" rx="6" fill="url(#shine)"/><rect x="419" y="151" width="30" height="3" rx="1.5" fill="#000" opacity=".18"/>
+<text x="434.0" y="145.92" text-anchor="middle" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="23" fill="#fff">О</text>
+<rect x="248" y="162" width="36" height="36" rx="6" fill="#0e2e31" stroke="#3d6e6c" stroke-width="2"/>
+<rect x="290" y="162" width="36" height="36" rx="6" fill="#0e2e31" stroke="#3d6e6c" stroke-width="2"/>
+<rect x="332" y="162" width="36" height="36" rx="6" fill="#0e2e31" stroke="#3d6e6c" stroke-width="2"/>
+<rect x="374" y="162" width="36" height="36" rx="6" fill="#0e2e31" stroke="#3d6e6c" stroke-width="2"/>
+<rect x="416" y="162" width="36" height="36" rx="6" fill="#0e2e31" stroke="#3d6e6c" stroke-width="2"/>
+</g>
+<g filter="url(#tsh)">
+<text x="26" y="118" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="64" letter-spacing="-2" fill="url(#title)">Слово</text>
+<text x="30" y="190" font-family="system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif" font-weight="900" font-size="72" letter-spacing="-2" fill="url(#title2)">дня</text>
+</g>
+<rect x="32" y="208" width="44" height="10" rx="5" fill="#52e893"/><rect x="82" y="208" width="44" height="10" rx="5" fill="#ffd25a"/><rect x="132" y="208" width="44" height="10" rx="5" fill="#4f636c"/>
+<path d="M208 32Q208 40 216 40Q208 40 208 48Q208 40 200 40Q208 40 208 32Z" fill="#fff6c8" opacity="0.9"/><path d="M440 229Q440 236 447 236Q440 236 440 243Q440 236 433 236Q440 236 440 229Z" fill="#fff6c8" opacity="0.75"/><path d="M196 224Q196 230 202 230Q196 230 196 236Q196 230 190 230Q196 230 196 224Z" fill="#fff6c8" opacity="0.7"/><path d="M20 25Q20 30 25 30Q20 30 20 35Q20 30 15 30Q20 30 20 25Z" fill="#fff6c8" opacity="0.6"/><path d="M452 16Q452 22 458 22Q452 22 452 28Q452 22 446 22Q452 22 452 16Z" fill="#fff6c8" opacity="0.7"/>
+</svg>

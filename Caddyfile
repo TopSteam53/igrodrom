@@ -1,0 +1,8 @@
+{$DOMAIN} {
+	encode zstd gzip
+	# Архив игры до 100 МБ плюс запас на заголовки.
+	request_body {
+		max_size 101MB
+	}
+	reverse_proxy app:3000
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<defs>
+<radialGradient id="bg" cx=".5" cy=".25" r=".9"><stop offset="0" stop-color="#5a2a9a"/><stop offset=".55" stop-color="#2a1550"/><stop offset="1" stop-color="#140a28"/></radialGradient>
+<radialGradient id="r" cx=".32" cy=".28" r=".8"><stop offset="0" stop-color="#ffd6de"/><stop offset=".45" stop-color="#ff4d6d"/><stop offset="1" stop-color="#a80f2c"/></radialGradient>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bfe9ff"/><stop offset=".5" stop-color="#3fa9ff"/><stop offset="1" stop-color="#1550c8"/></linearGradient>
+<linearGradient id="y" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3a0"/><stop offset=".5" stop-color="#ffd23f"/><stop offset="1" stop-color="#e09a00"/></linearGradient>
+</defs>
+<rect width="256" height="256" fill="url(#bg)"/>
+<rect x="22" y="76" width="212" height="104" rx="32" fill="#ffe14d" opacity=".16"/>
+<circle cx="60" cy="128" r="36" fill="url(#r)" stroke="#a80f2c" stroke-width="6"/>
+<ellipse cx="48" cy="113" rx="14" ry="6" fill="#fff" opacity=".85" transform="rotate(-35 48 113)"/>
+<path d="M128 78 L164 128 L128 178 L92 128Z" fill="url(#b)" stroke="#1340a0" stroke-width="6" stroke-linejoin="round"/>
+<path d="M128 78 L164 128 L128 128Z" fill="#fff" opacity=".3"/>
+<path d="M198 91 L209 116 L236 119 L215 137 L222 163 L198 149 L174 163 L181 137 L160 119 L187 116Z" fill="url(#y)" stroke="#b77400" stroke-width="6" stroke-linejoin="round"/>
+</svg>
