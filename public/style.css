@@ -327,3 +327,57 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .lost p{margin:0 0 20px;max-width:46ch;font-size:17px}
 /* Поле-ловушка для ботов в форме регистрации: вне экрана, а не display:none — так его заполняют боты. */
 .trap{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+/* ---------- аватарки ---------- */
+.ava{display:inline-block;flex:none;border-radius:50%;object-fit:cover;vertical-align:middle;background:var(--skeleton)}
+.ava-letter{display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:var(--display);font-weight:700;line-height:1}
+.btn.user-btn{padding:5px 14px 5px 5px;gap:8px}
+.user-name{max-width:160px;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:640px){.user-name{display:none}.btn.user-btn{padding:5px}}
+.lb .n{display:flex;align-items:center;gap:8px}.lb .n>span{overflow:hidden;text-overflow:ellipsis}
+.review-head{align-items:center}
+.notice>img.ava{border-radius:50%}
+
+/* ---------- профиль ---------- */
+.me-card{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:28px 0 8px}
+.me-ava{position:relative;padding:0;border:0;background:none;cursor:pointer;border-radius:50%;line-height:0}
+.me-ava .ava{width:96px;height:96px;font-size:42px;box-shadow:0 0 0 4px var(--panel),0 0 0 6px var(--key-line)}
+.me-ava-edit{position:absolute;right:-2px;bottom:-2px;width:32px;height:32px;border-radius:50%;background:var(--start);color:var(--navy);
+  border:2px solid var(--navy);display:flex;align-items:center;justify-content:center;font:700 15px/1 var(--text)}
+.me-ava:hover .me-ava-edit{transform:scale(1.08)}
+.me-info{flex:1;min-width:200px}.me-info .profile-name{margin:0 0 2px}.me-info .mut{margin:0}
+.me-badges{display:flex;gap:6px;margin-top:8px}.me-badges:empty{display:none}
+.me-acts{display:flex;gap:10px}
+.ava-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 14px}
+.ava-pick{padding:3px;border:3px solid transparent;border-radius:50%;background:none;cursor:pointer;line-height:0}
+.ava-pick img{width:100%;height:auto;border-radius:50%}
+.ava-pick:hover{border-color:var(--line)}.ava-pick.on{border-color:var(--a)}
+.ava-upload{cursor:pointer}
+
+/* ---------- кошелёк ---------- */
+.wallet{display:grid;grid-template-columns:minmax(240px,1fr) 2fr;gap:16px}
+@media(max-width:820px){.wallet{grid-template-columns:1fr}}
+.wallet-balance .coin-big{margin:4px 0 12px}
+.wallet-balance p{margin:0 0 8px}.wallet-about{font-size:14px}
+.wallet-shop h3,.history h3{margin:0 0 12px;font-size:17px}
+.packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.pack{--lift:4px;position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 10px 14px;cursor:pointer;
+  background:var(--panel);color:var(--ink);border:2px solid var(--key-line);border-radius:16px;box-shadow:0 var(--lift) 0 var(--key-shadow);
+  transition:transform .06s,box-shadow .06s;font:inherit}
+.pack:hover{background:var(--panel-hover)}
+.pack:active{transform:translateY(var(--lift));box-shadow:none}
+.pack:disabled{opacity:.55;cursor:default;transform:none;box-shadow:0 var(--lift) 0 var(--key-shadow)}
+.pack-coins{display:flex;align-items:center;gap:8px;font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.pack-coins .coin-ico{width:24px;height:24px}
+.pack-price{font:700 15px/1 var(--text);background:var(--start);color:var(--navy);border-radius:999px;padding:7px 14px}
+.pack-bonus{position:absolute;top:-10px;right:-6px;background:var(--x-ink);color:#fff;font:700 12px/1 var(--text);border-radius:999px;padding:5px 8px}
+.shop-note{margin:14px 0 0;font-size:14px}.shop-note a{color:var(--link)}
+.history{margin-top:16px}
+.history summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px}
+.history summary::-webkit-details-marker{display:none}
+.history summary h3{margin:0}
+.history summary::after{content:"▾";color:var(--ink-2)}.history[open] summary::after{content:"▴"}
+.history[open] summary{margin-bottom:10px}
+.history a{color:var(--link)}
+.tbl td.plus{color:var(--x-ink)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .tbl td.plus{color:#4ADE80}}
+:root[data-theme=dark] .tbl td.plus{color:#4ADE80}

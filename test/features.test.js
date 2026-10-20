@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createApp, COIN_DAILY_CAP } from '../server/app.js';
+import { createApp } from '../server/app.js';
 import { buildMessage } from '../server/mail.js';
 
 let server, base, dataDir, publicDir, gameId, otherId;
@@ -180,49 +180,68 @@ test('таблица рекордов: лучший результат, мест
   assert.equal((await a('POST', '/api/games/0000000000000000/leaderboard', { score: 1 })).status, 404);
 });
 
-test('монетки: за минуту в игре, не чаще и не больше лимита, трата', async () => {
+test('монетки: подарок новичку, бонус за вход раз в день, трата в игре, за время не начисляются', async () => {
   const guest = browser();
   assert.deepEqual((await guest('POST', `/api/games/${gameId}/coins/tick`)).data, { earned: 0, coins: null });
   assert.equal((await guest('POST', `/api/games/${gameId}/coins/spend`, { amount: 1, title: 'Щит' })).status, 401);
+  assert.equal((await guest('POST', '/api/me/coins/daily')).status, 401);
 
   const p = await player('coins@test.ru', 'Копилка');
-  let r = await p('POST', `/api/games/${gameId}/coins/tick`);
-  assert.equal(r.data.earned, 1);
-  r = await p('POST', `/api/games/${otherId}/coins/tick`);
-  assert.equal(r.data.earned, 0, 'вторая вкладка не ускоряет');
-  clock += 56 * 1000;
-  r = await p('POST', `/api/games/${otherId}/coins/tick`);
-  assert.deepEqual([r.data.earned, r.data.coins], [1, 2]);
+  let me = (await p('GET', '/api/me')).data.user;
+  assert.equal(me.coins, 50, 'подарок за регистрацию');
+  assert.equal(me.dailyBonus, true);
 
-  for (let i = 0; i < COIN_DAILY_CAP + 5; i++) {
-    clock += 60 * 1000;
-    if (new Date(clock).getUTCHours() >= 20) break; // не переходим на следующие сутки по Москве
-    r = await p('POST', `/api/games/${gameId}/coins/tick`);
-  }
-  assert.equal(r.data.coins, COIN_DAILY_CAP, 'дневной лимит');
-  assert.equal(r.data.earned, 0);
-  assert.equal((await p('GET', '/api/me')).data.user.coins, COIN_DAILY_CAP);
+  // Время в игре больше не приносит монеток.
+  clock += 120 * 1000;
+  assert.deepEqual((await p('POST', `/api/games/${gameId}/coins/tick`)).data, { earned: 0, coins: 50 });
 
-  r = await p('POST', `/api/games/${gameId}/coins/spend`, { amount: 25, title: 'Щит' });
-  assert.deepEqual(r.data, { ok: true, coins: COIN_DAILY_CAP - 25 });
+  assert.deepEqual((await p('POST', '/api/me/coins/daily')).data, { claimed: 5, coins: 55 });
+  assert.deepEqual((await p('POST', '/api/me/coins/daily')).data, { claimed: 0, coins: 55 }, 'второй раз за день — ничего');
+  assert.equal((await p('GET', '/api/me')).data.user.dailyBonus, false);
+
+  let r = await p('POST', `/api/games/${gameId}/coins/spend`, { amount: 25, title: 'Щит' });
+  assert.deepEqual(r.data, { ok: true, coins: 30 });
   assert.equal((await p('POST', `/api/games/${gameId}/coins/spend`, { amount: 1000, title: 'Всё' })).status, 409);
   assert.equal((await p('POST', `/api/games/${gameId}/coins/spend`, { amount: 0, title: 'Ноль' })).status, 400);
   assert.equal((await p('POST', `/api/games/${gameId}/coins/spend`, { amount: 5, title: '' })).status, 400);
 
   r = await p('GET', '/api/me/coins');
-  assert.equal(r.data.coins, COIN_DAILY_CAP - 25);
-  assert.equal(r.data.today, COIN_DAILY_CAP);
-  assert.deepEqual(r.data.spends.map((s) => [s.title, s.amount, s.game_id]), [['Щит', 25, gameId]]);
-  assert.ok(['alpha', 'beta'].includes(r.data.spends[0].game_title), 'название игры — для истории в профиле');
+  assert.equal(r.data.coins, 30);
+  assert.deepEqual(r.data.daily, { available: false, amount: 5 });
+  assert.deepEqual(r.data.history.map((h) => [h.kind, h.delta]), [['spend', -25], ['daily', 5], ['welcome', 50]]);
+  assert.equal(r.data.history[0].game_id, gameId);
+  assert.match(r.data.history[0].title, /^Щит — /, 'в истории — что купили и в какой игре');
+  assert.equal(r.data.shop.enabled, false, 'без ключей ЮKassa магазин выключен');
+  assert.equal((await p('POST', '/api/coins/orders', { pack: 'p1' })).status, 503);
 
-  // Новый день — снова можно копить.
+  // Новый день — бонус снова доступен.
   clock += 24 * 3600 * 1000;
-  assert.equal((await p('POST', `/api/games/${gameId}/coins/tick`)).data.earned, 1);
+  assert.equal((await p('POST', '/api/me/coins/daily')).data.claimed, 5);
 });
 
+test('монетки: владелец начисляет и списывает с причиной, остальным нельзя', async () => {
+  const admin = browser();
+  const reg = await admin('POST', '/api/register', { email: 'admin@test.ru', password: 'secret123', name: 'Владелец' });
+  if (reg.status === 409) await admin('POST', '/api/login', { email: 'admin@test.ru', password: 'secret123' });
+  const p = await player('grant@test.ru', 'Призёр');
+  const { id } = (await p('GET', '/api/me')).data.user;
+
+  assert.equal((await p('POST', `/api/admin/users/${id}/coins`, { amount: 100, reason: 'Сам себе' })).status, 403);
+  assert.equal((await admin('POST', `/api/admin/users/${id}/coins`, { amount: 100, reason: '' })).status, 400);
+  assert.equal((await admin('POST', `/api/admin/users/${id}/coins`, { amount: 0, reason: 'Ноль' })).status, 400);
+  assert.deepEqual((await admin('POST', `/api/admin/users/${id}/coins`, { amount: 100, reason: 'Победа в конкурсе' })).data, { coins: 150 });
+  assert.deepEqual((await admin('POST', `/api/admin/users/${id}/coins`, { amount: -30, reason: 'Ошибка начисления' })).data, { coins: 120 });
+  assert.equal((await admin('POST', `/api/admin/users/${id}/coins`, { amount: -1000, reason: 'Слишком много' })).status, 409);
+  assert.equal((await admin('POST', '/api/admin/users/999999/coins', { amount: 5, reason: 'Никому' })).status, 404);
+
+  const history = (await p('GET', '/api/me/coins')).data.history;
+  assert.deepEqual(history.slice(0, 2).map((h) => [h.kind, h.delta, h.title]),
+    [['grant', -30, 'Ошибка начисления'], ['grant', 100, 'Победа в конкурсе']]);
+});
 test('отзывы: свой можно изменить и удалить, чужой удаляет модератор', async () => {
   const admin = browser();
-  await admin('POST', '/api/register', { email: 'admin@test.ru', password: 'secret123', name: 'Модератор' });
+  const reg = await admin('POST', '/api/register', { email: 'admin@test.ru', password: 'secret123', name: 'Модератор' });
+  if (reg.status === 409) await admin('POST', '/api/login', { email: 'admin@test.ru', password: 'secret123' });
   const p = await player('review@test.ru', 'Критик');
   await p('POST', '/api/email/verify', { token: lastLink('review@test.ru', 'verify') });
 

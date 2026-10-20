@@ -225,17 +225,6 @@ function countAd(kind) {
 function startSession() {
   fetch(`/api/games/${game.id}/play`, { method: 'POST' }).catch(() => {});
   session = { visibleMs: 0, since: document.hidden ? null : Date.now() };
-  // Монетки: раз в минуту, пока вкладка видна, сервер начисляет одну (до дневного лимита).
-  let told = false;
-  setInterval(async () => {
-    if (document.hidden || !session) return;
-    try {
-      const r = await (await fetch(`/api/games/${game.id}/coins/tick`, { method: 'POST' })).json();
-      if (r.coins == null) return;
-      Igr.setCoins(r.coins);
-      if (r.earned && !told) { told = true; toast('+1 монетка. Монетки копятся за каждую минуту в играх'); }
-    } catch {}
-  }, 60 * 1000);
 }
 
 // ---------- монетки в играх ----------
@@ -251,7 +240,7 @@ const coinsBridge = {
     if (balance == null) {
       await dialog({
         title: 'Нужен вход',
-        html: `<p>Игра предлагает «${esc(title)}» за ${coinsText(amount)}. Монетки копятся в аккаунте: одна за каждую минуту в играх.</p>`,
+        html: `<p>Игра предлагает «${esc(title)}» за ${coinsText(amount)}. Монетки хранятся в аккаунте: войдите, чтобы ими пользоваться.</p>`,
         buttons: [{ text: 'Не сейчас', value: false }, { text: 'Войти', href: loginUrl(), cls: 'primary', value: false }],
       });
       return false;
@@ -260,8 +249,8 @@ const coinsBridge = {
       await dialog({
         title: 'Не хватает монеток',
         html: `<p>«${esc(title)}» стоит ${coinsText(amount)}, у вас ${coinsText(balance)}.</p>
-          <p class="mut">Монетки начисляются за время в играх: одна в минуту, до 60 в день.</p>`,
-        buttons: [{ text: 'Понятно', value: false, cls: 'primary' }],
+          <p class="mut">Монетки можно купить в профиле, а ещё каждый день за вход дарим немного бесплатно.</p>`,
+        buttons: [{ text: 'Не сейчас', value: false }, { text: 'Купить монетки', href: 'account.html#coins', cls: 'primary', value: false }],
       });
       return false;
     }
@@ -310,7 +299,7 @@ async function loadBoard(name = boardName) {
     $('lbBoards').classList.toggle('hidden', r.boards.length < 2);
     $('lbBoards').innerHTML = r.boards.map((b) =>
       `<button class="tab ${b.board === r.board ? 'on' : ''}" role="tab" aria-selected="${b.board === r.board}" data-board="${esc(b.board)}">${esc(b.board)}</button>`).join('');
-    const row = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span><span class="n">${esc(e.name)}</span><span class="s">${fmt(e.score)}</span></li>`;
+    const row = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span><span class="n">${Igr.avatarHTML(e, 24)}<span>${esc(e.name)}</span></span><span class="s">${fmt(e.score)}</span></li>`;
     const mine = r.me && r.me.rank > r.entries.length ? r.around.filter((e) => e.rank > r.entries.length) : [];
     $('lb').innerHTML = r.entries.map(row).join('') +
       (mine.length ? `${mine[0].rank > r.entries.length + 1 ? '<li class="lb-gap" aria-hidden="true">…</li>' : ''}${mine.map(row).join('')}` : '');
@@ -353,7 +342,7 @@ async function renderReviews(total = reviews.list.length) {
     };
   } else form.innerHTML = '';
   $('reviews').innerHTML = reviews.list.length ? reviews.list.map((r) => `<article class="review" data-id="${esc(r.id)}">
-      <div class="review-head"><b>${esc(r.name)}</b><time datetime="${new Date(r.updated_at).toISOString()}">${dateRu(r.updated_at)}</time>
+      <div class="review-head">${Igr.avatarHTML(r, 32)}<b>${esc(r.name)}</b><time datetime="${new Date(r.updated_at).toISOString()}">${dateRu(r.updated_at)}</time>
         <span class="acts">${r.mine ? '<button class="btn sm" data-act="edit">Изменить</button><button class="btn sm" data-act="del">Удалить</button>'
           : reviews.canModerate ? '<button class="btn sm bad" data-act="mod">Удалить</button>' : ''}</span></div>
       <p>${esc(r.text)}</p></article>`).join('')

@@ -102,13 +102,37 @@
     if (login) login.href = `login.html?next=${encodeURIComponent(here())}`;
     me().then((user) => {
       if (user && login) {
-        login.textContent = user.name; login.href = 'account.html';
+        login.innerHTML = `${avatarHTML(user, 26)}<span class="user-name">${esc(user.name)}</span>`;
+        login.classList.add('user-btn');
+        login.href = 'account.html';
+        login.setAttribute('aria-label', `Профиль: ${user.name}`);
         const chip = document.createElement('a');
         chip.className = 'coin-chip'; chip.id = 'coinChip'; chip.href = 'account.html#coins';
         (login.previousElementSibling?.classList.contains('theme-btn') ? login.previousElementSibling : login).before(chip);
         setCoins(user.coins);
+        if (user.dailyBonus) claimDaily();
       }
     });
+  }
+
+  // Бонус за вход: раз в день забираем сами, при первом заходе на любую страницу.
+  async function claimDaily() {
+    try {
+      const r = await fetch('/api/me/coins/daily', { method: 'POST' });
+      const { claimed, coins } = await r.json();
+      if (!r.ok) return;
+      setCoins(coins);
+      if (claimed) toast(`+${coinsText(claimed)} — бонус за вход. Заходите завтра за новым`);
+    } catch {}
+  }
+
+  // Аватарка: картинка или первая буква имени на цветном круге.
+  const AVATAR_BG = ['#2E6BFF', '#F2434F', '#17B26A', '#8B5CF6', '#E8890C', '#0E9F9A', '#C2417B', '#475569'];
+  function avatarHTML(u, size = 32) {
+    const name = String(u?.name || '?').trim();
+    if (u?.avatar) return `<img class="ava" src="${esc(u.avatar)}" width="${size}" height="${size}" alt="" loading="lazy">`;
+    const bg = AVATAR_BG[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % AVATAR_BG.length];
+    return `<span class="ava ava-letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.45)}px;background:${bg}" aria-hidden="true">${esc([...name][0].toUpperCase())}</span>`;
   }
 
   // ---------- монетки ----------
@@ -122,7 +146,7 @@
     const chip = $('coinChip');
     if (!chip || typeof n !== 'number') return;
     chip.innerHTML = `${COIN_SVG}<span>${fmt(n)}</span>`;
-    chip.title = `${coinsText(n)}: копятся за время в играх, тратятся в играх`;
+    chip.title = `${coinsText(n)} — валюта Gamely: тратится в играх, пополняется в профиле`;
     chip.setAttribute('aria-label', `Монетки: ${fmt(n)}`);
   }
 
@@ -217,6 +241,6 @@
 
   window.Igr = {
     $, esc, fmt, me, safeNext, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML,
   };
 })();

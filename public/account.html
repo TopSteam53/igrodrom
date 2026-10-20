@@ -19,31 +19,50 @@
 </div></header>
 
 <main class="w" id="page">
-  <div class="profile-head">
-    <div>
+  <section class="me-card">
+    <button class="me-ava" id="avaBtn" type="button" aria-label="Сменить аватарку"><span id="ava"></span><span class="me-ava-edit" aria-hidden="true">✎</span></button>
+    <div class="me-info">
       <h1 id="name" class="profile-name">Профиль</h1>
       <p class="mut" id="email"></p>
+      <div class="me-badges" id="badges"></div>
     </div>
-    <button class="btn" id="logout">Выйти</button>
-  </div>
+    <div class="me-acts">
+      <a class="btn hidden" id="adminLink" href="admin.html">Админка</a>
+      <button class="btn" id="logout">Выйти</button>
+    </div>
+  </section>
 
+  <div class="notice hidden" id="avaNote"></div>
   <div class="notice hidden" id="verify">
     <p><b>Подтвердите почту.</b> Мы отправили письмо со ссылкой — без подтверждения нельзя писать отзывы и подать заявку разработчика.</p>
     <button class="btn" id="resend">Отправить ещё раз</button>
   </div>
 
+  <section class="sec" id="coins" style="scroll-margin-top:90px">
+    <div class="sec-head"><h2>Монетки</h2></div>
+    <div class="wallet">
+      <div class="panel wallet-balance">
+        <span class="mut">На счёте</span>
+        <div class="coin-big" id="coinBig"></div>
+        <p class="mut" id="dailyText"></p>
+        <p class="mut wallet-about">Монетки — валюта Gamely. За них в играх открываются бонусы, уровни и предметы;
+          каждую трату вы подтверждаете сами.</p>
+      </div>
+      <div class="panel wallet-shop">
+        <h3>Пополнить</h3>
+        <div class="packs" id="packs"></div>
+        <p class="mut shop-note" id="shopNote"></p>
+      </div>
+    </div>
+    <details class="panel history" id="historyBox">
+      <summary><h3>История</h3></summary>
+      <div id="history"></div>
+    </details>
+  </section>
+
   <section class="sec">
     <div class="sec-head"><h2>Продолжить играть</h2></div>
     <div class="grid" id="recent"></div>
-  </section>
-
-  <section class="panel dev-block" id="coins" style="scroll-margin-top:90px">
-    <h3>Монетки</h3>
-    <div class="coin-big" id="coinBig"></div>
-    <p>Монетки копятся, пока вы играете: одна за каждую минуту, до 60 в день. Тратить их можно в играх, которые что-то за них предлагают, — каждую трату вы подтверждаете сами.</p>
-    <div class="mut" id="coinToday"></div>
-    <div class="coin-meter" aria-hidden="true"><i id="coinBar" style="width:0"></i></div>
-    <div id="spends"></div>
   </section>
 
   <section class="panel dev-block" id="dev"></section>
@@ -56,7 +75,9 @@
 
 <script src="app.js"></script>
 <script>
-const { $, esc, me, fromApi, cardHTML } = Igr;
+const { $, esc, fmt, me, fromApi, cardHTML, avatarHTML, coinsText, COIN_SVG, dialog, toast } = Igr;
+const PRESETS = 16;
+let user = null;
 
 const DEV = {
   none: () => `<h3>Делаете игры?</h3><p>Подайте заявку на аккаунт разработчика — после проверки сможете публиковать свои игры в каталоге.</p>
@@ -65,43 +86,175 @@ const DEV = {
     <a class="btn" href="cabinet.html">Посмотреть заявку</a>`,
   rejected: () => `<h3>Заявка разработчика отклонена</h3><p>Причина указана в кабинете. Заявку можно исправить и отправить снова.</p>
     <a class="btn" href="cabinet.html">Открыть заявку</a>`,
-  approved: () => `<h3>Вы разработчик</h3><p>Загружайте игры и смотрите статистику в кабинете.</p>
+  approved: () => `<h3>Вы разработчик</h3><p>Игры, их страницы в каталоге и статистика — в кабинете.</p>
     <a class="btn primary" href="cabinet.html">Кабинет разработчика</a>`,
 };
+const ROLE = { owner: 'владелец', moderator: 'модератор' };
 
-me().then(async (user) => {
-  if (!user) { location.replace('login.html?next=account.html'); return; }
+function renderUser() {
+  $('ava').innerHTML = avatarHTML(user, 96);
   $('name').textContent = user.name;
   $('email').textContent = user.email;
-  $('dev').innerHTML = DEV[user.canPublish ? 'approved' : user.developer]() + (user.canModerate
-    ? `<h3 style="margin-top:20px">Вы ${user.isAdmin ? 'владелец площадки' : 'модератор'}</h3>
-       <p>Заявки разработчиков, проверка игр и журнал решений — в кабинете, раздел «Модерация».</p>
-       <a class="btn" href="cabinet.html">Открыть модерацию</a>` : '');
+  $('badges').innerHTML = [
+    ROLE[user.role] && `<span class="badge role ${user.role === 'owner' ? 'owner' : ''}">${ROLE[user.role]}</span>`,
+    user.canPublish && '<span class="badge role">разработчик</span>',
+  ].filter(Boolean).join('');
+  $('adminLink').classList.toggle('hidden', !user.canModerate);
+  const note = $('avaNote');
+  note.classList.toggle('hidden', !user.avatarPending && !user.avatarNote);
+  note.innerHTML = user.avatarPending
+    ? `<img class="ava" src="${esc(user.avatarPending)}" width="40" height="40" alt=""><p><b>Аватарка на проверке.</b> Обычно это занимает несколько часов — пока у вас прежняя.</p>
+       <button class="btn sm" id="avaCancel">Отменить</button>`
+    : user.avatarNote ? `<p><b>Модератор не принял картинку:</b> ${esc(user.avatarNote)}. Выберите другую.</p>` : '';
+  if (user.avatarPending) $('avaCancel').onclick = async () => { await setAvatar('DELETE', '/api/me/avatar/pending'); };
+}
+
+me().then(async (u) => {
+  if (!u) { location.replace('login.html?next=account.html'); return; }
+  user = u;
+  renderUser();
+  $('dev').innerHTML = DEV[user.canPublish ? 'approved' : user.developer]();
   const cfg = await Igr.config();
   $('verify').classList.toggle('hidden', user.emailVerified || !cfg.mail);
-  loadCoins();
+  await loadCoins();
+  checkOrder();
   const { games } = await (await fetch('/api/me/recent')).json();
   $('recent').innerHTML = games.length ? games.map(fromApi).map(cardHTML).join('')
     : `<div class="empty"><p>Здесь появятся игры, в которых у вас есть сохранённый прогресс.</p>
        <a class="btn" href="index.html">Выбрать игру</a></div>`;
 });
 
+// ---------- монетки ----------
+const KIND = { purchase: '🛒', welcome: '🎁', daily: '📅', grant: '⭐', spend: '🎮', play: '⏱️' };
+const dateTime = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+let shop = null;
+
 async function loadCoins() {
   const c = await (await fetch('/api/me/coins')).json();
-  $('coinBig').innerHTML = `${Igr.COIN_SVG}<span>${Igr.fmt(c.coins)}</span>`;
-  $('coinToday').textContent = `Сегодня: ${c.today} из ${c.cap}`;
-  $('coinBar').style.width = `${Math.min(100, (c.today / c.cap) * 100)}%`;
-  $('spends').innerHTML = c.spends.length ? `<h3 style="margin-top:20px">Покупки в играх</h3>
-    <table class="tbl"><tbody>${c.spends.map((s) => `<tr><td>${esc(s.title)}<div class="mut">${s.game_id
-      ? `<a href="game.html?id=${esc(s.game_id)}" style="color:var(--link)">${esc(s.game_title)}</a>` : esc(s.game_title)}</div></td>
-      <td class="mut">${new Date(s.created_at).toLocaleDateString('ru-RU')}</td><td class="n">−${Igr.fmt(s.amount)}</td></tr>`).join('')}</tbody></table>` : '';
+  shop = c.shop;
+  $('coinBig').innerHTML = `${COIN_SVG}<span>${fmt(c.coins)}</span>`;
+  Igr.setCoins(c.coins);
+  $('dailyText').textContent = c.daily.available
+    ? `Бонус за вход: ${coinsText(c.daily.amount)} — начислим при следующем заходе.`
+    : `Бонус за вход сегодня получен. Завтра — ещё ${coinsText(c.daily.amount)}.`;
+  $('packs').innerHTML = shop.packs.map((p) => `
+    <button class="pack" type="button" data-pack="${esc(p.id)}" ${shop.enabled ? '' : 'disabled'}>
+      ${p.bonus ? `<span class="pack-bonus">+${p.bonus}%</span>` : ''}
+      <span class="pack-coins">${COIN_SVG}${fmt(p.coins)}</span>
+      <span class="pack-price">${fmt(p.price)} ₽</span>
+    </button>`).join('');
+  $('shopNote').innerHTML = !shop.enabled ? 'Покупка монеток скоро появится.'
+    : (shop.test ? '<b>Тестовый режим:</b> карта 5555 5555 5555 4477, любой срок и код — деньги не списываются. ' : '') +
+      'Оплата картой, через СБП или SberPay на странице ЮKassa. Нажимая на набор, вы соглашаетесь с ' +
+      '<a href="terms.html#coins">условиями покупки монеток</a>.';
+  $('history').innerHTML = c.history.length ? `<table class="tbl"><tbody>${c.history.map((h) => `
+    <tr><td><span aria-hidden="true">${KIND[h.kind] || '•'}</span> ${h.game_id
+      ? `<a href="game.html?id=${esc(h.game_id)}">${esc(h.title)}</a>` : esc(h.title)}</td>
+    <td class="mut">${dateTime(h.created_at)}</td>
+    <td class="n ${h.delta > 0 ? 'plus' : ''}">${h.delta > 0 ? '+' : '−'}${fmt(Math.abs(h.delta))}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="mut">Пока пусто.</p>';
 }
+
+$('packs').onclick = async (e) => {
+  const b = e.target.closest('[data-pack]');
+  if (!b || b.disabled) return;
+  const pack = shop.packs.find((p) => p.id === b.dataset.pack);
+  const ok = await dialog({
+    title: `${coinsText(pack.coins)} за ${fmt(pack.price)} ₽`,
+    html: `<p>Откроется страница оплаты ЮKassa. После оплаты вернём вас сюда, монетки придут сразу.</p>`,
+    buttons: [{ text: 'Отмена', value: false }, { text: 'Перейти к оплате', value: true, cls: 'primary' }],
+  });
+  if (!ok) return;
+  b.disabled = true;
+  try {
+    const r = await fetch('/api/coins/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pack: pack.id }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Не получилось создать заказ');
+    location.href = data.confirmation_url;
+  } catch (err) { toast(err.message); b.disabled = false; }
+};
+
+// Вернулись со страницы оплаты: ?order=<id>. ЮKassa подтверждает платёж за несколько секунд.
+async function checkOrder() {
+  const id = new URLSearchParams(location.search).get('order');
+  if (!/^[0-9a-f]{16}$/.test(id || '')) return;
+  history.replaceState(null, '', 'account.html#coins');
+  for (let i = 0; i < 10; i++) {
+    const r = await fetch(`/api/coins/orders/${id}`);
+    if (!r.ok) return;
+    const { order } = await r.json();
+    if (order.status === 'paid') { toast(`Оплата прошла: +${coinsText(order.coins)}`); return loadCoins(); }
+    if (order.status === 'canceled') { toast('Оплата отменена, деньги не списаны'); return; }
+    await new Promise((ok) => setTimeout(ok, 3000));
+  }
+  toast('Ждём подтверждения оплаты — монетки придут, как только банк ответит');
+}
+
+// ---------- аватарка ----------
+async function setAvatar(method, url, body, type = 'application/json') {
+  const r = await fetch(url, { method, headers: body ? { 'content-type': type } : {}, body: body && (type === 'application/json' ? JSON.stringify(body) : body) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Не получилось');
+  Object.assign(user, data);
+  renderUser();
+  const chip = $('login');
+  if (chip) chip.innerHTML = `${avatarHTML(user, 26)}<span class="user-name">${esc(user.name)}</span>`;
+  return data;
+}
+
+// Своя картинка: квадрат по центру, 256×256, в WebP. Заодно стираются метаданные фото (место съёмки и т. п.).
+function toSquare(file) {
+  return new Promise((ok, fail) => {
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(img.naturalWidth, img.naturalHeight);
+      if (s < 64) return fail(new Error('Картинка слишком маленькая: нужно хотя бы 64×64'));
+      const c = document.createElement('canvas');
+      c.width = c.height = 256;
+      c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, 256, 256);
+      c.toBlob((b) => (b && b.type === 'image/webp' ? ok(b) : c.toBlob(ok, 'image/jpeg', 0.9)), 'image/webp', 0.9);
+      URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => fail(new Error('Это не картинка'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+$('avaBtn').onclick = () => {
+  const body = document.createElement('div');
+  body.innerHTML = `<div class="ava-grid">${Array.from({ length: PRESETS }, (_, i) => i + 1).map((n) => `
+      <button type="button" class="ava-pick ${user.avatar === `/avatars/${n}.webp` ? 'on' : ''}" data-n="${n}" aria-label="Аватарка ${n}">
+        <img src="/avatars/${n}.webp" width="64" height="64" alt=""></button>`).join('')}</div>
+    <label class="btn ava-upload"><input type="file" accept="image/png,image/jpeg,image/webp" hidden>Загрузить свою картинку</label>
+    <p class="mut" style="margin:8px 0 0">Своя картинка появится у всех после проверки модератором. Без чужих фото и неприличного.</p>`;
+  const close = dialog({ title: 'Аватарка', body, buttons: [
+    ...(user.avatar ? [{ text: 'Убрать', value: 'clear' }] : []), { text: 'Готово', value: null, cls: 'primary' }] });
+  body.onclick = async (e) => {
+    const b = e.target.closest('[data-n]');
+    if (!b) return;
+    try {
+      await setAvatar('PUT', '/api/me/avatar', { preset: Number(b.dataset.n) });
+      body.querySelectorAll('.ava-pick').forEach((x) => x.classList.toggle('on', x === b));
+    } catch (err) { toast(err.message); }
+  };
+  body.querySelector('input').onchange = async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const blob = await toSquare(f);
+      await setAvatar('POST', '/api/me/avatar', blob, blob.type);
+      toast(user.avatarPending ? 'Отправили на проверку' : 'Аватарка обновлена');
+      document.querySelector('.modal')?.click();
+    } catch (err) { toast(err.message); }
+  };
+  close.then((v) => { if (v === 'clear') setAvatar('PUT', '/api/me/avatar', { preset: null }).catch((err) => toast(err.message)); });
+};
 
 $('resend').onclick = async () => {
   $('resend').disabled = true;
   const r = await fetch('/api/email/resend', { method: 'POST' });
   const data = await r.json().catch(() => ({}));
-  Igr.toast(r.ok ? 'Письмо отправлено' : data.error || 'Не получилось');
+  toast(r.ok ? 'Письмо отправлено' : data.error || 'Не получилось');
   if (r.status === 409) $('verify').classList.add('hidden');
   else setTimeout(() => { $('resend').disabled = false; }, 30000);
 };
