@@ -54,21 +54,22 @@ h1{font-size:40px;margin:4px 0}h2{font-size:26px;margin:0 0 8px}
   <div id="hud">
     <span class="pill" id="hLevel"></span>
     <span class="pill" id="hMoves"></span>
+    <span class="pill" id="hPairs"></span>
     <span class="pill hidden" id="hTime"></span>
-    <button class="ib" id="hintBtn">💡 <span id="hHints">0</span></button>
+    <button class="ib" id="hintBtn">Подсказка <span id="hHints">0</span></button>
     <button class="ib" id="menuBtn" aria-label="Меню">☰</button>
   </div>
   <div id="g"></div>
 </div>
 
 <div class="scr" id="menu"><div class="card">
-  <h1>🧠 Мемори</h1>
-  <p class="sub">Звёзд: <b id="mStars">0</b> из 90 · 💡 <b id="mHints">0</b></p>
+  <h1>Мемори</h1>
+  <p class="sub">Звёзд <b id="mStars">0</b> из 90, подсказок <b id="mHints">0</b></p>
   <button class="btn" id="playBtn">Играть</button>
   <p class="note" style="margin-bottom:4px">Набор карточек</p>
   <div class="themes" id="themes"></div>
   <div class="levels" id="lvGrid"></div>
-  <div class="row"><button class="btn alt" id="muteBtn"></button><button class="btn gold hidden" id="buyHints">💡×3 за 🪙 10</button></div>
+  <div class="row"><button class="btn alt" id="muteBtn"></button><button class="btn gold hidden" id="buyHints">3 подсказки за 10 монеток</button></div>
 </div></div>
 
 <div class="scr hidden" id="over"><div class="card">
@@ -190,8 +191,9 @@ function startTimer() {
 
 function hud() {
   $('hLevel').textContent = `Уровень ${level}`;
-  $('hMoves').textContent = `Ходы: ${moves} · Пары: ${found}/${spec.pairs}`;
-  $('hTime').textContent = `⏱ ${Math.max(0, timeLeft)}`;
+  $('hMoves').textContent = `Ходы ${moves}`;
+  $('hPairs').textContent = `Пары ${found} из ${spec.pairs}`;
+  $('hTime').textContent = `Время ${Math.max(0, timeLeft)}`;
   $('hTime').classList.toggle('warn', timeLeft <= 10);
   $('hHints').textContent = save.hints;
   $('hintBtn').disabled = !playing || save.hints <= 0;
@@ -210,7 +212,7 @@ $('g').onclick = (e) => {
   if (deck[a.dataset.i] === deck[b.dataset.i]) {
     combo++; found++;
     a.classList.add('m'); b.classList.add('m'); sfx.match(Math.min(combo, 6));
-    if (combo >= 2) floatText(combo >= 4 ? `Серия ×${combo}! 🔥` : `Серия ×${combo}`);
+    if (combo >= 2) floatText(`Серия ×${combo}`);
     if (spec.time && combo >= 2) timeLeft += 2;
     if (found === spec.pairs) setTimeout(win, 450);
   } else {
@@ -229,7 +231,7 @@ function reshuffle() {
   const closed = cards().filter((k) => !k.classList.contains('m'));
   const values = shuffled(closed.map((k) => deck[k.dataset.i]));
   closed.forEach((k, j) => { deck[k.dataset.i] = values[j]; k.querySelector('.f').textContent = values[j]; k.animate([{ transform: 'scale(.85) rotate(-6deg)' }, { transform: 'none' }], 300); });
-  floatText('Перемешано! 🌀');
+  floatText('Перемешано');
 }
 
 function floatText(t) { const d = document.createElement('div'); d.className = 'combo'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 900); }
@@ -255,17 +257,17 @@ function win() {
   // Три звезды впервые — подсказка в награду.
   if (st === 3 && old < 3) save.hints++;
   persist();
-  $('oTitle').textContent = level === LEVELS ? 'Все уровни пройдены! 🏆' : `Уровень ${level} пройден!`;
+  $('oTitle').textContent = level === LEVELS ? 'Все уровни пройдены!' : `Уровень ${level} пройден!`;
   $('oStars').innerHTML = [1, 2, 3].map((i) => `<span class="${i <= st ? '' : 'off'}">★</span>`).join('');
   const need3 = Math.ceil(spec.pairs * 1.45);
-  $('oSub').textContent = `${moves} ${plural(moves, ['ход', 'хода', 'ходов'])}` + (st < 3 ? ` · на три звезды — не больше ${need3}` : st === 3 && old < 3 ? ' · +1 💡 подсказка' : '');
+  $('oSub').textContent = `${moves} ${plural(moves, ['ход', 'хода', 'ходов'])}.` + (st < 3 ? ` Для трёх звёзд нужно не больше ${need3}.` : st === 3 && old < 3 ? ' В награду — подсказка.' : '');
   $('oNext').classList.toggle('hidden', level >= LEVELS);
   checkThemes();
   show('over');
 }
 function lose() {
   playing = false; clearInterval(timer); sfx.lose(); sdk?.game.stop();
-  $('oTitle').textContent = 'Время вышло ⏱';
+  $('oTitle').textContent = 'Время вышло';
   $('oStars').innerHTML = '<span class="off">★★★</span>';
   $('oSub').textContent = `Найдено ${found} из ${spec.pairs} пар. Серии совпадений добавляют по 2 секунды.`;
   $('oNext').classList.add('hidden');
@@ -282,7 +284,7 @@ function show(id) { for (const s of ['menu', 'over']) $(s).classList.toggle('hid
 function openMenu() {
   playing = false; clearInterval(timer); sdk?.game.stop();
   $('mStars').textContent = totalStars(); $('mHints').textContent = save.hints;
-  $('muteBtn').textContent = save.mute ? '🔇 Звук' : '🔊 Звук';
+  $('muteBtn').textContent = save.mute ? 'Включить звук' : 'Выключить звук';
   $('buyHints').classList.toggle('hidden', !(sdk && sdk.environment.host === 'gamely'));
   const stars = totalStars();
   $('themes').innerHTML = THEMES.map((t) => {

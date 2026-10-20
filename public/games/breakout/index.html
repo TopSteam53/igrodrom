@@ -12,13 +12,13 @@ body{display:flex;align-items:center;justify-content:center;background:radial-gr
 canvas{display:block;touch-action:none;outline:none;border-radius:14px;cursor:none;box-shadow:0 20px 60px rgba(0,0,0,.5)}
 .scr{position:fixed;inset:0;background:rgba(8,10,28,.82);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
 .card{background:#1b1f4a;border-radius:22px;padding:22px;width:min(420px,100%);max-height:94vh;overflow:auto;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-h1{font-size:40px;margin:2px 0;background:linear-gradient(135deg,#4cc9f0,#f15bb5);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{font-size:40px;margin:2px 0;color:#4cc9f0}
 h2{font-size:26px;margin:0 0 8px}
 .sub{color:#a9b0e6;margin:0 0 14px;font-size:15px}
-.btn{display:block;width:100%;margin:8px 0;padding:14px;border:0;border-radius:14px;font:800 17px system-ui;cursor:pointer;color:#0f1226;background:linear-gradient(135deg,#4cc9f0,#7ae582);box-shadow:0 4px 0 #1b6b8a}
+.btn{display:block;width:100%;margin:8px 0;padding:14px;border:0;border-radius:14px;font:800 17px system-ui;cursor:pointer;color:#0f1226;background:#4cc9f0;box-shadow:0 4px 0 #1b6b8a}
 .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #1b6b8a}
 .btn.alt{background:#2c3270;color:#fff;box-shadow:0 4px 0 #13163a}
-.btn.gold{background:linear-gradient(135deg,#ffd166,#ff8c42);box-shadow:0 4px 0 #a35a0a}
+.btn.gold{background:#ffd166;box-shadow:0 4px 0 #a37d0a}
 .btn:disabled{opacity:.45}
 .levels{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}
 .lv{aspect-ratio:1;border:0;border-radius:12px;background:#2c3270;color:#fff;font:800 18px system-ui;cursor:pointer}
@@ -56,7 +56,7 @@ h2{font-size:26px;margin:0 0 8px}
   <h2 id="oTitle"></h2>
   <div class="big" id="oScore"></div>
   <p class="sub" id="oSub"></p>
-  <button class="btn gold hidden" id="coinCont">+3 жизни за 🪙 10</button>
+  <button class="btn gold hidden" id="coinCont">+3 жизни за 10 монеток</button>
   <button class="btn alt hidden" id="adCont">+1 жизнь за рекламу</button>
   <button class="btn" id="oAgain">Заново с уровня</button>
   <button class="btn alt" id="oMenu">В меню</button>
@@ -161,7 +161,7 @@ function show(id) { for (const s of ['menu', 'over']) $(s).classList.toggle('hid
 function openMenu() {
   state = 'menu'; sdk?.game.stop();
   $('mBest').textContent = save.best.toLocaleString('ru-RU');
-  $('muteBtn').textContent = save.mute ? '🔇 Звук выключен' : '🔊 Звук включён';
+  $('muteBtn').textContent = save.mute ? 'Включить звук' : 'Выключить звук';
   $('lvGrid').innerHTML = Array.from({ length: LEVELS }, (_, i) => {
     const n = i + 1, locked = n > save.open;
     return `<button class="lv ${locked ? 'locked' : ''} ${n === save.open ? 'next' : ''}" data-lv="${n}" ${locked ? 'disabled' : ''}>${locked ? '🔒' : n}</button>`;
@@ -186,9 +186,9 @@ let continued = false;
 function gameOver(won) {
   state = 'over'; sdk?.game.stop();
   const rec = score > save.best; if (rec) save.best = score; persist();
-  $('oTitle').textContent = won ? 'Все уровни пройдены! 🏆' : rec ? 'Новый рекорд!' : 'Игра окончена';
+  $('oTitle').textContent = won ? 'Все уровни пройдены!' : rec ? 'Новый рекорд!' : 'Игра окончена';
   $('oScore').textContent = score.toLocaleString('ru-RU');
-  $('oSub').textContent = `Уровень ${level} · рекорд ${save.best.toLocaleString('ru-RU')}`;
+  $('oSub').textContent = `Уровень ${level}, рекорд ${save.best.toLocaleString('ru-RU')}`;
   const hosted = sdk && sdk.environment.host === 'gamely';
   $('coinCont').classList.toggle('hidden', won || continued || !hosted);
   $('adCont').classList.toggle('hidden', won || continued || !sdk);

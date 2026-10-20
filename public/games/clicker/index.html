@@ -73,8 +73,8 @@ html,body{margin:0;height:100%;background:radial-gradient(circle at 30% 20%,#3a1
       </svg>
     </button>
     <div id="tools">
-      <button class="tb gold hidden" id="coinBoost">⚡ ×3 на 10 мин за 🪙 5</button>
-      <button class="tb" id="muteBtn">🔊</button>
+      <button class="tb gold hidden" id="coinBoost">Ускорить ×3 на 10 минут за 5 монеток</button>
+      <button class="tb" id="muteBtn">Звук</button>
     </div>
   </section>
   <aside id="right">
@@ -214,7 +214,7 @@ function prestige() {
   if (!confirm(`Переродиться? Всё печенье, постройки и улучшения сгорят, а вы получите ${add} звёздных крошек — +${add * 2}% к доходу навсегда.`)) return;
   S.chips += add; S.prestiges++;
   S.cookies = 0; S.total = 0; S.own = {}; S.ups = []; M = mods();
-  toast(`♻️ +${add} звёздных крошек`); render(true); persist();
+  toast(`Получено звёздных крошек: ${add}`); render(true); persist();
 }
 
 // ---------- золотое печенье ----------
@@ -229,8 +229,8 @@ function spawnGolden() {
   const gone = setTimeout(() => { g.remove(); scheduleGolden(); }, 12000);
   g.onpointerdown = (e) => {
     e.stopPropagation(); clearTimeout(gone); g.remove(); S.goldens++;
-    if (Math.random() < 0.5) { frenzyUntil = Date.now() + 20000; toast('✨ Безумие! Доход ×7 на 20 секунд'); }
-    else { const lump = Math.max(13, Math.min(S.cookies * 0.15, cps() * 900)); gain(lump); toast(`✨ Удача! +${fmt(lump)} 🍪`); }
+    if (Math.random() < 0.5) { frenzyUntil = Date.now() + 20000; toast('Безумие: доход ×7 на 20 секунд'); }
+    else { const lump = Math.max(13, Math.min(S.cookies * 0.15, cps() * 900)); gain(lump); toast(`Удача: +${fmt(lump)} печенья`); }
     [880, 1100, 1320].forEach((f, i) => setTimeout(() => tone(f, 0.12, 'sine', 0.06), i * 80));
     render(true); scheduleGolden();
   };
@@ -276,7 +276,7 @@ function renderList() {
       <p>Испечено в этой жизни: <b>${fmt(S.total)}</b></p><p>Испечено за всё время: <b>${fmt(S.allTime)}</b></p>
       <p>Кликов: <b>${fmt(S.clicks)}</b> · Золотых печений: <b>${S.goldens}</b></p>
       <p>Звёздные крошки: <b>${S.chips}</b> (+${S.chips * 2}% к доходу)</p>
-      <button class="btn" id="prestigeBtn" ${add >= 1 ? '' : 'disabled'}>♻️ Переродиться: +${add} крошек</button>
+      <button class="btn" id="prestigeBtn" ${add >= 1 ? '' : 'disabled'}>Переродиться и получить ${add} крошек</button>
       <p style="font-size:13px">Перерождение сбрасывает печенье и постройки, но навсегда ускоряет пекарню. Первая крошка — после миллиарда.</p></div>`;
     $('prestigeBtn').onclick = prestige;
   }
@@ -287,10 +287,10 @@ function render(force) {
   $('cps').textContent = `${fmtF(cps())} в секунду`;
   const now = Date.now();
   const b = [];
-  if (now < frenzyUntil) b.push(`✨ ×7 ${Math.ceil((frenzyUntil - now) / 1000)} с`);
-  if (now < boostUntil) b.push(`⚡ ×${boostMul} ${Math.ceil((boostUntil - now) / 60000)} мин`);
-  $('boost').classList.toggle('hidden', !b.length); $('boost').textContent = b.join(' · ');
-  document.title = `${fmt(S.cookies)} 🍪 — Печенье`;
+  if (now < frenzyUntil) b.push(`Безумие ×7 ещё ${Math.ceil((frenzyUntil - now) / 1000)} с`);
+  if (now < boostUntil) b.push(`Ускорение ×${boostMul} ещё ${Math.ceil((boostUntil - now) / 60000)} мин`);
+  $('boost').classList.toggle('hidden', !b.length); $('boost').textContent = b.join(', ');
+  document.title = `${fmt(S.cookies)} — Печенье`;
   if (force || now - lastList > 400) { lastList = now; renderList(); }
 }
 
@@ -314,7 +314,7 @@ function load(d) {
   if (typeof d.t === 'number') {
     const away = Math.min(MAX_AWAY, Math.max(0, (Date.now() - d.t) / 1000));
     const earned = baseCps() * away * AWAY_RATE;
-    if (earned >= 1) { gain(earned); S.away = Math.max(S.away, away); setTimeout(() => toast(`Пока вас не было, испеклось ${fmt(earned)} 🍪`), 600); }
+    if (earned >= 1) { gain(earned); S.away = Math.max(S.away, away); setTimeout(() => toast(`Пока вас не было, испеклось ${fmt(earned)} печенья`), 600); }
   }
 }
 
@@ -323,7 +323,7 @@ let last = performance.now();
 setInterval(() => {
   const now = performance.now(), dt = (now - last) / 1000; last = now;
   gain(cps() * dt);
-  for (let i = 0; i < ACH.length; i++) if (!S.ach.includes(i) && ACH[i][2](S)) { S.ach.push(i); toast(`🏅 ${ACH[i][1]}`); tone(990, 0.15); }
+  for (let i = 0; i < ACH.length; i++) if (!S.ach.includes(i) && ACH[i][2](S)) { S.ach.push(i); toast(`Награда: ${ACH[i][1]}`); tone(990, 0.15); }
   if (cps() > 0 && Math.random() < Math.min(0.6, cps() / 200)) crumb();
   render();
 }, 100);
@@ -345,12 +345,12 @@ $('mult').onclick = (e) => {
   const m = e.target.closest('[data-m]'); if (!m) return;
   mult = m.dataset.m; document.querySelectorAll('#mult button').forEach((x) => x.classList.toggle('on', x === m)); render(true);
 };
-$('muteBtn').onclick = () => { audio(); S.mute = !S.mute; $('muteBtn').textContent = S.mute ? '🔇' : '🔊'; persist(); };
+$('muteBtn').onclick = () => { audio(); S.mute = !S.mute; $('muteBtn').textContent = S.mute ? 'Включить звук' : 'Выключить звук'; persist(); };
 $('coinBoost').onclick = async () => {
   $('coinBoost').disabled = true;
   try {
     const r = await sdk.coins.spend(5, 'Ускорение пекарни ×3 на 10 минут');
-    if (r.ok) { boostMul = 3; boostUntil = Date.now() + 10 * 60000; toast('⚡ Пекарня ×3 на 10 минут!'); }
+    if (r.ok) { boostMul = 3; boostUntil = Date.now() + 10 * 60000; toast('Пекарня работает втрое быстрее 10 минут'); }
   } finally { $('coinBoost').disabled = false; }
 };
 
@@ -361,7 +361,7 @@ if (window.Gamely) Gamely.init().then(async (s) => {
   const d = await s.data.get().catch(() => null);
   load(d); sdk = s;
   $('coinBoost').classList.toggle('hidden', s.environment.host !== 'gamely');
-  $('muteBtn').textContent = S.mute ? '🔇' : '🔊';
+  $('muteBtn').textContent = S.mute ? 'Включить звук' : 'Выключить звук';
   s.game.ready(); s.game.start();
   render(true);
 }).catch(() => {});

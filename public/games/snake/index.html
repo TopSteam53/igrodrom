@@ -54,6 +54,7 @@ h2{font-size:26px;margin:0 0 8px}
   <div id="hud">
     <span class="pill" id="hScore">0</span>
     <span class="pill" id="hGoal"></span>
+    <span class="pill hidden" id="hStars"></span>
     <span class="pill bonus hidden" id="hBonus"></span>
     <button class="ib" id="pauseBtn" aria-label="Пауза">⏸</button>
   </div>
@@ -65,8 +66,8 @@ h2{font-size:26px;margin:0 0 8px}
 </div>
 
 <div class="scr" id="menu"><div class="card">
-  <h1>🐍 Змейка</h1>
-  <p class="sub">Рекорд: <b id="mBest">0</b> · <span class="apples">🍎 <span id="mApples">0</span></span></p>
+  <h1>Змейка</h1>
+  <p class="sub">Рекорд <b id="mBest">0</b>, яблок в копилке <b id="mApples">0</b></p>
   <button class="btn" id="toLevels">Уровни</button>
   <button class="btn gold" id="toEndless">Бесконечный режим</button>
   <div class="row"><button class="btn alt" id="toSkins">Скины</button><button class="btn alt" id="muteBtn">🔊 Звук</button></div>
@@ -82,7 +83,7 @@ h2{font-size:26px;margin:0 0 8px}
 
 <div class="scr hidden" id="skins"><div class="card">
   <h2>Скины</h2>
-  <p class="sub">Яблоки копятся в каждой игре: <span class="apples">🍎 <span id="sApples">0</span></span></p>
+  <p class="sub">Яблоки копятся в каждой игре. Сейчас: <b id="sApples">0</b></p>
   <div class="skins" id="skinGrid"></div>
   <button class="btn alt" data-back>Назад</button>
 </div></div>
@@ -99,7 +100,7 @@ h2{font-size:26px;margin:0 0 8px}
   <div class="big" id="oScore">0</div>
   <p class="sub" id="oSub"></p>
   <div id="oRevive">
-    <button class="btn gold hidden" id="coinRevive">Продолжить за 🪙 10</button>
+    <button class="btn gold hidden" id="coinRevive">Продолжить за 10 монеток</button>
     <button class="btn alt hidden" id="adRevive">Продолжить за рекламу</button>
   </div>
   <button class="btn" id="oNext">Следующий уровень</button>
@@ -235,10 +236,12 @@ function start(k, n = 1) {
 
 function hud() {
   $('hScore').textContent = kind === 'level' ? `Уровень ${level}` : `Очки: ${score}`;
-  $('hGoal').textContent = kind === 'level' ? `🍎 ${eaten} / ${levelGoal(level)} · ⭐ ${goldGot}` : `Рекорд: ${save.best}`;
+  $('hGoal').textContent = kind === 'level' ? `Яблоки ${eaten} из ${levelGoal(level)}` : `Рекорд ${save.best}`;
+  $('hStars').classList.toggle('hidden', kind !== 'level');
+  $('hStars').textContent = `Золотые ${goldGot} из 2`;
   const active = Object.entries(effects).filter(([, t]) => t > 0);
   $('hBonus').classList.toggle('hidden', !active.length);
-  $('hBonus').textContent = active.map(([k, t]) => `${BONUS[k].icon} ${Math.ceil(t)}`).join(' ');
+  $('hBonus').textContent = active.map(([k, t]) => `${BONUS[k].text} ${Math.ceil(t)} с`).join(', ');
 }
 
 function turn(x, y) {
@@ -300,7 +303,7 @@ function die() {
   $('oTitle').textContent = kind === 'level' ? `Уровень ${level} не пройден` : score >= save.best && score > 0 ? 'Новый рекорд!' : 'Конец игры';
   $('oStars').classList.add('hidden');
   $('oScore').textContent = kind === 'level' ? `${eaten} / ${levelGoal(level)}` : score;
-  $('oSub').textContent = kind === 'level' ? (eaten >= levelGoal(level) * 0.6 ? 'Почти! Осталось совсем немного.' : 'Попробуйте ещё раз — уровень запоминает звёзды.') : `Рекорд: ${save.best} · 🍎 ${save.apples}`;
+  $('oSub').textContent = kind === 'level' ? (eaten >= levelGoal(level) * 0.6 ? 'Почти! Осталось совсем немного.' : 'Попробуйте ещё раз — уровень запоминает звёзды.') : `Рекорд ${save.best}, яблок в копилке ${save.apples}`;
   $('coinRevive').classList.toggle('hidden', revived || !hosted);
   $('adRevive').classList.toggle('hidden', revived || !sdk);
   $('oNext').classList.add('hidden');
@@ -320,7 +323,7 @@ function win() {
   $('oTitle').textContent = level === LEVELS ? 'Все уровни пройдены!' : `Уровень ${level} пройден!`;
   $('oStars').classList.remove('hidden');
   $('oStars').innerHTML = [1, 2, 3].map((i) => `<span class="${i <= stars ? '' : 'off'}">★</span>`).join('');
-  $('oScore').textContent = `+${eaten + goldGot * 3} 🍎`;
+  $('oScore').textContent = `+${eaten + goldGot * 3}`;
   $('oSub').textContent = stars < 3 ? 'Соберите оба золотых яблока, чтобы получить три звезды.' : 'Идеально!';
   $('coinRevive').classList.add('hidden'); $('adRevive').classList.add('hidden');
   $('oNext').classList.toggle('hidden', level >= LEVELS);
@@ -461,7 +464,7 @@ function show(id) {
 function openMenu() {
   mode = 'menu'; sdk?.game.stop();
   $('mBest').textContent = save.best; $('mApples').textContent = save.apples;
-  $('muteBtn').textContent = save.mute ? '🔇 Звук выкл' : '🔊 Звук вкл';
+  $('muteBtn').textContent = save.mute ? 'Включить звук' : 'Выключить звук';
   show('menu');
 }
 function openLevels() {
@@ -477,7 +480,7 @@ function openSkins() {
   $('skinGrid').innerHTML = SKINS.map((s) => {
     const own = save.skins.includes(s.id);
     return `<button class="skin ${save.skin === s.id ? 'on' : ''}" data-skin="${s.id}"><canvas width="72" height="18" data-prev="${s.id}"></canvas>
-      ${s.name}<br>${own ? (save.skin === s.id ? '✓ выбран' : 'выбрать') : `🍎 ${s.price}`}</button>`;
+      ${s.name}<br>${own ? (save.skin === s.id ? 'выбран' : 'выбрать') : `${s.price} яблок`}</button>`;
   }).join('');
   for (const c of document.querySelectorAll('[data-prev]')) {
     const s = SKINS.find((k) => k.id === c.dataset.prev), x = c.getContext('2d');
@@ -514,7 +517,7 @@ $('oAgain').onclick = async () => {
 };
 $('oNext').onclick = () => start('level', Math.min(LEVELS, level + 1));
 $('oMenu').onclick = openMenu;
-$('coinRevive').textContent = `Продолжить за 🪙 ${REVIVE_COST}`;
+$('coinRevive').textContent = `Продолжить за ${REVIVE_COST} монеток`;
 $('coinRevive').onclick = async () => {
   $('coinRevive').disabled = true;
   try { const r = await sdk.coins.spend(REVIVE_COST, 'Продолжить змейку'); if (r.ok) revive(); }

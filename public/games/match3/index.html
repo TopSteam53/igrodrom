@@ -21,7 +21,7 @@ body{background:radial-gradient(ellipse at 50% -10%,#3a1f6b 0%,#1b1030 55%,#120b
 @keyframes blink{50%{opacity:.55}}
 #bar{position:absolute;left:0;bottom:0;height:3px;background:linear-gradient(90deg,#ff9a3c,#ffe14d);transition:width .3s}
 button{font:inherit;cursor:pointer;border:0;color:#fff;padding:0}
-.tbtn{flex:none;height:100%;aspect-ratio:1;border-radius:10px;background:linear-gradient(135deg,#c070ff,#ff4d9a);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -3px 0 rgba(0,0,0,.3);font-size:calc(var(--h)*.4);position:relative}
+.tbtn{flex:none;height:100%;aspect-ratio:1;border-radius:10px;background:#c070ff;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 -3px 0 rgba(0,0,0,.3);font-size:calc(var(--h)*.4);position:relative}
 .tbtn.alt{background:#3a2670}
 .tbtn.on{outline:3px solid #ffe14d}
 .tbtn i{position:absolute;right:-4px;top:-4px;background:#ffe14d;color:#2b1b52;font:800 12px system-ui;border-radius:999px;padding:1px 6px;font-style:normal}
@@ -30,21 +30,20 @@ canvas#cv{display:block;width:100%;height:100%;touch-action:none;cursor:pointer}
 .ov{position:fixed;inset:0;background:rgba(18,10,38,.88);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;padding:14px;z-index:5;animation:fade .3s}
 @keyframes fade{from{opacity:0}}
 .card{background:#24164a;border-radius:22px;padding:22px;width:min(440px,100%);max-height:94vh;overflow:auto;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
-h1{font-size:38px;margin:4px 0;background:linear-gradient(135deg,#ffe14d,#ff9a3c);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1{font-size:38px;margin:4px 0;color:#ffe14d}
 h2{font-size:26px;margin:0 0 6px}
 .sub{color:#cdbdf5;margin:0 0 12px;font-size:15px}
-.btn{display:block;width:100%;margin:8px 0;padding:14px;border-radius:999px;font-size:17px;font-weight:800;background:linear-gradient(135deg,#c070ff,#ff4d9a);box-shadow:0 4px 0 #8a1f6a}
-.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #8a1f6a}
+.btn{display:block;width:100%;margin:8px 0;padding:14px;border-radius:14px;font-size:17px;font-weight:800;background:#c070ff;box-shadow:0 4px 0 #6d2aa8}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #6d2aa8}
 .btn.alt{background:#3a2670;box-shadow:0 4px 0 #1b1030}
-.btn.gold{background:linear-gradient(135deg,#ffe14d,#ff9a3c);color:#2b1b52;box-shadow:0 4px 0 #a35a0a}
+.btn.gold{background:#ffe14d;color:#2b1b52;box-shadow:0 4px 0 #a37d0a}
 .btn:disabled{opacity:.45}
 .row{display:flex;gap:8px}.row .btn{flex:1}
 .map{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}
 .lv{aspect-ratio:1;border-radius:50%;background:#3a2670;font:800 18px system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 -4px 0 rgba(0,0,0,.3)}
 .lv small{font-size:9px;letter-spacing:1px;color:#ffe14d}
 .lv.locked{background:#1d1240;color:#5b4a8f}
-.lv.next{background:linear-gradient(135deg,#c070ff,#ff4d9a);animation:pulse 1.4s infinite}
-@keyframes pulse{50%{transform:scale(1.07)}}
+.lv.next{background:#c070ff}
 .stars{font-size:42px;letter-spacing:6px;margin:4px 0;color:#ffe14d}.stars .off{opacity:.2}
 .goals{display:flex;justify-content:center;gap:16px;margin:10px 0 14px;font-weight:800;font-size:20px}
 .goals .goal{font-size:20px}
@@ -57,7 +56,7 @@ h2{font-size:26px;margin:0 0 6px}
   <div class="box" id="goalBox"></div>
   <div class="box" id="movesBox"><small>Ходы</small><b id="moves">30</b><div id="bar"></div></div>
   <div class="box" id="scoreBox"><small>Счёт</small><b id="score">0</b></div>
-  <button class="tbtn alt" id="hammerBtn" title="Молоток: разбить один камень" aria-label="Молоток">🔨<i id="hammers">0</i></button>
+  <button class="tbtn alt" id="hammerBtn" title="Молоток: разбить один камень" aria-label="Молоток"><svg viewBox="0 0 24 24" width="52%" height="52%" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 6l4 4M4 20l9-9M13 4l3-1 5 5-1 3-3-1-5-5z"/></svg><i id="hammers">0</i></button>
   <button class="tbtn" id="menuBtn" title="Меню" aria-label="Меню">☰</button>
 </div>
 <div id="wrap"><canvas id="cv"></canvas></div>
@@ -65,11 +64,11 @@ h2{font-size:26px;margin:0 0 6px}
 
 <div class="ov" id="menu"><div class="card">
   <h1>Три в ряд</h1>
-  <p class="sub">★ <b id="mStars">0</b> из 120 · 🔨 <b id="mHammers">0</b></p>
+  <p class="sub">Звёзд <b id="mStars">0</b> из 120, молотков <b id="mHammers">0</b></p>
   <button class="btn" id="playBtn">Играть</button>
   <div class="map" id="map"></div>
   <button class="btn alt" id="classicBtn">Классика: 30 ходов на очки</button>
-  <div class="row"><button class="btn alt" id="muteBtn"></button><button class="btn gold hidden" id="buyHammers">🔨×3 за 🪙 10</button></div>
+  <div class="row"><button class="btn alt" id="muteBtn"></button><button class="btn gold hidden" id="buyHammers">3 молотка за 10 монеток</button></div>
   <p class="note">4 в ряд — полоса, угол или «Т» — бомба, 5 в ряд — радужная бомба.</p>
 </div></div>
 
@@ -85,7 +84,7 @@ h2{font-size:26px;margin:0 0 6px}
 <div class="ov hidden" id="out"><div class="card">
   <h2>Ходы закончились</h2>
   <div class="goals" id="oGoals"></div>
-  <button class="btn gold hidden" id="coinMoves">+5 ходов за 🪙 10</button>
+  <button class="btn gold hidden" id="coinMoves">+5 ходов за 10 монеток</button>
   <button class="btn alt hidden" id="adMoves">+5 ходов за рекламу</button>
   <button class="btn alt" id="giveUp">Сдаться</button>
 </div></div>
@@ -410,9 +409,9 @@ function win(){
   if(level===save.open&&level<LEVELS)save.open=level+1;
   if(st===3&&old<3)save.hammers++;
   persist();sfx.win();if(sdk)sdk.game.stop();
-  $('rTitle').textContent=level===LEVELS?'Все уровни пройдены! 🏆':'Уровень '+level+' пройден!';
+  $('rTitle').textContent=level===LEVELS?'Все уровни пройдены!':'Уровень '+level+' пройден!';
   $('rStars').innerHTML=[1,2,3].map(function(i){return '<span class="'+(i<=st?'':'off')+'">★</span>'}).join('');
-  $('rSub').textContent='Счёт '+score.toLocaleString('ru-RU')+(bonus?' · бонус за ходы +'+bonus:'')+(st===3&&old<3?' · +1 🔨':'');
+  $('rSub').textContent='Счёт '+score.toLocaleString('ru-RU')+(bonus?', из них за оставшиеся ходы '+bonus:'')+(st===3&&old<3?'. В награду — молоток.':'');
   $('rNext').classList.toggle('hidden',level>=LEVELS);
   $('board').innerHTML='';
   show('result');
@@ -430,7 +429,7 @@ function extraMoves(){extraUsed=true;moves+=5;maxMoves=Math.max(maxMoves,moves);
 function fail(){
   $('rTitle').textContent='Уровень '+level+' не пройден';
   $('rStars').innerHTML='<span class="off">★★★</span>';
-  $('rSub').textContent='Осталось: '+def.goals.map(function(g){return goalLeft(g)}).join(' · ')+'. Спецкамни помогают: соберите 4 или 5 в ряд.';
+  $('rSub').textContent='Не хватило совсем немного. Спецкамни помогают: соберите 4 или 5 в ряд.';
   $('rNext').classList.add('hidden');$('board').innerHTML='';
   show('result');
 }
@@ -439,7 +438,7 @@ function endClassic(){
   var rec=score>save.best;if(rec){save.best=score;persist()}
   $('rTitle').textContent=rec&&score>0?'Новый рекорд!':'Ходы закончились';
   $('rStars').innerHTML='';
-  $('rSub').textContent='Счёт '+score.toLocaleString('ru-RU')+' · рекорд '+save.best.toLocaleString('ru-RU');
+  $('rSub').textContent='Счёт '+score.toLocaleString('ru-RU')+', рекорд '+save.best.toLocaleString('ru-RU');
   $('rNext').classList.add('hidden');renderBoard(null);
   show('result');sfx.win();
   if(sdk&&score>0)sdk.leaderboard.setScore(save.best).catch(function(){}).then(function(){return sdk.leaderboard.getEntries({top:5,around:1})}).then(renderBoard,function(){});
@@ -461,7 +460,7 @@ function openMenu(){
   over=true;state='over';if(sdk)sdk.game.stop();
   var total=save.stars.reduce(function(a,b){return a+(b||0)},0);
   $('mStars').textContent=total;$('mHammers').textContent=save.hammers;
-  $('muteBtn').textContent=save.mute?'🔇 Звук':'🔊 Звук';
+  $('muteBtn').textContent=save.mute?'Включить звук':'Выключить звук';
   $('buyHammers').classList.toggle('hidden',!(sdk&&sdk.environment.host==='gamely'));
   var html='';
   for(var n=1;n<=LEVELS;n++){var st=save.stars[n-1]||0,locked=n>save.open;
