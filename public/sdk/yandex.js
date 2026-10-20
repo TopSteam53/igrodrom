@@ -1,8 +1,8 @@
 /*!
- * Совместимость с Яндекс Игры SDK v2 для Игродрома.
+ * Совместимость с Яндекс Игры SDK v2 для Gamely.
  *
  * Игра, сделанная под Яндекс Игры, вызывает YaGames.init() и работает с объектом ysdk. Этот файл
- * даёт тот же объект поверх Игродром SDK (v1.js), поэтому архив из консоли Яндекса загружается
+ * даёт тот же объект поверх Gamely SDK (v1.js), поэтому архив из консоли Яндекса загружается
  * как есть: при загрузке сервер меняет адрес https://yandex.ru/games/sdk/v2 на /sdk.js
  * (это v1.js и этот файл одним скриптом).
  *
@@ -64,14 +64,14 @@
   }
 
   var state = { format: FORMAT, data: {}, stats: {}, storage: {} };
-  var sdk = null;          // Игродром SDK после init
+  var sdk = null;          // Gamely SDK после init
   var dirty = false;
   var saving = null;
 
   function persist() {
     if (!sdk) { dirty = true; return resolved(); } // запишем, когда SDK подключится
     saving = sdk.data.set(state).catch(function (e) {
-      if (global.console) console.warn('[Игродром] сохранение не удалось:', e && e.message);
+      if (global.console) console.warn('[Gamely] сохранение не удалось:', e && e.message);
     });
     return saving;
   }
@@ -201,7 +201,7 @@
   var payments = {
     getCatalog: function () { return resolved([]); },
     getPurchases: function () { var list = []; list.signature = ''; return resolved(list); },
-    purchase: function () { return rejected('Покупки на Игродроме пока недоступны'); },
+    purchase: function () { return rejected('Покупки на Gamely пока недоступны'); },
     consumePurchase: function () { return resolved(); },
   };
 
@@ -283,7 +283,7 @@
         hideBannerAdv: function () { return resolved({ stickyAdvIsShowing: false }); },
         getBannerAdvStatus: function () { return resolved({ stickyAdvIsShowing: false, reason: 'ADV_IS_NOT_CONNECTED' }); },
       },
-      auth: { openAuthDialog: function () { return rejected('Войдите на Игродроме на странице игры'); } },
+      auth: { openAuthDialog: function () { return rejected('Войдите на Gamely на странице игры'); } },
       getPlayer: function () { return resolved(player); },
       getStorage: function () { return resolved(storage); },
       getLeaderboards: function () { return resolved(legacyLeaderboards); },
@@ -341,8 +341,8 @@
   var connected = null;
   function connect() {
     if (connected) return connected;
-    if (!global.Igrodrom) { connected = rejected('Игродром SDK не подключён: нужен /sdk.js'); return connected; }
-    connected = global.Igrodrom.init({ key: 'yandex:' + global.location.pathname }).then(function (s) {
+    if (!global.Gamely) { connected = rejected('Gamely SDK не подключён: нужен /sdk.js'); return connected; }
+    connected = global.Gamely.init({ key: 'yandex:' + global.location.pathname }).then(function (s) {
       return s.data.get().catch(function () { return null; }).then(function (saved) {
         if (saved && saved.format === FORMAT) {
           // Сохранённое важнее записанного до подключения: игры при старте часто пишут значения

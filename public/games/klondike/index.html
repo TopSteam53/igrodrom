@@ -423,7 +423,7 @@ function undo(){
 }
 async function adUndo(){
   closeModal('adAsk');
-  if(!window.Igrodrom){undoLeft+=3;undo();return}
+  if(!window.Gamely){undoLeft+=3;undo();return}
   if(!sdk){toast('Реклама сейчас недоступна');return}
   busy=true;paused=true;
   var r=null;try{r=await sdk.ads.rewarded()}catch(e){r=null}
@@ -663,7 +663,7 @@ window.addEventListener('keydown',function(e){
   if(k==='KeyN'){newGame();return}
 });
 
-// ---------- сохранение через Игродром SDK ----------
+// ---------- сохранение через Gamely SDK ----------
 // Сохраняем статистику, режим сдачи и незаконченную партию (раскладку, счёт, время, отмены и историю ходов).
 // sdk присваиваем только после чтения сохранения, иначе ранний ход затрёт старую партию.
 function save(){
@@ -705,9 +705,9 @@ document.addEventListener('visibilitychange',function(){lastTick=performance.now
 layout();
 var booted=false;
 function boot(restored){if(booted)return;booted=true;if(!restored&&!dealt)deal(true)}
-if(window.Igrodrom){
+if(window.Gamely){
   var fallback=setTimeout(function(){boot(false)},2500);
-  Igrodrom.init().then(async function(s){
+  Gamely.init().then(async function(s){
     var d=await s.data.get().catch(function(){return null});
     sdk=s;
     var restored=applySave(d);

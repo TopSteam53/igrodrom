@@ -98,7 +98,7 @@ function newGame(){
 }
 function userNewGame(){touched=true;newGame();save()}
 
-// Сохранение через Игродром SDK: рекорд и незаконченная партия (поле, счёт, победа/продолжение).
+// Сохранение через Gamely SDK: рекорд и незаконченная партия (поле, счёт, победа/продолжение).
 // sdk присваиваем только после чтения сохранения, иначе ранний ход затрёт старую партию.
 var sdk=null;
 function save(){
@@ -206,7 +206,7 @@ document.addEventListener('contextmenu',function(e){e.preventDefault()});
 for(var i=0;i<N*N;i++){var c=document.createElement('div');c.className='cell';board.insertBefore(c,ov)}
 window.addEventListener('resize',layout);
 layout();newGame();
-if(window.Igrodrom)Igrodrom.init().then(function(s){
+if(window.Gamely)Gamely.init().then(function(s){
   return s.data.get().catch(function(){return null}).then(function(d){
     sdk=s;applySave(d);
     if(touched)save(); // игрок успел походить до загрузки — сохраняем его партию и максимальный рекорд

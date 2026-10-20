@@ -61,7 +61,7 @@ test('демо-игры заводятся в каталог из meta.json', as
   assert.equal(alpha.age, '6+');
   assert.equal(alpha.cover, 'cover.svg');
   assert.equal(alpha.icon, 'icon.svg');
-  assert.equal(alpha.author, 'Игродром');
+  assert.equal(alpha.author, 'Gamely');
   assert.equal(alpha.demo, 1, 'демо-игры помечены — «Новинкой» они не показываются');
   const beta = games.find((g) => g.title === 'Бета');
   assert.equal(beta.genre, 'Прочее', 'неизвестная категория → Прочее');

@@ -6,3 +6,8 @@
 	}
 	reverse_proxy app:3000
 }
+
+# www и старые адреса сайта (REDIRECT_FROM в .env, через пробел) ведут на основной домен.
+www.{$DOMAIN} {$REDIRECT_FROM} {
+	redir https://{$DOMAIN}{uri} permanent
+}

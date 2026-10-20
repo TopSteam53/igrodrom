@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Разработчикам — Игродром</title>
+<title>Разработчикам — Gamely</title>
 <meta name="color-scheme" content="light dark">
 <script src="theme.js"></script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="top"><div class="w top-in">
-  <a class="logo" href="index.html" aria-label="Игродром, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#1C2140"/><circle cx="16" cy="16" r="10.5" fill="#FFC531"/><path d="M13.2 10.9 21.6 16l-8.4 5.1z" fill="#1C2140"/></svg><span>Игродром</span></a>
+  <a class="logo" href="index.html" aria-label="Gamely, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#FFC531"/><path d="M22.6 9.4A9 9 0 1 0 25 16" fill="none" stroke="#1C2140" stroke-width="4.2" stroke-linecap="round"/><path d="M14.6 12.2 21.2 16l-6.6 3.8z" fill="#1C2140" stroke="#1C2140" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Gamely</span></a>
   <form class="search" id="searchForm" action="index.html" role="search">
     <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
   </form>
@@ -19,7 +20,7 @@
 
 <main class="w prose">
   <h1>Разработчикам</h1>
-  <p class="mut">Как опубликовать HTML5-игру в каталоге Игродрома.</p>
+  <p class="mut">Как опубликовать HTML5-игру в каталоге Gamely.</p>
 
   <h2>Как опубликовать</h2>
   <ol>
@@ -42,11 +43,11 @@
       поэтому без текста — один крупный узнаваемый символ игры.</li>
     <li>Игра должна работать и на компьютере, и на телефоне: мышь, клавиатура и касания.</li>
     <li>Игра запускается в изолированной песочнице: <code>localStorage</code>, cookie, <code>alert</code> и всплывающие окна недоступны.
-      Прогресс и рекорды сохраняйте через <a href="#sdk">Игродром SDK</a>.</li>
+      Прогресс и рекорды сохраняйте через <a href="#sdk">Gamely SDK</a>.</li>
   </ul>
 
   <h2 id="yandex">Игра с Яндекс Игр</h2>
-  <p>Загрузите тот же ZIP-архив, что загружали в консоль Яндекс Игр, — пересобирать ничего не нужно. У Игродрома есть
+  <p>Загрузите тот же ZIP-архив, что загружали в консоль Яндекс Игр, — пересобирать ничего не нужно. У Gamely есть
     свой SDK с тем же API, что у Яндекса: при загрузке ссылки на <code>https://yandex.ru/games/sdk/v2</code> и
     <code>/sdk.js</code> начинают вести на него.</p>
   <ul>
@@ -63,7 +64,7 @@
     <li><b>Отзывы:</b> <code>feedback.requestReview()</code> открывает окно отзыва на странице игры.</li>
     <li><b>Пока заглушки</b> — игра не упадёт, но функции нет: покупки (каталог пуст),
       бонусы, ярлык на рабочий стол, мультиплеер, вход через Яндекс.</li>
-    <li>Если у игрока есть аккаунт Игродрома, <code>player.getName()</code> вернёт его имя, а <code>getMode()</code> — пустую строку, как у вошедшего на Яндексе.</li>
+    <li>Если у игрока есть аккаунт Gamely, <code>player.getName()</code> вернёт его имя, а <code>getMode()</code> — пустую строку, как у вошедшего на Яндексе.</li>
   </ul>
 
   <h2>Что не пройдёт модерацию</h2>
@@ -74,14 +75,14 @@
     <li>Неработающие игры: чёрный экран, ошибки при запуске, невозможность пройти начало.</li>
   </ul>
 
-  <h2 id="sdk">Сохранения: Игродром SDK</h2>
+  <h2 id="sdk">Сохранения: Gamely SDK</h2>
   <p>Игра запускается в песочнице, где <code>localStorage</code> и cookie недоступны. Чтобы сохранять прогресс и рекорды,
     подключите SDK — он передаст сохранение площадке, и оно будет храниться за игроком.</p>
   <pre class="code"><code>&lt;script src="/sdk/v1.js"&gt;&lt;/script&gt;
 &lt;script&gt;
   let progress = { level: 1, coins: 0 };
 
-  Igrodrom.init().then(async (sdk) =&gt; {
+  Gamely.init().then(async (sdk) =&gt; {
     const saved = await sdk.data.get();   // null, если сохранения нет
     if (saved) progress = saved;
     startGame(progress);
@@ -96,7 +97,7 @@
     <li><code>sdk.data.set(value)</code> — записать. Любое JSON-значение до 200 КБ. Частые вызовы SDK склеивает
       и отправляет не чаще раза в секунду — последнее значение не потеряется.</li>
     <li><code>sdk.data.clear()</code> — удалить сохранение.</li>
-    <li><code>sdk.environment.host</code> — <code>"igrodrom"</code> на площадке, <code>"standalone"</code> вне её.</li>
+    <li><code>sdk.environment.host</code> — <code>"gamely"</code> на площадке, <code>"standalone"</code> вне её.</li>
     <li><code>sdk.player</code> — <code>{ anonymous, name, id }</code>: вошёл ли игрок, его имя и постоянный id для вашей игры.</li>
     <li><code>sdk.game.ready()</code>, <code>sdk.game.start()</code>, <code>sdk.game.stop()</code> — игра загрузилась, игровой процесс начался и остановился.</li>
     <li><code>sdk.ads.fullscreen()</code> → <code>{ shown }</code> и <code>sdk.ads.rewarded()</code> → <code>{ rewarded }</code> — реклама,
@@ -151,7 +152,7 @@ if (ok) revive();                                     // reason: cancelled | not
     <li>Трату подтверждает игрок в окне площадки — игра не может списать монетки сама. Название покупки (до 60 символов)
       игрок видит в этом окне и в истории в профиле.</li>
     <li>Одна трата — от 1 до 1000 монеток. Выдавайте покупку, только если <code>ok</code> равно <code>true</code>.</li>
-    <li>Для отладки вне площадки: <code>Igrodrom.init({ debugCoins: 100 })</code> — SDK даст 100 тестовых монеток.</li>
+    <li>Для отладки вне площадки: <code>Gamely.init({ debugCoins: 100 })</code> — SDK даст 100 тестовых монеток.</li>
   </ul>
 
   <h2 id="feedback">Отзыв об игре</h2>
@@ -167,7 +168,7 @@ if (ok) revive();                                     // reason: cancelled | not
 
 <footer><div class="w">
   <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a><a href="terms.html">Правила</a><a href="privacy.html">Конфиденциальность</a><a href="contacts.html">Контакты</a></nav>
-  <div>© Игродром</div>
+  <div>© Gamely</div>
 </div></footer>
 <script src="app.js"></script>
 <script>Igr.initHeader();</script>

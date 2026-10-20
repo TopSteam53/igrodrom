@@ -148,11 +148,11 @@ function win(){
   var rec=!best||secs<best;if(rec){best=secs;showBest();save()}
   setTimeout(function(){show('Победа!','Время: '+secs+' с'+(rec?' — новый рекорд!':' · рекорд: '+best+' с'))},300);
 }
-// Рекорд (лучшее время победы) хранится через Игродром SDK; писать начинаем только после чтения.
+// Рекорд (лучшее время победы) хранится через Gamely SDK; писать начинаем только после чтения.
 var sdk=null,bestT=document.getElementById('bestT');
 function showBest(){bestT.textContent=best?' · рекорд: '+best+' с':''}
 function save(){if(sdk)sdk.data.set({v:1,best:best}).catch(function(){})}
-if(window.Igrodrom)Igrodrom.init().then(function(s){
+if(window.Gamely)Gamely.init().then(function(s){
   return s.data.get().catch(function(){return null}).then(function(d){
     sdk=s;
     var b=d&&typeof d==='object'&&typeof d.best==='number'&&isFinite(d.best)&&d.best>=1?Math.floor(d.best):0;

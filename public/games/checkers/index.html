@@ -604,7 +604,7 @@ function confetti(){
 }
 function stopConfetti(){cancelAnimationFrame(fxRaf);fxc.clearRect(0,0,fx.width,fx.height)}
 
-// ---------- сохранение через Игродром SDK ----------
+// ---------- сохранение через Gamely SDK ----------
 // Сохраняем настройки, статистику по уровням и незаконченную партию с историей для отмены.
 // sdk присваиваем только после чтения сохранения, иначе ранний ход затрёт старую партию.
 function save(){
@@ -641,7 +641,7 @@ function applySave(d){
 build();
 window.addEventListener('resize',layout);
 startGame();
-if(window.Igrodrom)Igrodrom.init().then(async function(s){
+if(window.Gamely)Gamely.init().then(async function(s){
   var d=await s.data.get().catch(function(){return null});
   sdk=s;
   if(!applySave(d)&&!touched&&(setMode!==mode||setLevel!==level||setSide!==human))startGame();

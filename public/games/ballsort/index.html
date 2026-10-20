@@ -495,7 +495,7 @@ window.addEventListener('resize',function(){layout()});
 
 drawMute();
 startLevel(1);
-if(window.Igrodrom)Igrodrom.init().then(function(s){
+if(window.Gamely)Gamely.init().then(function(s){
   return s.data.get().catch(function(){return null}).then(function(d){
     sdk=s;
     applySave(d);

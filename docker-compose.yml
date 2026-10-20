@@ -21,6 +21,7 @@ services:
       - "443:443"
     environment:
       DOMAIN: ${DOMAIN:?укажите DOMAIN в .env}
+      REDIRECT_FROM: ${REDIRECT_FROM:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

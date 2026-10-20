@@ -30,7 +30,7 @@ export function logMailer(log = console.log) {
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 const header = (s) => (/^[\x20-\x7e]*$/.test(s) ? s : `=?UTF-8?B?${b64(s)}?=`);
 
-// «Игродром <hello@site.ru>» → адрес для MAIL FROM и заголовок From.
+// «Gamely <hello@site.ru>» → адрес для MAIL FROM и заголовок From.
 function parseFrom(from) {
   const m = String(from).match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
   if (!m) return { address: from.trim(), header: from.trim() };

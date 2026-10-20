@@ -127,10 +127,10 @@ function upd(){
   scoreEl.textContent=score;movesEl.textContent=moves;bestEl.textContent=best;
   bar.style.width=(moves/MOVES*100)+'%';movesBox.classList.toggle('low',moves<=5&&!over);
 }
-// Рекорд хранится через Игродром SDK; писать начинаем только после чтения, чтобы не затереть старый рекорд.
+// Рекорд хранится через Gamely SDK; писать начинаем только после чтения, чтобы не затереть старый рекорд.
 var sdk=null;
 function save(){if(sdk)sdk.data.set({v:1,best:best}).catch(function(){})}
-if(window.Igrodrom)Igrodrom.init().then(function(s){
+if(window.Gamely)Gamely.init().then(function(s){
   return s.data.get().catch(function(){return null}).then(function(d){
     sdk=s;
     if(d&&typeof d==='object'&&typeof d.best==='number'&&isFinite(d.best)&&d.best>best){best=Math.floor(d.best);upd()}

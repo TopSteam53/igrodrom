@@ -193,7 +193,7 @@ test('SDK: монетки — трата только после подтвер�
     spend: async (amount) => { if (amount > balance) { const e = new Error('Не хватает'); e.status = 409; throw e; } balance -= amount; return balance; },
   };
   const child = platform(null, { coins }).session();
-  const sdk = await child.Igrodrom.init();
+  const sdk = await child.Gamely.init();
   assert.equal(await sdk.coins.balance(), 50);
   assert.deepEqual(plain(await sdk.coins.spend(20, 'Щит')), { ok: false, reason: 'cancelled' });
   assert.deepEqual(plain(asked), [{ amount: 20, title: 'Щит', balance: 50 }]);
@@ -208,7 +208,7 @@ test('SDK: монетки — трата только после подтвер�
 });
 
 test('SDK: без монеток на площадке и вне её', async () => {
-  const sdk = await platform().session().Igrodrom.init();
+  const sdk = await platform().session().Gamely.init();
   assert.equal(await sdk.coins.balance(), null);
   assert.deepEqual(plain(await sdk.coins.spend(5, 'Щит')), { ok: false, reason: 'unavailable' });
   assert.deepEqual(plain(await sdk.feedback.request()), { sent: false });
@@ -216,7 +216,7 @@ test('SDK: без монеток на площадке и вне её', async ()
   // Вне площадки: для отладки покупок — options.debugCoins (игра подключает sdk/v1.js).
   const win = fakeWindow();
   vm.runInNewContext(fs.readFileSync(path.join(root, 'sdk', 'v1.js'), 'utf8'), win);
-  const local = await win.Igrodrom.init({ debugCoins: 10 });
+  const local = await win.Gamely.init({ debugCoins: 10 });
   assert.equal(local.environment.host, 'standalone');
   assert.deepEqual(plain(await local.coins.spend(4, 'Щит')), { ok: true, balance: 6 });
   assert.deepEqual(plain(await local.coins.spend(7, 'Щит')), { ok: false, reason: 'not_enough' });

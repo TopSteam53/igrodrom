@@ -12,11 +12,11 @@ button.u{background:#7c3aed;color:#fff;border:0;border-radius:10px;padding:10px 
 let n=0,k=1,a=0,p1=10,p2=50;const $=i=>document.getElementById(i);
 function r(){$('n').textContent=n|0;$('p1').textContent=p1;$('p2').textContent=p2;$('u1').disabled=n<p1;$('u2').disabled=n<p2}
 
-// Сохранение через Игродром SDK: прогресс переживает перезагрузку, автопечь работает, пока игрока нет (до 2 часов).
+// Сохранение через Gamely SDK: прогресс переживает перезагрузку, автопечь работает, пока игрока нет (до 2 часов).
 const MAX_AWAY_SEC=2*3600;
 let sdk=null;
 function save(){if(sdk)sdk.data.set({n,k,a,p1,p2,t:Date.now()}).catch(()=>{})}
-if(window.Igrodrom)Igrodrom.init().then(async s=>{
+if(window.Gamely)Gamely.init().then(async s=>{
   // Писать начинаем только после чтения: иначе ранний клик затрёт старое сохранение.
   const d=await s.data.get().catch(()=>null);sdk=s;
   if(d&&typeof d.n==='number'){

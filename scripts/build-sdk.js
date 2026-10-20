@@ -1,4 +1,4 @@
-// Собирает public/sdk.js — Игродром SDK (sdk/v1.js) и совместимость с Яндекс Игры SDK (sdk/yandex.js)
+// Собирает public/sdk.js — Gamely SDK (sdk/v1.js) и совместимость с Яндекс Игры SDK (sdk/yandex.js)
 // одним скриптом. По адресу /sdk.js его ищут игры с Яндекс Игр; при загрузке архива сервер
 // направляет туда и ссылки на https://yandex.ru/games/sdk/v2.
 // Запуск: npm run build:sdk

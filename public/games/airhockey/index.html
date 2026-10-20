@@ -114,8 +114,8 @@ function save() {
   if (sdk) sdk.data.set({ v: 1, diff, muted, wins: stats.wins, losses: stats.losses, pvp: stats.pvp }).catch(() => {});
 }
 const n0 = v => (typeof v === 'number' && isFinite(v) && v >= 0 ? Math.floor(v) : 0);
-if (window.Igrodrom) {
-  Igrodrom.init().then(async (sd) => {
+if (window.Gamely) {
+  Gamely.init().then(async (sd) => {
     const d = await sd.data.get().catch(() => null);
     sdk = sd;
     if (d && typeof d === 'object') {

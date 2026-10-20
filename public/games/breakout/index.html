@@ -34,12 +34,12 @@ let score = 0, lives = 3, level = 1, best = 0, maxLevel = 1;
 let banner = 'start'; // start | level | life
 let targetX = null, keyL = false, keyR = false, newBest = false, flash = 0;
 
-// ---------- сохранение через Игродром SDK: рекорд и лучший уровень ----------
+// ---------- сохранение через Gamely SDK: рекорд и лучший уровень ----------
 // sdk присваиваем только после чтения, чтобы ранняя игра не затёрла старый рекорд.
 let sdk = null;
 function save() { if (sdk) sdk.data.set({ v: 1, best, maxLevel }).catch(() => {}); }
 const num = (v, min) => (typeof v === 'number' && isFinite(v) && v >= min ? Math.floor(v) : 0);
-if (window.Igrodrom) Igrodrom.init().then(async (s) => {
+if (window.Gamely) Gamely.init().then(async (s) => {
   const d = await s.data.get().catch(() => null);
   sdk = s;
   const ok = d && typeof d === 'object';

@@ -56,8 +56,9 @@ function linked({ host = true } = {}) {
 
 test('на площадке: init, сохранение и чтение', async () => {
   const { parent, child } = linked();
-  const sdk = await child.Igrodrom.init();
-  assert.equal(sdk.environment.host, 'igrodrom');
+  const sdk = await child.Gamely.init();
+  assert.equal(sdk.environment.host, 'gamely');
+  assert.equal(child.Igrodrom, child.Gamely, 'старое имя SDK — то же самое');
   assert.equal(sdk.environment.gameId, 'demo-game');
   assert.equal(await sdk.data.get(), null);
   await sdk.data.set({ level: 3, coins: 150, items: ['меч'] });
@@ -66,12 +67,12 @@ test('на площадке: init, сохранение и чтение', async 
   assert.equal(parent.storageData.get('igrodrom:save:demo-game'), '{"level":3,"coins":150,"items":["меч"]}');
   await sdk.data.clear();
   assert.equal(await sdk.data.get(), null);
-  assert.strictEqual(await child.Igrodrom.init(), sdk, 'повторный init — тот же объект');
+  assert.strictEqual(await child.Gamely.init(), sdk, 'повторный init — тот же объект');
 });
 
 test('частые сохранения склеиваются, побеждает последнее', async () => {
   const { parent, child } = linked();
-  const sdk = await child.Igrodrom.init();
+  const sdk = await child.Gamely.init();
   const writes = [];
   for (let i = 1; i <= 20; i++) writes.push(sdk.data.set({ clicks: i }));
   await Promise.all(writes);
@@ -82,7 +83,7 @@ test('частые сохранения склеиваются, побеждае
 
 test('слишком большое или не-JSON сохранение отклоняется сразу', async () => {
   const { parent, child } = linked();
-  const sdk = await child.Igrodrom.init();
+  const sdk = await child.Gamely.init();
   await assert.rejects(sdk.data.set({ blob: 'x'.repeat(210 * 1024) }), /200 КБ/);
   await assert.rejects(sdk.data.set(undefined), /JSON/);
   const cyclic = {}; cyclic.self = cyclic;
@@ -103,7 +104,7 @@ test('площадка игнорирует сообщения не от сво�
 test('без площадки: игра продолжает работать (память)', async () => {
   const { child } = linked({ host: false });
   const started = Date.now();
-  const sdk = await child.Igrodrom.init();
+  const sdk = await child.Gamely.init();
   assert.ok(Date.now() - started >= 1400, 'ждали ответа площадки ~1.5 с');
   assert.equal(sdk.environment.host, 'standalone');
   assert.equal(sdk.environment.storage, 'memory', 'localStorage в песочнице недоступен');
@@ -115,7 +116,7 @@ test('открыта напрямую, не в iframe: сохраняет в loc
   const win = fakeWindow();
   win.parent = win;
   vm.runInNewContext(SDK, win);
-  const sdk = await win.Igrodrom.init({ key: 'my-game' });
+  const sdk = await win.Gamely.init({ key: 'my-game' });
   assert.equal(sdk.environment.storage, 'browser');
   await sdk.data.set({ best: 7 });
   assert.equal(win.storageData.get('igrodrom-sdk:my-game'), '{"best":7}');

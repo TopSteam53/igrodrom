@@ -43,11 +43,11 @@ const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const wrap = document.getElementById('wrap'), overEl = document.getElementById('over');
 const $ = id => document.getElementById(id);
 
-// ---------- рекорд через Игродром SDK ----------
+// ---------- рекорд через Gamely SDK ----------
 // sdk присваиваем только после чтения, чтобы ранняя попытка не затёрла старый рекорд.
 let sdk = null;
 function save() { if (sdk) sdk.data.set({ v: 1, best }).catch(() => {}); }
-if (window.Igrodrom) Igrodrom.init().then(async (s) => {
+if (window.Gamely) Gamely.init().then(async (s) => {
   const d = await s.data.get().catch(() => null);
   sdk = s;
   const b = d && typeof d === 'object' && typeof d.best === 'number' && isFinite(d.best) ? Math.floor(d.best) : 0;

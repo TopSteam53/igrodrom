@@ -41,7 +41,7 @@ const server = createApp({
   registerGuard: true,
 });
 
-server.listen(port, () => console.log(`Игродром: http://localhost:${port}`));
+server.listen(port, () => console.log(`Gamely: http://localhost:${port}`));
 
 // Docker and systemd stop the process with SIGTERM: finish requests and close the database cleanly.
 for (const signal of ['SIGTERM', 'SIGINT']) {

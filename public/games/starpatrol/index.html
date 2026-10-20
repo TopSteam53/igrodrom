@@ -121,7 +121,7 @@ function loadImages() {
   })));
 }
 
-// ---------- сохранение через Игродром SDK ----------
+// ---------- сохранение через Gamely SDK ----------
 let sdk = null;
 const save = { v: 1, best: 0, crystals: 0, up: { gun: 0, armor: 0, magnet: 0 }, runs: 0, mute: false };
 function persist() { if (sdk) sdk.data.set(save).catch(() => {}); }
@@ -782,7 +782,7 @@ async function gameOver() {
   $('oBest').textContent = save.best.toLocaleString('ru-RU');
   $('oCr').innerHTML = crystalsHTML(runCrystals);
   // Продолжить полёт можно один раз за вылет: за монетки площадки или за рекламу.
-  const hosted = sdk && sdk.environment.host === 'igrodrom';
+  const hosted = sdk && sdk.environment.host === 'gamely';
   $('revive').classList.toggle('hidden', revived || !sdk);
   $('coinRevive').classList.toggle('hidden', !hosted);
   $('coinRevive').innerHTML = `Продолжить ${COIN_SVG} ${REVIVE_COST}`;
@@ -797,7 +797,7 @@ async function gameOver() {
 
 function renderBoard(r) {
   const el = $('board');
-  if (!r || !sdk || sdk.environment.host !== 'igrodrom') { el.innerHTML = ''; return; }
+  if (!r || !sdk || sdk.environment.host !== 'gamely') { el.innerHTML = ''; return; }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const rows = r.entries.slice();
   for (const e of r.around || []) if (!rows.some((x) => x.rank === e.rank)) rows.push(e);
@@ -853,8 +853,8 @@ $('ctrlNote').textContent = matchMedia('(pointer: coarse)').matches
 resize();
 setMute(false);
 requestAnimationFrame(frame);
-const sdkReady = window.Igrodrom
-  ? Igrodrom.init().then(async (s) => {
+const sdkReady = window.Gamely
+  ? Gamely.init().then(async (s) => {
     const d = await s.data.get().catch(() => null);
     applySave(d);
     sdk = s;

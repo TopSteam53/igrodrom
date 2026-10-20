@@ -511,7 +511,7 @@ function restoredRound(){
   $('resBtn').addEventListener('click',resume);
   $('quitBtn').addEventListener('click',function(){closeOv();R.paused=false;R.left=0;timeUp()});
 }
-if(window.Igrodrom)Igrodrom.init().then(function(s){
+if(window.Gamely)Gamely.init().then(function(s){
   s.on('pause',function(){adPause=true});
   s.on('resume',function(){adPause=false;lastT=0});
   return s.data.get().catch(function(){return null}).then(function(d){

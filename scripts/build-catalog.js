@@ -22,7 +22,7 @@ export function buildCatalog() {
         age: meta.age || '0+',
         description: meta.description || '',
         how_to_play: meta.how_to_play || '',
-        author: 'Игродром',
+        author: 'Gamely',
         cover: COVERS.find((f) => fs.existsSync(path.join(root, slug, f))) || null,
         icon: ICONS.find((f) => fs.existsSync(path.join(root, slug, f))) || null,
         featured: Number.isInteger(meta.featured) ? meta.featured : 0,

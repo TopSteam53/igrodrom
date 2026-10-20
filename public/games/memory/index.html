@@ -6,12 +6,12 @@
 <script src="../../sdk/v1.js"></script>
 <script>
 const e='🦊🐼🐸🦉🐙🦄🐝🐳'.match(/./gu),a=[...e,...e].sort(()=>Math.random()-.5);let o=[],m=0,done=0,best=0;
-// Лучший результат (наименьшее число ходов) хранится через Игродром SDK; пишем только после чтения.
+// Лучший результат (наименьшее число ходов) хранится через Gamely SDK; пишем только после чтения.
 let sdk=null;
 const moves=n=>n+' '+(n%10==1&&n%100!=11?'ход':n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'хода':'ходов');
 function showBest(){document.getElementById('b').textContent=best?'Лучший результат: '+moves(best):''}
 function save(){if(sdk)sdk.data.set({v:1,best}).catch(()=>{})}
-if(window.Igrodrom)Igrodrom.init().then(async s=>{
+if(window.Gamely)Gamely.init().then(async s=>{
   const sv=await s.data.get().catch(()=>null);sdk=s;
   const b=sv&&typeof sv.best==='number'&&isFinite(sv.best)&&sv.best>=8?Math.floor(sv.best):0;
   if(b&&(!best||b<best)){best=b;showBest()}else if(best)save();

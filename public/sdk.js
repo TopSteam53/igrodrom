@@ -1,9 +1,9 @@
 // Собрано из public/sdk/v1.js и public/sdk/yandex.js командой npm run build:sdk. Не редактируйте вручную.
 /*!
- * Игродром SDK v1 — сохранения, реклама и события для HTML5-игр.
+ * Gamely SDK v1 — сохранения, реклама и события для HTML5-игр.
  *
  *   <script src="/sdk/v1.js"></script>
- *   const sdk = await Igrodrom.init();
+ *   const sdk = await Gamely.init();
  *   const save = (await sdk.data.get()) || { level: 1 };
  *   sdk.game.ready();                                  // игра загрузилась
  *   await sdk.data.set({ level: 2, coins: 150 });
@@ -11,7 +11,7 @@
  *   await sdk.leaderboard.setScore(1200);              // таблица рекордов (только вошедшие игроки)
  *   const { ok } = await sdk.coins.spend(30, 'Щит');   // монетки площадки, игрок подтверждает трату
  *
- * Игра на Игродроме работает в песочнице без доступа к хранилищу браузера, поэтому SDK передаёт
+ * Игра на Gamely работает в песочнице без доступа к хранилищу браузера, поэтому SDK передаёт
  * сохранения странице площадки через postMessage, а та хранит их на сервере за игроком.
  * Вне площадки (локальная отладка, другой сайт) SDK сохраняет в localStorage, а если и он
  * недоступен — в память. Игра работает одинаково во всех случаях.
@@ -39,9 +39,9 @@
   // Проверяем до отправки: ошибка должна прийти в игру сразу, а не после сетевого запроса.
   function serialize(value) {
     var json;
-    try { json = JSON.stringify(value); } catch (e) { throw new TypeError('Igrodrom SDK: сохранение должно сериализоваться в JSON'); }
-    if (json === undefined) throw new TypeError('Igrodrom SDK: сохранение должно быть JSON-значением');
-    if (sizeOf(json) > MAX_SAVE_BYTES) throw new RangeError('Igrodrom SDK: сохранение больше 200 КБ');
+    try { json = JSON.stringify(value); } catch (e) { throw new TypeError('Gamely SDK: сохранение должно сериализоваться в JSON'); }
+    if (json === undefined) throw new TypeError('Gamely SDK: сохранение должно быть JSON-значением');
+    if (sizeOf(json) > MAX_SAVE_BYTES) throw new RangeError('Gamely SDK: сохранение больше 200 КБ');
     return json;
   }
 
@@ -68,7 +68,7 @@
     delete pending[m.id];
     clearTimeout(p.timer);
     if (m.ok) p.resolve(m.result);
-    else p.reject(new Error(m.error || 'Igrodrom SDK: ошибка площадки'));
+    else p.reject(new Error(m.error || 'Gamely SDK: ошибка площадки'));
   }
 
   function request(type, payload, timeoutMs) {
@@ -79,7 +79,7 @@
         reject: reject,
         timer: setTimeout(function () {
           delete pending[id];
-          reject(new Error('Igrodrom SDK: площадка не ответила'));
+          reject(new Error('Gamely SDK: площадка не ответила'));
         }, timeoutMs || REQUEST_MS),
       };
       global.parent.postMessage({ protocol: PROTOCOL, version: VERSION, id: id, type: type, payload: payload }, '*');
@@ -142,12 +142,12 @@
   var BOARD_RE = /^[\w.-]{1,40}$/;
   function boardOf(opts) {
     var board = opts && opts.board != null ? String(opts.board) : 'main';
-    if (!BOARD_RE.test(board)) throw new TypeError('Igrodrom SDK: имя таблицы — латиница, цифры, «_», «-», «.», до 40 символов');
+    if (!BOARD_RE.test(board)) throw new TypeError('Gamely SDK: имя таблицы — латиница, цифры, «_», «-», «.», до 40 символов');
     return board;
   }
   function checkScore(score) {
     if (typeof score !== 'number' || !isFinite(score) || Math.floor(score) !== score) {
-      throw new TypeError('Igrodrom SDK: результат должен быть целым числом');
+      throw new TypeError('Gamely SDK: результат должен быть целым числом');
     }
   }
   function attempt(fn) { try { return Promise.resolve(fn()); } catch (e) { return Promise.reject(e); } }
@@ -183,10 +183,10 @@
       // reason — 'cancelled' (отказался), 'not_enough', 'guest' (не вошёл), 'unavailable'.
       spend: function (amount, title) {
         if (typeof amount !== 'number' || Math.floor(amount) !== amount || amount < 1 || amount > 1000) {
-          return Promise.reject(new RangeError('Igrodrom SDK: сумма — целое число от 1 до 1000'));
+          return Promise.reject(new RangeError('Gamely SDK: сумма — целое число от 1 до 1000'));
         }
         title = String(title == null ? '' : title).trim().slice(0, 60);
-        if (!title) return Promise.reject(new TypeError('Igrodrom SDK: укажите, за что списываются монетки'));
+        if (!title) return Promise.reject(new TypeError('Gamely SDK: укажите, за что списываются монетки'));
         return request('coins.spend', { amount: amount, title: title }, AD_MS)
           .then(function (r) { return r || { ok: false, reason: 'unavailable' }; },
             function () { return { ok: false, reason: 'unavailable' }; });
@@ -213,7 +213,7 @@
     var write = throttledWriter(function (json) { return request('data.set', json); });
     return {
       version: VERSION,
-      environment: { host: 'igrodrom', storage: info.storage, gameId: info.gameId, lang: info.lang || 'ru' },
+      environment: { host: 'gamely', storage: info.storage, gameId: info.gameId, lang: info.lang || 'ru' },
       player: playerOf(info.player),
       data: {
         get: function () { return request('data.get').then(function (json) { return json == null ? null : JSON.parse(json); }); },
@@ -349,14 +349,15 @@
     return initPromise;
   }
 
-  global.Igrodrom = { init: init, version: VERSION, MAX_SAVE_BYTES: MAX_SAVE_BYTES };
+  global.Gamely = { init: init, version: VERSION, MAX_SAVE_BYTES: MAX_SAVE_BYTES };
+  global.Igrodrom = global.Gamely; // старое имя площадки: игры, собранные под него, продолжают работать
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /*!
- * Совместимость с Яндекс Игры SDK v2 для Игродрома.
+ * Совместимость с Яндекс Игры SDK v2 для Gamely.
  *
  * Игра, сделанная под Яндекс Игры, вызывает YaGames.init() и работает с объектом ysdk. Этот файл
- * даёт тот же объект поверх Игродром SDK (v1.js), поэтому архив из консоли Яндекса загружается
+ * даёт тот же объект поверх Gamely SDK (v1.js), поэтому архив из консоли Яндекса загружается
  * как есть: при загрузке сервер меняет адрес https://yandex.ru/games/sdk/v2 на /sdk.js
  * (это v1.js и этот файл одним скриптом).
  *
@@ -418,14 +419,14 @@
   }
 
   var state = { format: FORMAT, data: {}, stats: {}, storage: {} };
-  var sdk = null;          // Игродром SDK после init
+  var sdk = null;          // Gamely SDK после init
   var dirty = false;
   var saving = null;
 
   function persist() {
     if (!sdk) { dirty = true; return resolved(); } // запишем, когда SDK подключится
     saving = sdk.data.set(state).catch(function (e) {
-      if (global.console) console.warn('[Игродром] сохранение не удалось:', e && e.message);
+      if (global.console) console.warn('[Gamely] сохранение не удалось:', e && e.message);
     });
     return saving;
   }
@@ -555,7 +556,7 @@
   var payments = {
     getCatalog: function () { return resolved([]); },
     getPurchases: function () { var list = []; list.signature = ''; return resolved(list); },
-    purchase: function () { return rejected('Покупки на Игродроме пока недоступны'); },
+    purchase: function () { return rejected('Покупки на Gamely пока недоступны'); },
     consumePurchase: function () { return resolved(); },
   };
 
@@ -637,7 +638,7 @@
         hideBannerAdv: function () { return resolved({ stickyAdvIsShowing: false }); },
         getBannerAdvStatus: function () { return resolved({ stickyAdvIsShowing: false, reason: 'ADV_IS_NOT_CONNECTED' }); },
       },
-      auth: { openAuthDialog: function () { return rejected('Войдите на Игродроме на странице игры'); } },
+      auth: { openAuthDialog: function () { return rejected('Войдите на Gamely на странице игры'); } },
       getPlayer: function () { return resolved(player); },
       getStorage: function () { return resolved(storage); },
       getLeaderboards: function () { return resolved(legacyLeaderboards); },
@@ -695,8 +696,8 @@
   var connected = null;
   function connect() {
     if (connected) return connected;
-    if (!global.Igrodrom) { connected = rejected('Игродром SDK не подключён: нужен /sdk.js'); return connected; }
-    connected = global.Igrodrom.init({ key: 'yandex:' + global.location.pathname }).then(function (s) {
+    if (!global.Gamely) { connected = rejected('Gamely SDK не подключён: нужен /sdk.js'); return connected; }
+    connected = global.Gamely.init({ key: 'yandex:' + global.location.pathname }).then(function (s) {
       return s.data.get().catch(function () { return null; }).then(function (saved) {
         if (saved && saved.format === FORMAT) {
           // Сохранённое важнее записанного до подключения: игры при старте часто пишут значения

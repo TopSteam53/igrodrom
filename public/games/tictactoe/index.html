@@ -93,7 +93,7 @@ let board = Array(9).fill(null), turn = 'X', over = false, starter = 'X', busy =
 const scores = { easy: { X: 0, O: 0, D: 0 }, hard: { X: 0, O: 0, D: 0 }, pvp: { X: 0, O: 0, D: 0 } };
 const bucket = () => (mode === 'ai' ? diff : 'pvp');
 
-// ---------- сохранение через Игродром SDK: счёт по режимам и выбранный режим ----------
+// ---------- сохранение через Gamely SDK: счёт по режимам и выбранный режим ----------
 // sdk присваиваем только после чтения, иначе ранняя партия затрёт сохранённый счёт.
 let sdk = null, touched = false;
 function save() { if (sdk) sdk.data.set({ v: 1, mode, diff, scores }).catch(() => {}); }
@@ -309,7 +309,7 @@ window.__game = { get state() { return { mode, diff, board: board.slice(), turn,
 
 newGame(true);
 layout();
-if (window.Igrodrom) Igrodrom.init().then(async (sd) => {
+if (window.Gamely) Gamely.init().then(async (sd) => {
   const d = await sd.data.get().catch(() => null);
   sdk = sd;
   applySave(d);

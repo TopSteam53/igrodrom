@@ -287,8 +287,8 @@ function save() {
 }
 const n0 = v => (typeof v === 'number' && isFinite(v) && v >= 0 ? Math.floor(v) : 0);
 let adBusy = false, adPaused = false;
-if (window.Igrodrom) {
-  Igrodrom.init().then(async (s) => {
+if (window.Gamely) {
+  Gamely.init().then(async (s) => {
     const d = await s.data.get().catch(() => null);
     sdk = s;
     if (d && typeof d === 'object') {

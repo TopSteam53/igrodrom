@@ -431,7 +431,7 @@ function shareText(){
   var g=game(),n=g.won?g.guesses.length:'X';
   var head=st.mode==='daily'?'Слово дня '+fmtDate(g.date)+' — '+n+'/6':'Слово дня, свободная игра — '+n+'/6';
   var rows=g.guesses.map(function(w){return evaluate(w,g.answer).map(function(s){return s==='c'?'🟩':s==='p'?'🟨':'⬜'}).join('')});
-  return head+'\n'+rows.join('\n')+'\n#ИгродромСловоДня';
+  return head+'\n'+rows.join('\n')+'\n#GamelyСловоДня';
 }
 function showStats(end){
   var s=st.stats,g=game(),max=Math.max.apply(null,s.dist.concat([1]));
@@ -494,8 +494,8 @@ function ready(s,hadSave){
   if(!hadSave&&!st.help)showHelp();
   if(s)s.game.ready();
 }
-if(window.Igrodrom){
-  Igrodrom.init().then(function(s){
+if(window.Gamely){
+  Gamely.init().then(function(s){
     s.on('pause',function(){paused=true});
     s.on('resume',function(){paused=false});
     return s.data.get().catch(function(){return null}).then(function(d){

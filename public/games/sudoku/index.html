@@ -393,7 +393,7 @@ function hintTarget(){
 function hint(){
   if(done||ovOpen||hintBusy)return;
   if(hintTarget()<0)return;
-  if(window.Igrodrom&&!sdk){toast('Секунду, игра загружается');return}
+  if(window.Gamely&&!sdk){toast('Секунду, игра загружается');return}
   hintBusy=true;$('hintBtn').classList.add('wait');
   var ask=sdk?sdk.ads.rewarded().catch(function(){return{rewarded:false}}):Promise.resolve({rewarded:true});
   ask.then(function(r){
@@ -454,7 +454,7 @@ ov.addEventListener('click',function(e){
 var toastT=0;
 function toast(t){var el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('show')},1700)}
 
-// ---------- сохранение через Игродром SDK ----------
+// ---------- сохранение через Gamely SDK ----------
 // sdk присваиваем только после чтения сохранения, иначе ранний ход затрёт старую партию.
 var sdk=null,savedAt=0;
 function str(a){return Array.prototype.join.call(a,'')}
@@ -566,7 +566,7 @@ function layout(){
 }
 window.addEventListener('resize',layout);
 layout();newGame('medium');
-if(window.Igrodrom)Igrodrom.init().then(function(s){
+if(window.Gamely)Gamely.init().then(function(s){
   s.on('pause',function(){paused=true});
   s.on('resume',function(){paused=false;lastTick=performance.now()});
   return s.data.get().catch(function(){return null}).then(function(d){

@@ -116,7 +116,7 @@ test('реклама показана: игра встаёт на паузу, у
     rewarded: async (hooks) => { hooks.open(); return { rewarded: true, shown: true }; },
   };
   const child = hosted(ads, (kind) => counted.push(kind));
-  const sdk = await child.Igrodrom.init();
+  const sdk = await child.Gamely.init();
   const log = [];
   sdk.on('pause', () => log.push('pause'));
   sdk.on('resume', () => log.push('resume'));

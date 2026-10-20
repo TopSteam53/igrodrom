@@ -4,11 +4,11 @@
 <script src="../../sdk/v1.js"></script>
 <script>
 const c=document.getElementById('c'),x=c.getContext('2d'),N=16,S=20;let sn,d,f,sc,t,best=0;
-// Рекорд хранится через Игродром SDK. Писать начинаем только после чтения, чтобы не затереть старый рекорд.
+// Рекорд хранится через Gamely SDK. Писать начинаем только после чтения, чтобы не затереть старый рекорд.
 let sdk=null;
 function save(){if(sdk)sdk.data.set({v:1,best}).catch(()=>{})}
 function hud(){document.getElementById('s').firstChild.textContent='Счёт: '+sc+' · ';document.getElementById('b').textContent='Рекорд: '+best}
-if(window.Igrodrom)Igrodrom.init().then(async s=>{
+if(window.Gamely)Gamely.init().then(async s=>{
   const sv=await s.data.get().catch(()=>null);sdk=s;
   if(sv&&typeof sv.best==="number"&&isFinite(sv.best)&&sv.best>best){best=Math.floor(sv.best);hud()}
   else if(best>0)save();

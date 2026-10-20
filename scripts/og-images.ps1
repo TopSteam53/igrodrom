@@ -64,18 +64,21 @@ if (-not $Games) {
   $tiles = ($covers.Keys | Sort-Object { [Math]::Abs($_.GetHashCode()) } | ForEach-Object { "<img src=""$($covers[$_])"">" }) -join ''
   $html = @"
 <!doctype html><meta charset="utf-8"><style>
-@font-face{font-family:U;src:url($fonts/unbounded-cyrillic.woff2);font-weight:200 900}
+@font-face{font-family:U;src:url($fonts/unbounded-cyrillic.woff2);font-weight:200 900;unicode-range:U+0400-04FF}
+@font-face{font-family:U;src:url($fonts/unbounded-latin.woff2);font-weight:200 900;unicode-range:U+0000-00FF}
 @font-face{font-family:O;src:url($fonts/onest-cyrillic.woff2);font-weight:100 900}
 html,body{margin:0;background:#12152A}body{position:relative;width:1200px;height:630px;overflow:hidden}
 .wall{position:absolute;left:330px;top:-150px;width:1200px;display:grid;grid-template-columns:repeat(4,232px);gap:18px;transform:rotate(-12deg)}
 .wall img{width:232px;height:130px;border-radius:14px;object-fit:cover;box-shadow:0 6px 0 #0a0c1c}
 .fade{position:absolute;inset:0;background:linear-gradient(90deg,#12152A 34%,rgba(18,21,42,.86) 50%,rgba(18,21,42,0) 72%)}
-.txt{position:absolute;left:72px;top:0;bottom:0;width:560px;display:flex;flex-direction:column;justify-content:center;color:#ECEEF7}
+.txt{position:absolute;left:72px;top:96px;bottom:0;width:560px;display:flex;flex-direction:column;justify-content:center;color:#ECEEF7}
 h1{font:800 64px/1.04 U;margin:0 0 22px;letter-spacing:-.01em}
 p{font:500 30px/1.3 O;color:#A3AAC7;margin:0 0 34px}
+.brand{position:absolute;left:72px;top:58px;display:flex;align-items:center;gap:16px;font:700 40px U;color:#ECEEF7;letter-spacing:-.01em}.brand img{width:58px;height:58px}
 .play{align-self:flex-start;font:700 28px O;color:#1C2140;background:#FFC531;border-radius:16px;padding:16px 34px;box-shadow:0 5px 0 #b8860b}
 </style>
 <div class="wall">$tiles$tiles</div><div class="fade"></div>
+<div class="brand"><img src="$(& $url (Join-Path $public 'favicon.svg'))">Gamely</div>
 <div class="txt"><h1>Игры прямо в&nbsp;браузере</h1><p>Без скачивания. Прогресс сохраняется на&nbsp;любом устройстве.</p><span class="play">Играть</span></div>
 "@
   Shot $html 1200 630 (Join-Path $public 'og.jpg')

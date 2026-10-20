@@ -17,7 +17,8 @@ export const CATEGORIES = [
 ];
 export const GENRES = CATEGORIES; // старое имя
 export const AGES = ['0+', '6+', '12+', '16+', '18+'];
-const STUDIO_EMAIL = 'studio@igrodrom.local'; // владелец демо-игр
+const STUDIO_EMAIL = 'studio@igrodrom.local'; // владелец демо-игр (адрес служебный, не меняется)
+const STUDIO_NAME = 'Gamely';
 const COVER_FILES = ['cover.png', 'cover.jpg', 'cover.jpeg', 'cover.webp', 'cover.svg'];
 const ICON_FILES = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.webp', 'icon.svg'];
 const RATING_SQL = `(SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = 1) AS likes,
@@ -244,16 +245,18 @@ export function createApp({
   q.grandfatherAuthors.run(Date.now(), Date.now());
 
   // Демо-игры из public/games/<slug>/ (с meta.json) заводятся как обычные одобренные игры
-  // от имени «Игродрома»: тогда у них работают счётчик, оценки и страница игры.
+  // от имени «Gamely»: тогда у них работают счётчик, оценки и страница игры.
   function seedDemo() {
     const root = path.join(publicDir, 'games');
     if (!fs.existsSync(root)) return;
     let studio = q.userByEmail.get(STUDIO_EMAIL);
     if (!studio) {
       // Пароль-заглушка: verifyPassword его никогда не примет, войти под этим аккаунтом нельзя.
-      q.insertUser.run(STUDIO_EMAIL, 'Игродром', '!', Date.now());
+      q.insertUser.run(STUDIO_EMAIL, STUDIO_NAME, '!', Date.now());
       studio = q.userByEmail.get(STUDIO_EMAIL);
     }
+    // Площадку переименовали: в уже заведённой базе автор демо-игр получает новое имя.
+    if (studio.name !== STUDIO_NAME) db.prepare('UPDATE users SET name = ? WHERE id = ?').run(STUDIO_NAME, studio.id);
     const slugs = fs.readdirSync(root).filter((d) => fs.existsSync(path.join(root, d, 'meta.json'))).sort();
     for (const slug of slugs) {
       const src = path.join(root, slug);
@@ -524,10 +527,10 @@ export function createApp({
 
   function sendVerification(user) {
     const token = issueToken(user.id, 'verify', VERIFY_TTL_MS);
-    sendMail(user.email, 'Подтвердите почту на Игродроме', [
+    sendMail(user.email, 'Подтвердите почту на Gamely', [
       `Здравствуйте, ${user.name}!`, '',
       'Чтобы подтвердить почту, откройте ссылку:', `${siteUrl}/verify.html?token=${token}`, '',
-      'Ссылка действует 3 дня. Если вы не регистрировались на Игродроме, просто удалите это письмо.',
+      'Ссылка действует 3 дня. Если вы не регистрировались на Gamely, просто удалите это письмо.',
     ].join('\n'));
   }
 
@@ -540,7 +543,7 @@ export function createApp({
     const user = q.userByEmail.get(email);
     if (user && email !== STUDIO_EMAIL) {
       const token = issueToken(user.id, 'reset', RESET_TTL_MS);
-      sendMail(user.email, 'Сброс пароля на Игродроме', [
+      sendMail(user.email, 'Сброс пароля на Gamely', [
         `Здравствуйте, ${user.name}!`, '',
         'Кто-то, возможно вы, попросил сбросить пароль. Задать новый пароль можно по ссылке:',
         `${siteUrl}/reset.html?token=${token}`, '',

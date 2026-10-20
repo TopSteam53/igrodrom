@@ -447,7 +447,7 @@ document.addEventListener('contextmenu',function(e){e.preventDefault()});
 window.addEventListener('resize',function(){if(drag)endDrag(true);layout();render()});
 
 drawMute();newGame();layout();
-if(window.Igrodrom)Igrodrom.init().then(function(s){
+if(window.Gamely)Gamely.init().then(function(s){
   return s.data.get().catch(function(){return null}).then(function(d){
     sdk=s;applySave(d);
     if(touched)save(); // игрок успел походить до загрузки — сохраняем его партию и лучший рекорд

@@ -132,7 +132,7 @@ test('ссылка сброса живёт час', async () => {
 });
 
 test('письмо: заголовки в UTF-8 и тело в base64', () => {
-  const msg = buildMessage({ from: 'Игродром <hello@igry.test>', to: 'a@b.ru', subject: 'Сброс пароля', text: 'Привет\nмир' });
+  const msg = buildMessage({ from: 'Игры онлайн <hello@igry.test>', to: 'a@b.ru', subject: 'Сброс пароля', text: 'Привет\nмир' });
   assert.match(msg, /^From: =\?UTF-8\?B\?[^?]+\?= <hello@igry\.test>\r\n/);
   assert.match(msg, /Subject: =\?UTF-8\?B\?/);
   const body = msg.split('\r\n\r\n')[1];
