@@ -66,7 +66,7 @@ ADMIN_EMAILS=you@example.com npm start
    ```
 3. Скачайте проект. Если репозиторий приватный, нужен токен GitHub с доступом на чтение:
    ```bash
-   git clone -b claude/yandex-games-alternative-uzcl2b https://github.com/TopSteam53/woodforma-demo.git igrodrom
+   git clone https://github.com/TopSteam53/igrodrom.git igrodrom
    cd igrodrom
    ```
 4. Настройте и запустите:
