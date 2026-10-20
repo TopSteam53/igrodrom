@@ -13,8 +13,8 @@
   Ubuntu 24.04, 349 ₽/мес; автопродление в панели RUVDS выключено — следить за балансом.
 - Вход: `ssh -i ~/.ssh/igrodrom_deploy root@194.35.112.71`. Код в `/opt/igrodrom` (ветка `claude/yandex-games-alternative-uzcl2b`),
   настройки в `/opt/igrodrom/.env`, база в docker-томе `igrodrom-data`.
-- Выкатить новую версию после push: `ssh … "sh /root/server-setup.sh 194-35-112-71.sslip.io mishagribkov4@gmail.com claude/yandex-games-alternative-uzcl2b"`
-  (`scripts/server-setup.sh`: подтягивает ветку, пересобирает, .env не трогает).
+- Выкатить новую версию после push: `ssh … "cd /opt/igrodrom && git fetch -q origin claude/yandex-games-alternative-uzcl2b && git reset -q --hard FETCH_HEAD && sh scripts/server-setup.sh 194-35-112-71.sslip.io mishagribkov4@gmail.com claude/yandex-games-alternative-uzcl2b"`
+  (сначала свежая версия самого скрипта; `scripts/server-setup.sh`: подтягивает ветку, пересобирает, .env не трогает).
 - Бэкапы: `scripts/backup.sh` по cron в 04:30 → `/var/backups/igrodrom` (14 дней). Копии вне сервера пока не настроены.
 
 ## Стек и запуск

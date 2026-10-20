@@ -21,8 +21,9 @@ if ! swapon --show | grep -q .; then
 fi
 
 # Docker из репозитория Ubuntu: не зависит от доступности download.docker.com.
-apt-get update -qq
-apt-get install -y -qq git ca-certificates ufw docker.io docker-compose-v2 >/dev/null
+# Ubuntu сама ставит обновления безопасности и держит блокировку apt — ждём её, а не падаем.
+apt-get -o DPkg::Lock::Timeout=900 update -qq
+apt-get -o DPkg::Lock::Timeout=900 install -y -qq git ca-certificates ufw docker.io docker-compose-v2 >/dev/null
 # Docker Hub из России открывается не всегда — образы тянем через зеркало Google.
 if [ ! -f /etc/docker/daemon.json ]; then
   echo '{"registry-mirrors": ["https://mirror.gcr.io"], "log-opts": {"max-size": "10m", "max-file": "3"}}' > /etc/docker/daemon.json
