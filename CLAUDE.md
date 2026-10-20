@@ -10,15 +10,14 @@
 `Igrodrom` — запасное.
 Правила: сайт похож на Яндекс Игры, на сайте нет разговоров о заработке (магазин монеток с ценами — можно, это решение
 пользователя), дизайн без «ИИ-шаблонности».
-Сайт уже работает на VPS (см. «Продакшен»). Домен playgamely.ru пользователь покупает 20.10.2026 (reg.ru);
-после делегирования — переключить DOMAIN на сервере (REDIRECT_FROM=194-35-112-71.sslip.io).
+Сайт работает на https://playgamely.ru (см. «Продакшен»).
 
 ## Продакшен
-- Сайт: https://194-35-112-71.sslip.io (адрес по IP, пока нет домена). VPS RUVDS RU2772577, Казань, 1 CPU / 1 ГБ / 20 ГБ,
+- Сайт: https://playgamely.ru (домен в reg.ru, A-записи @ и www → 194.35.112.71; старый адрес 194-35-112-71.sslip.io\n  и www перекидывают на него — REDIRECT_FROM в .env). VPS RUVDS RU2772577, Казань, 1 CPU / 1 ГБ / 20 ГБ,
   Ubuntu 24.04, 349 ₽/мес; автопродление в панели RUVDS выключено — следить за балансом.
 - Вход: `ssh -i ~/.ssh/igrodrom_deploy root@194.35.112.71`. Код в `/opt/igrodrom` (ветка `claude/yandex-games-alternative-uzcl2b`),
   настройки в `/opt/igrodrom/.env`, база в docker-томе `igrodrom-data`.
-- Выкатить новую версию после push: `ssh … "cd /opt/igrodrom && git fetch -q origin claude/yandex-games-alternative-uzcl2b && git reset -q --hard FETCH_HEAD && sh scripts/server-setup.sh 194-35-112-71.sslip.io mishagribkov4@gmail.com claude/yandex-games-alternative-uzcl2b"`
+- Выкатить новую версию после push: `ssh … "cd /opt/igrodrom && git fetch -q origin claude/yandex-games-alternative-uzcl2b && git reset -q --hard FETCH_HEAD && sh scripts/server-setup.sh playgamely.ru mishagribkov4@gmail.com claude/yandex-games-alternative-uzcl2b"`
   (сначала свежая версия самого скрипта; `scripts/server-setup.sh`: подтягивает ветку, пересобирает, .env не трогает).
 - Бэкапы: `scripts/backup.sh` по cron в 04:30 → `/var/backups/igrodrom` (14 дней). Копии вне сервера пока не настроены.
 
