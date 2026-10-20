@@ -31,6 +31,8 @@ Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm
 - Каталог из 22 игр (новая — «Огонёк», выживалка в духе Vampire Survivors, `public/games/ogonek`) (`public/games/*`, у каждой meta.json), статический `catalog.json` для GitHub Pages.
 - «Звёздный патруль» (`public/games/starpatrol`): спрайты, фон, обложка и иконка отрендерены в Blender 5.2
   скриптом `scripts/blender/starpatrol.py` (blender --background --python … -- public/games/starpatrol [имена]).
+- «Огонёк» в 2.5D: спрайты леса и врагов из `scripts/blender/ogonek.py` (камера 45°, ловец теней) → `public/games/ogonek/img`;
+  огонёк, свет и снаряды рисуются в игре. Фонари, сундуки, превращения оружия, 3 героя, рассвет на 15:00. Сохранение `v:1` совместимо.
 - Аккаунты игроков, заявки разработчиков, загрузка игр ZIP, модерация; роли: игрок, разработчик, модератор
   (назначает владелец в кабинете), владелец (`ADMIN_EMAILS`).
 - Свой SDK (`public/sdk/v1.js`) и совместимость с Яндекс SDK (`public/sdk/yandex.js`): игры из Яндекс Игр
