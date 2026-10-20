@@ -45,15 +45,14 @@ button{font:inherit;cursor:pointer;border:0;color:inherit;padding:0;background:n
 .t.flip .f{animation:flip .5s ease-in-out}
 @keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
 .t.win .f{animation:bounce .5s ease-out}
-#clue{width:var(--tw);margin-top:6px;padding:7px 12px;border-radius:12px;background:rgba(255,216,102,.12);border:1px solid rgba(255,216,102,.35);color:#ffe7a3;font-size:14px;line-height:1.3;text-align:center;flex:none}
-#clue b{color:#ffd866}
+#clue{margin:10px 0 0;max-width:calc(var(--tile) * var(--len,5) + var(--tg) * 4);color:#a9d5cd;font-size:15px;line-height:1.35;text-align:center}
+#main.port #gridWrap{flex-direction:column}
 .t.ghost .f{color:rgba(255,216,102,.6);border:2px dashed rgba(255,216,102,.6)}
 #lenBtn{width:auto;aspect-ratio:auto;padding:0 12px;font-weight:900;font-size:calc(var(--hh)*.34);gap:4px}
 #lenBtn small{font-size:.7em;color:#9cc9c2}
 #lenBtn:disabled{opacity:.35}
 @media (max-width:520px){#top{gap:5px}#seg button{padding:0 9px;font-size:13px}#lenBtn{padding:0 8px}#lenBtn small{display:none}}
-#hintBtn{position:relative;font-size:calc(var(--hh)*.45)}
-#hintBtn i{position:absolute;right:-4px;top:-4px;background:#ffd866;color:#4a2a00;font:800 11px system-ui;border-radius:999px;padding:1px 5px;font-style:normal}
+#hintBtn:disabled{opacity:.35}
 @keyframes bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-35%)}70%{transform:translateY(6%)}}
 .row-shake{animation:shake .45s}
 @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
@@ -115,12 +114,11 @@ button{font:inherit;cursor:pointer;border:0;color:inherit;padding:0;background:n
   <button class="ib" id="helpBtn" title="Как играть" aria-label="Как играть"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 9a3 3 0 1 1 4.3 2.7c-.9.5-1.5 1.2-1.5 2.3v.5"/><circle cx="12" cy="18.6" r=".6" fill="#fff"/></svg></button>
   <div id="seg"><button id="mDaily" class="on">Слово дня</button><button id="mFree">Ещё слово</button></div>
   <button class="ib" id="lenBtn" title="Длина слова в режиме «Ещё слово»" aria-label="Длина слова"></button>
-  <button class="ib" id="hintBtn" title="Подсказка: открыть одну букву" aria-label="Подсказка">💡<i id="hintCost"></i></button>
+  <button class="ib" id="hintBtn" title="Подсказка" aria-label="Подсказка"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg></button>
   <button class="ib" id="statsBtn" title="Статистика" aria-label="Статистика"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"><path d="M5 20v-6M12 20V5M19 20v-10"/></svg></button>
 </div>
-<div id="clue" class="hidden"></div>
 <div id="main">
-  <div id="gridWrap"><div id="grid"></div><div id="toast"></div></div>
+  <div id="gridWrap"><div id="grid"></div><p id="clue" class="hidden"></p><div id="toast"></div></div>
   <div id="kb">
     <div id="done"><div id="doneT"></div><div id="doneS"></div><div class="btns"><button class="bt alt" id="doneStats">Результат</button><button class="bt" id="doneNext">Ещё слово</button></div></div>
   </div>
@@ -238,7 +236,7 @@ function layout(){
   var hh=Math.round(Math.max(34,Math.min(50,H*.065)));
   var land=W>H*1.3&&H<640;
   var tg,tile,kbw,kg,kw,kh,gap2;
-  var avH=H-hh-pad*3-(document.getElementById('clue').classList.contains('hidden')?0:44);
+  var avH=H-hh-pad*3-(document.getElementById('clue').classList.contains('hidden')?0:48);
   if(land){
     tg=Math.max(4,Math.round(avH*.012));
     tile=Math.floor(Math.min((avH-5*tg)/6,70));
@@ -328,10 +326,9 @@ function renderSeg(){
   var lb=document.getElementById('lenBtn');
   lb.innerHTML=(st.mode==='free'?st.len:5)+'<small>букв</small>';lb.disabled=st.mode!=='free';
   var g=game(),free=!(g.hints&&g.hints.length);
-  document.getElementById('hintCost').textContent=g.done?'':!g.clue?'?':free?'1':'🪙'+HINT_COST;
   var ce=document.getElementById('clue'),show=!!g.clue,was=!ce.classList.contains('hidden');
   ce.classList.toggle('hidden',!show);
-  if(show)ce.innerHTML='<b>Загадка:</b> '+clueFor(g.answer).replace(/[<>&]/g,'');
+  if(show)ce.textContent=clueFor(g.answer);
   if(show!==was)layout();
   document.getElementById('hintBtn').disabled=g.done;
 }
@@ -491,7 +488,8 @@ document.getElementById('hintBtn').addEventListener('click',function(){
   // Сначала — загадка, потом одна буква бесплатно, дальше — за монетки или рекламу.
   if(!g.clue){g.clue=true;renderSeg();save();return}
   if(!g.hints||!g.hints.length){giveHint();return}
-  if(!sdk){toast('Бесплатная подсказка уже использована');return}
+  if(!sdk){toast('Бесплатные подсказки закончились');return}
+  if(g.hints.length===1&&!g.paidAsked){g.paidAsked=true;toast('Следующая буква — за '+HINT_COST+' монетки. Нажмите ещё раз',2400);return}
   hintBusy=true;
   var hosted=sdk.environment.host==='gamely';
   var p=hosted?sdk.coins.spend(HINT_COST,'Подсказка в «Слове дня»').then(function(r){if(r.ok)return true;if(r.reason==='cancelled')return false;return sdk.ads.rewarded().then(function(a){return a.rewarded})})
@@ -514,7 +512,7 @@ function exRow(word,marks){
 function showHelp(){
   openModal('<h2>Как играть</h2>'+
     '<p>Угадайте слово за шесть попыток. Это всегда существительное в именительном падеже, буква Ё пишется как Е. «Слово дня» — из пяти букв, в режиме «Ещё слово» можно выбрать 5, 6 или 7 букв.</p>'+
-    '<p>💡 Подсказка: сначала загадка о слове, потом одна буква на своём месте — бесплатно. Дальше буквы открываются за монетки.</p>'+
+    '<p>Кнопка с лампочкой — подсказка. Первое нажатие показывает загадку о слове, второе открывает одну букву. Следующие буквы — за монетки.</p>'+
     '<p>После каждой попытки буквы подсвечиваются:</p>'+
     exRow('пирог',['c'])+'<p><b>П</b> есть в слове и стоит на своём месте.</p>'+
     exRow('песок',['','p'])+'<p><b>Е</b> есть в слове, но в другом месте.</p>'+
@@ -526,7 +524,7 @@ function showHelp(){
 }
 function shareText(){
   var g=game(),n=g.won?g.guesses.length:'X';
-  var head=(st.mode==='daily'?'Слово дня '+fmtDate(g.date):'Слово дня, '+LEN+' букв')+' — '+n+'/6'+(g.clue||(g.hints&&g.hints.length)?' 💡':'');
+  var head=(st.mode==='daily'?'Слово дня '+fmtDate(g.date):'Слово дня, '+LEN+' букв')+' — '+n+'/6'+(g.clue||(g.hints&&g.hints.length)?' с подсказкой':'');
   var rows=g.guesses.map(function(w){return evaluate(w,g.answer).map(function(s){return s==='c'?'🟩':s==='p'?'🟨':'⬜'}).join('')});
   return head+'\n'+rows.join('\n')+'\n#GamelyСловоДня';
 }
