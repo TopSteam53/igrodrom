@@ -1,25 +1,330 @@
-<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body{margin:0;height:100%;background:#102a2b;color:#fff;font-family:system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center}
-#g{display:grid;grid-template-columns:repeat(4,70px);gap:8px}.k{height:70px;border-radius:10px;background:#1f4a4c;font-size:34px;display:flex;align-items:center;justify-content:center;cursor:pointer}
-.k.o{background:#fde68a}.k.m{background:#4ade80}#i{margin:10px 10px 4px;font-weight:700}#b{margin:0 10px 10px;font-size:14px;color:#a7d8d4;min-height:18px}</style>
-<div id="i">Ходов: 0</div><div id="b"></div><div id="g"></div>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Мемори</title>
+<style>
+*{box-sizing:border-box}
+.hidden{display:none!important}
+html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 0,#17484a,#0c2223 70%);color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:10px}
+#hud{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;font-weight:700}
+.pill{background:rgba(255,255,255,.1);border-radius:999px;padding:7px 13px;font-variant-numeric:tabular-nums}
+.pill.warn{background:#b91c1c}
+.ib{border:0;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;font:700 15px system-ui;padding:8px 12px;cursor:pointer}
+.ib:disabled{opacity:.4}
+#g{display:grid;gap:var(--gap);perspective:900px}
+.k{width:var(--s);height:var(--s);position:relative;cursor:pointer;transform-style:preserve-3d;transition:transform .32s cubic-bezier(.3,1.4,.5,1)}
+.k .f,.k .b{position:absolute;inset:0;border-radius:calc(var(--s) * .18);backface-visibility:hidden;-webkit-backface-visibility:hidden;display:flex;align-items:center;justify-content:center}
+.k .b{background:linear-gradient(145deg,#2a7a7c,#1b5355);box-shadow:inset 0 -4px 0 rgba(0,0,0,.25),0 4px 10px rgba(0,0,0,.25)}
+.k .b::after{content:"?";font:800 calc(var(--s) * .38) system-ui;color:rgba(255,255,255,.25)}
+.k .f{background:#fef3c7;transform:rotateY(180deg);font-size:calc(var(--s) * .56);box-shadow:inset 0 -4px 0 rgba(0,0,0,.12)}
+.k.o{transform:rotateY(180deg)}
+.k.m .f{background:#86efac;animation:pop .35s}
+.k.m{cursor:default}
+.k.bad .f{background:#fecaca}
+.k.hint .b{box-shadow:0 0 0 4px #FFC531,0 0 22px #FFC531}
+@keyframes pop{50%{transform:scale(1.12)}}
+.combo{position:fixed;left:50%;top:40%;transform:translate(-50%,-50%);font:800 34px system-ui;color:#FFC531;text-shadow:0 4px 18px rgba(0,0,0,.5);pointer-events:none;animation:up .9s forwards}
+@keyframes up{from{opacity:1;transform:translate(-50%,-50%) scale(.8)}to{opacity:0;transform:translate(-50%,-140%) scale(1.15)}}
+.scr{position:fixed;inset:0;background:rgba(5,20,21,.86);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
+.card{background:#123a3c;border-radius:22px;padding:22px;width:min(440px,100%);max-height:94vh;overflow:auto;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+h1{font-size:40px;margin:4px 0}h2{font-size:26px;margin:0 0 8px}
+.sub{color:#a7d8d4;margin:0 0 14px;font-size:15px}
+.btn{display:block;width:100%;margin:8px 0;padding:14px;border:0;border-radius:14px;font:700 17px system-ui;cursor:pointer;color:#0c2223;background:#86efac;box-shadow:0 4px 0 #15803d}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #15803d}
+.btn.alt{background:#1f5759;color:#fff;box-shadow:0 4px 0 #0b2e30}
+.btn.gold{background:#FFC531;box-shadow:0 4px 0 #b8860b}
+.row{display:flex;gap:8px}.row .btn{flex:1}
+.levels{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:10px 0}
+.lv{aspect-ratio:1;border:0;border-radius:12px;background:#1f5759;color:#fff;font:800 17px system-ui;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.lv small{font-size:10px;color:#FFC531;letter-spacing:1px}
+.lv.locked{background:#0d2a2b;color:#3f7072;cursor:default}
+.lv.next{outline:3px solid #86efac}
+.stars{font-size:40px;letter-spacing:6px;margin:4px 0}.stars .off{opacity:.2}
+.themes{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:6px 0 12px}
+.theme{border:2px solid transparent;border-radius:12px;background:#1f5759;color:#fff;padding:6px 10px;font-size:20px;cursor:pointer}
+.theme.on{border-color:#86efac}.theme.locked{opacity:.4;cursor:default}
+.note{color:#a7d8d4;font-size:13px;margin:8px 0 0}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <span class="pill" id="hLevel"></span>
+    <span class="pill" id="hMoves"></span>
+    <span class="pill hidden" id="hTime"></span>
+    <button class="ib" id="hintBtn">💡 <span id="hHints">0</span></button>
+    <button class="ib" id="menuBtn" aria-label="Меню">☰</button>
+  </div>
+  <div id="g"></div>
+</div>
+
+<div class="scr" id="menu"><div class="card">
+  <h1>🧠 Мемори</h1>
+  <p class="sub">Звёзд: <b id="mStars">0</b> из 90 · 💡 <b id="mHints">0</b></p>
+  <button class="btn" id="playBtn">Играть</button>
+  <p class="note" style="margin-bottom:4px">Набор карточек</p>
+  <div class="themes" id="themes"></div>
+  <div class="levels" id="lvGrid"></div>
+  <div class="row"><button class="btn alt" id="muteBtn"></button><button class="btn gold hidden" id="buyHints">💡×3 за 🪙 10</button></div>
+</div></div>
+
+<div class="scr hidden" id="over"><div class="card">
+  <h2 id="oTitle"></h2>
+  <div class="stars" id="oStars"></div>
+  <p class="sub" id="oSub"></p>
+  <button class="btn" id="oNext">Следующий уровень</button>
+  <button class="btn alt" id="oAgain">Ещё раз</button>
+  <button class="btn alt" id="oMenu">Все уровни</button>
+</div></div>
+
 <script src="../../sdk/v1.js"></script>
 <script>
-const e='🦊🐼🐸🦉🐙🦄🐝🐳'.match(/./gu),a=[...e,...e].sort(()=>Math.random()-.5);let o=[],m=0,done=0,best=0;
-// Лучший результат (наименьшее число ходов) хранится через Gamely SDK; пишем только после чтения.
-let sdk=null;
-const moves=n=>n+' '+(n%10==1&&n%100!=11?'ход':n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'хода':'ходов');
-function showBest(){document.getElementById('b').textContent=best?'Лучший результат: '+moves(best):''}
-function save(){if(sdk)sdk.data.set({v:1,best}).catch(()=>{})}
-if(window.Gamely)Gamely.init().then(async s=>{
-  const sv=await s.data.get().catch(()=>null);sdk=s;
-  const b=sv&&typeof sv.best==='number'&&isFinite(sv.best)&&sv.best>=8?Math.floor(sv.best):0;
-  if(b&&(!best||b<best)){best=b;showBest()}else if(best)save();
-}).catch(()=>{});
-const g=document.getElementById('g');a.forEach((v,i)=>{const d=document.createElement('div');d.className='k';d.onclick=()=>{
-if(o.length>1||d.classList.contains('o')||d.classList.contains('m'))return;d.textContent=v;d.classList.add('o');o.push([d,v]);
-if(o.length==2){m++;document.getElementById('i').textContent='Ходов: '+m;const[[x,vx],[y,vy]]=o;
-if(vx==vy){x.className=y.className='k m';o=[];if(++done==8){const rec=!best||m<best;
-document.getElementById('i').textContent='Победа за '+moves(m)+'!'+(rec?' Новый рекорд!':'')+' 🎉';if(rec){best=m;showBest();save()}}}
-else setTimeout(()=>{x.className=y.className='k';x.textContent=y.textContent='';o=[]},650)}};g.appendChild(d)});
+'use strict';
+const $ = (id) => document.getElementById(id);
+const LEVELS = 30;
+const THEMES = [
+  { id: 'animals', icon: '🦊', need: 0, cards: '🦊🐼🐸🦉🐙🦄🐝🐳🐢🦁🐧🐨🦒🐬🦋🐞🐷🐰' },
+  { id: 'food', icon: '🍓', need: 6, cards: '🍓🍕🍩🍉🥑🍔🍪🧁🍒🍋🥨🍇🌮🍣🥕🍦🥐🍍' },
+  { id: 'space', icon: '🚀', need: 15, cards: '🚀🪐🌙⭐☄️🛸👽🌍🌞🔭🌌🛰️👩‍🚀🌠🌑🌕🌟💫' },
+  { id: 'sport', icon: '⚽', need: 25, cards: '⚽🏀🏈⚾🎾🏐🏉🎱🏓🏸🥊⛳🏒🥏🛹⛸️🎿🏆' },
+  { id: 'travel', icon: '✈️', need: 40, cards: '✈️🚂🚗🚲🛵⛵🚁🚌🏍️🚜🛶🚀🏰🗽🎡🗼⛺🌋' },
+  { id: 'magic', icon: '🔮', need: 60, cards: '🔮🧙🐉🦄🧚🪄🍄👑💎🗝️📜🧪🕯️🌈🦉🏰⚗️🃏' },
+];
+// Уровень: [колонки, строки], подглядывание в начале (мс), лимит времени (с), перемешивание после N ошибок.
+function levelSpec(n) {
+  const grids = [[3, 2], [4, 2], [4, 3], [4, 3], [4, 4], [4, 4], [5, 4], [5, 4], [6, 4], [6, 4],
+    [6, 5], [6, 5], [6, 5], [6, 6], [6, 6]];
+  const [c, r] = grids[Math.min(grids.length - 1, Math.floor((n - 1) / 2))];
+  const pairs = (c * r) / 2;
+  return {
+    cols: c, rows: r, pairs,
+    peek: n <= 4 ? 1600 : n <= 10 ? 900 : 0,
+    time: n >= 8 ? Math.round(pairs * (n >= 20 ? 4.2 : 5.5) + 10) : 0,
+    shuffle: n >= 21 ? Math.max(3, 7 - Math.floor((n - 21) / 3)) : 0,
+  };
+}
+const starsFor = (moves, pairs) => (moves <= Math.ceil(pairs * 1.45) ? 3 : moves <= pairs * 2 ? 2 : 1);
+
+let save = { v: 2, open: 1, stars: [], hints: 3, theme: 'animals', mute: false, best: 0 };
+let sdk = null;
+function applySave(d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.v === 2) {
+    if (Number.isInteger(d.open)) save.open = Math.min(LEVELS, Math.max(1, d.open));
+    if (Array.isArray(d.stars)) save.stars = d.stars.slice(0, LEVELS).map((s) => Math.min(3, Math.max(0, s | 0)));
+    if (Number.isInteger(d.hints)) save.hints = Math.max(0, Math.min(99, d.hints));
+    if (THEMES.some((t) => t.id === d.theme)) save.theme = d.theme;
+    save.mute = !!d.mute;
+  }
+  if (typeof d.best === 'number' && isFinite(d.best)) save.best = Math.floor(d.best);
+}
+const persist = () => { if (sdk) sdk.data.set(save).catch(() => {}); };
+const totalStars = () => save.stars.reduce((a, b) => a + (b || 0), 0);
+
+// ---------- звук ----------
+let ac = null;
+function audio() { if (!ac) try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} if (ac && ac.state === 'suspended') ac.resume(); }
+function tone(f, d = 0.08, type = 'sine', vol = 0.07) {
+  if (save.mute || !ac) return;
+  const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+  o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d);
+}
+const sfx = {
+  flip: () => tone(700, 0.04, 'triangle', 0.04),
+  match: (c) => { tone(520 + c * 80, 0.1, 'triangle'); setTimeout(() => tone(780 + c * 80, 0.14, 'triangle'), 80); },
+  miss: () => tone(200, 0.12, 'square', 0.04),
+  win: () => [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.16, 'triangle'), i * 110)),
+  lose: () => [392, 330, 262].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'sawtooth', 0.05), i * 140)),
+};
+
+// ---------- игра ----------
+let level = 1, spec, deck, open = [], moves = 0, found = 0, combo = 0, misses = 0, timeLeft = 0, timer = null, busy = false, playing = false, runs = 0;
+
+function shuffled(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function themeCards() { return [...(THEMES.find((t) => t.id === save.theme) || THEMES[0]).cards.matchAll(/\p{Extended_Pictographic}(️|‍\p{Extended_Pictographic})*/gu)].map((m) => m[0]); }
+
+function layout() {
+  const gap = 8;
+  const maxW = Math.min(innerWidth - 20, 720), maxH = innerHeight - 90;
+  const s = Math.floor(Math.min((maxW - gap * (spec.cols - 1)) / spec.cols, (maxH - gap * (spec.rows - 1)) / spec.rows, 120));
+  $('g').style.setProperty('--s', `${s}px`);
+  $('g').style.setProperty('--gap', `${gap}px`);
+  $('g').style.gridTemplateColumns = `repeat(${spec.cols}, ${s}px)`;
+}
+addEventListener('resize', () => { if (spec) layout(); });
+
+function start(n) {
+  audio();
+  level = n; spec = levelSpec(n);
+  const pool = shuffled(themeCards()).slice(0, spec.pairs);
+  deck = shuffled([...pool, ...pool]);
+  open = []; moves = 0; found = 0; combo = 0; misses = 0; busy = false; playing = true; runs++;
+  layout();
+  $('g').innerHTML = deck.map((v, i) => `<div class="k" data-i="${i}"><div class="b"></div><div class="f">${v}</div></div>`).join('');
+  clearInterval(timer);
+  timeLeft = spec.time;
+  show(null); hud();
+  $('hTime').classList.toggle('hidden', !spec.time);
+  // Подглядывание: на первых уровнях все карточки на миг открываются.
+  if (spec.peek) {
+    busy = true;
+    setTimeout(() => cards().forEach((k) => k.classList.add('o')), 250);
+    setTimeout(() => { cards().forEach((k) => k.classList.remove('o')); busy = false; startTimer(); }, 250 + spec.peek);
+  } else startTimer();
+  sdk?.game.start();
+}
+const cards = () => [...document.querySelectorAll('.k')];
+function startTimer() {
+  if (!spec.time) return;
+  timer = setInterval(() => {
+    if (!playing) return;
+    timeLeft--; hud();
+    if (timeLeft <= 5 && timeLeft > 0) tone(880, 0.05, 'square', 0.03);
+    if (timeLeft <= 0) lose();
+  }, 1000);
+}
+
+function hud() {
+  $('hLevel').textContent = `Уровень ${level}`;
+  $('hMoves').textContent = `Ходы: ${moves} · Пары: ${found}/${spec.pairs}`;
+  $('hTime').textContent = `⏱ ${Math.max(0, timeLeft)}`;
+  $('hTime').classList.toggle('warn', timeLeft <= 10);
+  $('hHints').textContent = save.hints;
+  $('hintBtn').disabled = !playing || save.hints <= 0;
+}
+
+$('g').onclick = (e) => {
+  const k = e.target.closest('.k');
+  if (!k || !playing || busy || k.classList.contains('o') || k.classList.contains('m')) return;
+  audio();
+  k.classList.remove('hint');
+  k.classList.add('o'); sfx.flip();
+  open.push(k);
+  if (open.length < 2) return;
+  moves++;
+  const [a, b] = open; open = [];
+  if (deck[a.dataset.i] === deck[b.dataset.i]) {
+    combo++; found++;
+    a.classList.add('m'); b.classList.add('m'); sfx.match(Math.min(combo, 6));
+    if (combo >= 2) floatText(combo >= 4 ? `Серия ×${combo}! 🔥` : `Серия ×${combo}`);
+    if (spec.time && combo >= 2) timeLeft += 2;
+    if (found === spec.pairs) setTimeout(win, 450);
+  } else {
+    combo = 0; misses++; busy = true; sfx.miss();
+    a.classList.add('bad'); b.classList.add('bad');
+    setTimeout(() => {
+      a.classList.remove('o', 'bad'); b.classList.remove('o', 'bad'); busy = false;
+      if (spec.shuffle && misses % spec.shuffle === 0) reshuffle();
+    }, 700);
+  }
+  hud();
+};
+
+// Перемешивание оставшихся закрытых карточек: на поздних уровнях после нескольких ошибок.
+function reshuffle() {
+  const closed = cards().filter((k) => !k.classList.contains('m'));
+  const values = shuffled(closed.map((k) => deck[k.dataset.i]));
+  closed.forEach((k, j) => { deck[k.dataset.i] = values[j]; k.querySelector('.f').textContent = values[j]; k.animate([{ transform: 'scale(.85) rotate(-6deg)' }, { transform: 'none' }], 300); });
+  floatText('Перемешано! 🌀');
+}
+
+function floatText(t) { const d = document.createElement('div'); d.className = 'combo'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 900); }
+
+$('hintBtn').onclick = () => {
+  if (!playing || busy || save.hints <= 0) return;
+  // Подсказка подсвечивает пару: если одна карточка уже открыта — её пару, иначе любую закрытую.
+  const closed = cards().filter((k) => !k.classList.contains('m') && !k.classList.contains('o'));
+  const target = open[0] ? deck[open[0].dataset.i] : deck[closed[0]?.dataset.i];
+  const pair = closed.filter((k) => deck[k.dataset.i] === target);
+  if (!pair.length) return;
+  save.hints--; persist(); hud();
+  pair.forEach((k) => { k.classList.add('hint'); setTimeout(() => k.classList.remove('hint'), 2500); });
+  tone(990, 0.15, 'triangle');
+};
+
+function win() {
+  playing = false; clearInterval(timer); sfx.win(); sdk?.game.stop();
+  const st = starsFor(moves, spec.pairs);
+  const old = save.stars[level - 1] || 0;
+  save.stars[level - 1] = Math.max(old, st);
+  if (level === save.open && level < LEVELS) save.open = level + 1;
+  // Три звезды впервые — подсказка в награду.
+  if (st === 3 && old < 3) save.hints++;
+  persist();
+  $('oTitle').textContent = level === LEVELS ? 'Все уровни пройдены! 🏆' : `Уровень ${level} пройден!`;
+  $('oStars').innerHTML = [1, 2, 3].map((i) => `<span class="${i <= st ? '' : 'off'}">★</span>`).join('');
+  const need3 = Math.ceil(spec.pairs * 1.45);
+  $('oSub').textContent = `${moves} ${plural(moves, ['ход', 'хода', 'ходов'])}` + (st < 3 ? ` · на три звезды — не больше ${need3}` : st === 3 && old < 3 ? ' · +1 💡 подсказка' : '');
+  $('oNext').classList.toggle('hidden', level >= LEVELS);
+  checkThemes();
+  show('over');
+}
+function lose() {
+  playing = false; clearInterval(timer); sfx.lose(); sdk?.game.stop();
+  $('oTitle').textContent = 'Время вышло ⏱';
+  $('oStars').innerHTML = '<span class="off">★★★</span>';
+  $('oSub').textContent = `Найдено ${found} из ${spec.pairs} пар. Серии совпадений добавляют по 2 секунды.`;
+  $('oNext').classList.add('hidden');
+  show('over');
+}
+function checkThemes() {
+  const t = THEMES.find((x) => x.need && totalStars() >= x.need && !save.seenTheme?.includes(x.id));
+  if (t) { save.seenTheme = [...(save.seenTheme || []), t.id]; setTimeout(() => floatText(`Новый набор ${t.icon}`), 500); }
+}
+const plural = (n, [a, b, c]) => { const x = n % 100, y = n % 10; return x > 10 && x < 20 ? c : y === 1 ? a : y >= 2 && y <= 4 ? b : c; };
+
+// ---------- меню ----------
+function show(id) { for (const s of ['menu', 'over']) $(s).classList.toggle('hidden', s !== id); }
+function openMenu() {
+  playing = false; clearInterval(timer); sdk?.game.stop();
+  $('mStars').textContent = totalStars(); $('mHints').textContent = save.hints;
+  $('muteBtn').textContent = save.mute ? '🔇 Звук' : '🔊 Звук';
+  $('buyHints').classList.toggle('hidden', !(sdk && sdk.environment.host === 'gamely'));
+  const stars = totalStars();
+  $('themes').innerHTML = THEMES.map((t) => {
+    const locked = stars < t.need;
+    return `<button class="theme ${save.theme === t.id ? 'on' : ''} ${locked ? 'locked' : ''}" data-theme="${t.id}" title="${locked ? `Откроется за ${t.need} ★` : ''}">${locked ? '🔒' : t.icon}</button>`;
+  }).join('');
+  $('lvGrid').innerHTML = Array.from({ length: LEVELS }, (_, i) => {
+    const n = i + 1, st = save.stars[i] || 0, locked = n > save.open;
+    return `<button class="lv ${locked ? 'locked' : ''} ${n === save.open && !st ? 'next' : ''}" data-lv="${n}" ${locked ? 'disabled' : ''}>${locked ? '🔒' : n}<small>${locked ? '' : '★'.repeat(st)}</small></button>`;
+  }).join('');
+  show('menu');
+}
+$('playBtn').onclick = () => start(Math.min(save.open, LEVELS));
+$('lvGrid').onclick = (e) => { const b = e.target.closest('[data-lv]'); if (b && !b.disabled) start(Number(b.dataset.lv)); };
+$('themes').onclick = (e) => {
+  const b = e.target.closest('[data-theme]'); if (!b) return;
+  const t = THEMES.find((x) => x.id === b.dataset.theme);
+  if (totalStars() < t.need) { floatText(`Нужно ${t.need} ★`); return; }
+  save.theme = t.id; persist(); openMenu();
+};
+$('muteBtn').onclick = () => { audio(); save.mute = !save.mute; persist(); openMenu(); };
+$('buyHints').onclick = async () => {
+  $('buyHints').disabled = true;
+  try { const r = await sdk.coins.spend(10, '3 подсказки в Мемори'); if (r.ok) { save.hints += 3; persist(); openMenu(); } }
+  finally { $('buyHints').disabled = false; }
+};
+$('menuBtn').onclick = openMenu;
+$('oNext').onclick = () => start(level + 1);
+$('oAgain').onclick = async () => { if (sdk && runs % 4 === 0) await sdk.ads.fullscreen().catch(() => {}); start(level); };
+$('oMenu').onclick = openMenu;
+document.addEventListener('visibilitychange', () => { if (document.hidden && playing && spec.time) openMenu(); });
+
+openMenu();
+if (window.Gamely) Gamely.init().then(async (s) => {
+  const d = await s.data.get().catch(() => null);
+  applySave(d);
+  sdk = s;
+  if (!d || d.v !== 2) persist();
+  s.on('pause', () => { if (playing) openMenu(); });
+  s.game.ready();
+  if (!playing) openMenu();
+}).catch(() => {});
 </script>
+</body>
+</html>
