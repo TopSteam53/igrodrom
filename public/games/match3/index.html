@@ -16,6 +16,10 @@ body{background:radial-gradient(ellipse at 50% -10%,#3a1f6b 0%,#1b1030 55%,#120b
 #goalBox{flex:1.6;flex-direction:row;gap:10px}
 .goal{display:flex;align-items:center;gap:4px;font-weight:800;font-size:calc(var(--h)*.32);font-variant-numeric:tabular-nums}
 .goal canvas,.goal span.ic{width:calc(var(--h)*.48);height:calc(var(--h)*.48)}
+.goal span.ic{display:flex;align-items:center;justify-content:center}
+#goalBox.stack{gap:5px}
+#goalBox.stack .goal{flex-direction:column;gap:2px;font-size:calc(var(--h)*.26);line-height:1}
+#goalBox.stack .goal canvas,#goalBox.stack .goal span.ic{width:calc(var(--h)*.34);height:calc(var(--h)*.34)}
 .goal.done{color:#4ade80}
 #movesBox.low b{color:#ff5a6e;animation:blink 1s infinite}
 @keyframes blink{50%{opacity:.55}}
@@ -315,8 +319,17 @@ function goalsHTML(left){return def.goals.map(function(g){var n=left?goalLeft(g)
 function paintGemIcons(root){root.querySelectorAll('canvas[data-gem]').forEach(function(c){var px=48;c.width=c.height=px;c.getContext('2d').drawImage(makeSprite(+c.dataset.gem,px),0,0)})}
 function renderGoals(){
   var box=$('goalBox');
-  if(mode==='classic'){box.innerHTML='<small>Рекорд</small><b>'+save.best.toLocaleString('ru-RU')+'</b>';box.style.flexDirection='column';return}
-  box.style.flexDirection='row';box.innerHTML=goalsHTML(true);paintGemIcons(box);
+  if(mode==='classic'){box.innerHTML='<small>Рекорд</small><b>'+save.best.toLocaleString('ru-RU')+'</b>';box.style.flexDirection='column';box.classList.remove('stack');box.dataset.fit='';return}
+  box.style.flexDirection='row';
+  // На узком экране цели в строку не влезают: тогда значок встаёт над числом.
+  // Проверяем по начальным числам, чтобы вид не прыгал по ходу уровня.
+  var key=def.n+'/'+box.clientWidth;
+  if(box.dataset.fit!==key){
+    box.classList.remove('stack');box.innerHTML=goalsHTML(false);
+    var g=box.children,wide=g.length&&g[g.length-1].getBoundingClientRect().right-g[0].getBoundingClientRect().left+12>box.clientWidth;
+    box.classList.toggle('stack',wide);box.dataset.fit=key;
+  }
+  box.innerHTML=goalsHTML(true);paintGemIcons(box);
 }
 
 // ---------- ход ----------
