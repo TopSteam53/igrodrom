@@ -1112,7 +1112,48 @@ export function createApp({
       out = description ? out.replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${e(meta.description)}">`)
         : out.replace('</title>', `</title>\n<meta name="description" content="${e(meta.description)}">`);
     }
-    return out.replace('</head>', `${tags}\n</head>`);
+    out = out.replace('</head>', `${tags}\n${jsonLd(rel, meta, url)}</head>`);
+    if (rel === '/index.html') return out.replace(/<!--grid-->[\s\S]*?<!--\/grid-->/, () => `<!--grid-->${q.publicGames.all().map(cardHtml).join('')}<!--/grid-->`);
+    return rel === '/game.html' ? gameHtml(out, url) : out;
+  }
+
+  // Каталог и страница игры заполняются скриптом, а Яндекс скрипты почти не выполняет. Поэтому сервер
+  // сразу кладёт в HTML карточки игр и текст об игре — скрипт потом перерисует их так же.
+  const fileUrl = (id, file) => `/play/${id}/${file.split('/').map(encodeURIComponent).join('/')}`;
+  const pageGame = (url) => { const id = url.searchParams.get('id'); return id && /^[0-9a-f]{16}$/.test(id) ? q.publicGame.get(id) : null; };
+  function cardHtml(g) {
+    const e = escHtml;
+    return `<a class="card" href="game.html?id=${g.id}"><div class="cover">` +
+      (g.cover ? `<img src="${e(fileUrl(g.id, g.cover))}" alt="${e(g.title)}" loading="lazy">` : '') +
+      `<span class="age">${e(g.age || '0+')}</span></div><div class="card-body"><b class="card-title">${e(g.title)}</b>` +
+      `<span class="card-meta"><span>${e(g.genre)}</span></span></div></a>`;
+  }
+  function gameHtml(html, url) {
+    const game = pageGame(url);
+    if (!game) return html;
+    const e = escHtml;
+    return html
+      .replace('<div class="empty" id="loading">', '<div class="empty hidden" id="loading">')
+      .replace('<article id="game" class="hidden">', '<article id="game">')
+      .replace('<h1 id="title"></h1>', () => `<h1 id="title">${e(game.title)}</h1>`)
+      .replace('<p id="desc"></p>', () => `<p id="desc">${e(game.description || '')}</p>`)
+      .replace('<p id="howto"></p>', () => `<p id="howto">${e(game.how_to_play || '')}</p>`);
+  }
+  // Разметка schema.org: поисковик понимает, что это сайт с играми и что на странице — игра.
+  function jsonLd(rel, meta, url) {
+    let data = null;
+    if (rel === '/index.html') {
+      data = { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Gamely', url: `${siteUrl}/`, inLanguage: 'ru',
+        potentialAction: { '@type': 'SearchAction', target: `${siteUrl}/?q={query}`, 'query-input': 'required name=query' } };
+    } else if (rel === '/game.html') {
+      const game = pageGame(url);
+      if (game) {
+        data = { '@context': 'https://schema.org', '@type': 'VideoGame', name: game.title, description: meta.description, url: meta.url,
+          image: meta.image, genre: game.genre, inLanguage: 'ru', gamePlatform: 'Web browser', applicationCategory: 'Game',
+          operatingSystem: 'Any', offers: { '@type': 'Offer', price: '0', priceCurrency: 'RUB' } };
+      }
+    }
+    return data ? `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>\n` : '';
   }
 
   async function playEnd(req, res, id) {

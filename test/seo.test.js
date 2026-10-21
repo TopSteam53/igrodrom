@@ -13,8 +13,8 @@ const page = (title, extra = '') => `<!doctype html><html><head><meta charset="u
 before(async () => {
   dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-seo-'));
   publicDir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-seopub-'));
-  fs.writeFileSync(path.join(publicDir, 'index.html'), page('Главная', '<meta name="description" content="Все игры">'));
-  fs.writeFileSync(path.join(publicDir, 'game.html'), page('Игра'));
+  fs.writeFileSync(path.join(publicDir, 'index.html'), page('Главная', '<meta name="description" content="Все игры">').replace('<body>', '<body><div id="grid"><!--grid--><i>силуэт</i><!--/grid--></div>'));
+  fs.writeFileSync(path.join(publicDir, 'game.html'), page('Игра').replace('<body>', '<body><div class="empty" id="loading"></div><article id="game" class="hidden"><h1 id="title"></h1><p id="desc"></p><p id="howto"></p></article>'));
   fs.writeFileSync(path.join(publicDir, '404.html'), page('Страница не найдена'));
   const games = {
     raster: { title: 'Ракета', description: 'Летите <выше> всех & не падайте. '.repeat(10), extra: { 'og.jpg': 'jpg' } },
@@ -83,6 +83,24 @@ test('страница игры: свой заголовок, описание �
 
   // Неизвестная игра — превью как у обычной страницы.
   assert.equal(og((await text('/game.html?id=0000000000000000')).body, 'title'), 'Игра');
+});
+
+test('поисковикам без скриптов: карточки каталога, текст игры и разметка schema.org', async () => {
+  const home = (await text('/')).body;
+  assert.ok(!home.includes('силуэт'));
+  assert.ok(home.includes(`href="game.html?id=${rasterId}"`) && home.includes('<b class="card-title">Ракета</b>'));
+  assert.ok(home.includes('"@type":"WebSite"'));
+  const game = (await text(`/game.html?id=${rasterId}`)).body;
+  assert.ok(game.includes('<h1 id="title">Ракета</h1>'));
+  assert.ok(game.includes('Летите &lt;выше&gt; всех &amp; не падайте.'));
+  assert.ok(game.includes('<article id="game">'));
+  const raw = game.match(/<script type="application\/ld\+json">(.*?)<\/script>/)[1];
+  assert.ok(!raw.includes('<'), 'внутри JSON-LD нет сырых <');
+  const ld = JSON.parse(raw);
+  assert.equal(ld['@type'], 'VideoGame'); assert.equal(ld.name, 'Ракета');
+  assert.ok(ld.description.includes('<выше>'));
+  const missing = (await text('/game.html?id=0000000000000000')).body;
+  assert.ok(missing.includes('<article id="game" class="hidden">') && !missing.includes('VideoGame'));
 });
 
 test('главная: превью из своего заголовка и описания', async () => {
