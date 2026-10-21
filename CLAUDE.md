@@ -28,7 +28,11 @@ Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm
 Подробности: README.md, дизайн: DESIGN.md, настройки: `.env.example`.
 
 ## Что уже есть
-- Каталог из 22 игр (новая — «Огонёк», выживалка в духе Vampire Survivors, `public/games/ogonek`) (`public/games/*`, у каждой meta.json), статический `catalog.json` для GitHub Pages.
+- «Совёнок» (`public/games/sova`): физическая головоломка «убери блоки», свой движок (порт Box2D-Lite, `physics.js`),
+  2.5D-спрайты из `scripts/blender/sova.py`. Уровни — текстовые карты в `levels.js`; `scripts/sova-levels.mjs` решает их
+  (минимум касаний, решение для подсказки → `solutions.js`, проверка устойчивости к паузам игрока), `scripts/sova-generate.mjs`
+  предлагает новые. После правки уровней или физики — перезапустить решатель; `test/sova.test.js` это проверяет.
+- Каталог из 23 игр (новые — «Совёнок» и «Огонёк», выживалка в духе Vampire Survivors, `public/games/ogonek`) (`public/games/*`, у каждой meta.json), статический `catalog.json` для GitHub Pages.
 - «Звёздный патруль» (`public/games/starpatrol`): спрайты, фон, обложка и иконка отрендерены в Blender 5.2
   скриптом `scripts/blender/starpatrol.py` (blender --background --python … -- public/games/starpatrol [имена]).
 - «Огонёк» в 2.5D: спрайты леса и врагов из `scripts/blender/ogonek.py` (камера 45°, ловец теней) → `public/games/ogonek/img`;

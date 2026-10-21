@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Совёнок</title>
+<style>
+*{box-sizing:border-box}
+.hidden{display:none!important}
+html,body{margin:0;height:100%;overflow:hidden;background:#9fc0ea;color:#1c2140;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;touch-action:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hud{position:fixed;left:0;right:0;top:0;display:flex;align-items:center;gap:6px;padding:10px 10px;pointer-events:none}
+@media (max-width:440px){#hPar{display:none}.pill{padding:7px 9px;font-size:14px}.ibtn{width:38px}}
+.pill{background:rgba(255,255,255,.86);border-radius:12px;padding:7px 12px;font-weight:800;font-size:15px;white-space:nowrap;box-shadow:0 2px 0 rgba(28,33,64,.12)}
+.pill small{font-weight:600;color:#565e80;margin-left:4px}
+.ibtn{pointer-events:auto;width:42px;height:40px;border:0;border-radius:12px;background:rgba(255,255,255,.9);box-shadow:0 2px 0 rgba(28,33,64,.14);display:grid;place-items:center;cursor:pointer;color:#1c2140;position:relative}
+.ibtn svg{width:22px;height:22px}
+.ibtn:active{transform:translateY(1px)}
+.ibtn .cost{position:absolute;right:-4px;top:-6px;background:#ffc531;color:#1c2140;font:800 11px system-ui;border-radius:8px;padding:1px 5px}
+.sp{flex:1}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(28,33,64,.9);color:#fff;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;max-width:90vw;text-align:center;transition:opacity .3s;opacity:0;pointer-events:none}
+#toast.on{opacity:1}
+.scr{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(28,33,64,.35);z-index:5}
+.card{background:#fffaf0;border-radius:22px;padding:22px;width:min(420px,100%);max-height:94vh;overflow:auto;text-align:center;box-shadow:0 10px 0 rgba(28,33,64,.18)}
+h1{font-size:42px;margin:4px 0 2px;letter-spacing:-.01em}
+h2{font-size:26px;margin:0 0 6px}
+.sub{color:#565e80;margin:0 0 16px;line-height:1.4;font-size:15px}
+.btn{display:block;width:100%;margin:8px 0;padding:14px;border:0;border-radius:14px;font:800 17px system-ui;cursor:pointer;color:#1c2140;background:#ffc531;box-shadow:0 4px 0 #c99212}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #c99212}
+.btn.alt{background:#e8ecf6;box-shadow:0 4px 0 #c3cadd}
+.row{display:flex;gap:8px}.row .btn{flex:1}
+.owlpic{width:120px;height:131px;margin:-4px auto 0;display:block}
+.stars{display:flex;justify-content:center;gap:8px;margin:6px 0 4px}
+.stars svg{width:46px;height:46px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:8px 0 12px}
+.lv{border:0;border-radius:14px;background:#fff;box-shadow:0 3px 0 #d5daea;padding:10px 4px 8px;cursor:pointer;font:800 20px system-ui;color:#1c2140}
+.lv:disabled{background:#eef1f7;color:#9aa2bf;cursor:default;box-shadow:none}
+.lv .st{display:flex;justify-content:center;gap:2px;margin-top:4px}
+.lv .st svg{width:14px;height:14px}
+.lv svg.lock{width:18px;height:18px}
+.note{color:#7f88a8;font-size:13px;margin:10px 0 0;line-height:1.4}
+.lb{list-style:none;padding:0;margin:8px 0;text-align:left;font-size:14px}
+.lb li{display:grid;grid-template-columns:28px 1fr auto;gap:8px;padding:5px 8px;border-radius:8px}
+.lb li.me{background:#fff0c4;font-weight:700}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud" class="hidden">
+  <span class="pill" id="hLevel">Уровень 1</span>
+  <span class="pill" id="hTaps">Касаний 0<small id="hPar"></small></span>
+  <span class="sp"></span>
+  <button class="ibtn" id="hintBtn" aria-label="Подсказка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3z"/></svg><span class="cost hidden" id="hintCost">3</span></button>
+  <button class="ibtn" id="restartBtn" aria-label="Заново"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5"/></svg></button>
+  <button class="ibtn" id="menuBtn" aria-label="Уровни"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.6"/></svg></button>
+</div>
+<div id="toast"></div>
+
+<div class="scr" id="menu"><div class="card">
+  <img class="owlpic" src="img/owl_sleep.webp" alt="">
+  <h1>Совёнок</h1>
+  <p class="sub">Совёнок уснул на шаткой башне над морем. Убирайте блоки касанием так, чтобы он спустился на остров и не упал в воду. Падать с высоты ему нельзя, а в воду — тем более.</p>
+  <button class="btn" id="playBtn">Играть</button>
+  <button class="btn alt" id="levelsBtn">Уровни</button>
+  <button class="btn alt" id="muteBtn"></button>
+  <p class="note" id="mStars"></p>
+</div></div>
+
+<div class="scr hidden" id="levels"><div class="card">
+  <h2>Уровни</h2>
+  <p class="sub" id="lStars"></p>
+  <div class="grid" id="grid"></div>
+  <button class="btn alt" id="backBtn">Назад</button>
+</div></div>
+
+<div class="scr hidden" id="win"><div class="card">
+  <img class="owlpic" src="img/owl_happy.webp" alt="">
+  <h2 id="wTitle">Совёнок на острове</h2>
+  <div class="stars" id="wStars"></div>
+  <p class="sub" id="wText"></p>
+  <div class="row"><button class="btn alt" id="againBtn">Ещё раз</button><button class="btn" id="nextBtn">Дальше</button></div>
+  <div id="board"></div>
+</div></div>
+
+<div class="scr hidden" id="lose"><div class="card">
+  <img class="owlpic" src="img/owl_scared.webp" alt="">
+  <h2 id="loseTitle">Совёнок промок</h2>
+  <p class="sub" id="loseText"></p>
+  <button class="btn" id="retryBtn">Ещё раз</button>
+  <button class="btn alt" id="loseHintBtn">Подсказка</button>
+</div></div>
+
+<script src="../../sdk/v1.js"></script>
+<script src="physics.js"></script>
+<script src="level.js"></script>
+<script src="levels.js"></script>
+<script src="solutions.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = (id) => document.getElementById(id);
+const Phys = self.Phys, SL = self.SovaLevel, LEVELS = self.SOVA_LEVELS, SOL = self.SOVA_SOLUTIONS || [];
+const cv = $('c'), ctx = cv.getContext('2d');
+let W = 0, H = 0, dpr = 1;
+const STAR = (on) => `<svg viewBox="0 0 24 24"><path d="M12 2.6l2.9 6 6.5.8-4.8 4.5 1.2 6.5L12 17.2l-5.8 3.2 1.2-6.5L2.6 9.4l6.5-.8z" fill="${on ? '#ffc531' : '#dfe3ee'}" stroke="${on ? '#d99a14' : '#c8cede'}" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+const LOCK = '<svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+
+// ---------- сохранение ----------
+let save = { v: 1, stars: {}, mute: false };
+let sdk = null;
+const persist = () => { if (sdk) sdk.data.set(save).catch(() => {}); };
+function applySave(d) {
+  if (!d || typeof d !== 'object' || d.v !== 1) return;
+  if (d.stars && typeof d.stars === 'object') for (const [k, v] of Object.entries(d.stars)) if (Number.isInteger(v) && v >= 1 && v <= 3 && LEVELS[k]) save.stars[k] = v;
+  save.mute = !!d.mute;
+}
+const totalStars = () => Object.values(save.stars).reduce((s, v) => s + v, 0);
+const unlocked = (i) => i === 0 || !!save.stars[i - 1] || !!save.stars[i];
+
+// ---------- звук ----------
+let ac = null;
+function audio() { if (!ac) try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} if (ac && ac.state === 'suspended') ac.resume(); }
+function tone(f, d = 0.1, type = 'sine', vol = 0.06, slide = 0, delay = 0) {
+  if (save.mute || !ac) return;
+  const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(f * slide, t + d);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d + 0.02);
+}
+let noiseBuf = null;
+function noise(d = 0.2, freq = 800, q = 1, vol = 0.12, sweep = 1, delay = 0) {
+  if (save.mute || !ac) return;
+  if (!noiseBuf) { noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const ch = noiseBuf.getChannelData(0); let s = 7; for (let i = 0; i < ch.length; i++) { s = (s * 16807) % 2147483647; ch[i] = (s / 2147483647) * 2 - 1; } }
+  const t = ac.currentTime + delay, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+  src.buffer = noiseBuf; f.type = 'bandpass'; f.frequency.setValueAtTime(freq, t); if (sweep !== 1) f.frequency.exponentialRampToValueAtTime(freq * sweep, t + d); f.Q.value = q;
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  src.connect(f).connect(g).connect(ac.destination); src.start(t); src.stop(t + d + 0.02);
+}
+const sfx = {
+  wood() { noise(0.09, 1400, 1.2, 0.16); tone(190, 0.12, 'triangle', 0.08, 0.7); },
+  ice() { tone(1900, 0.18, 'sine', 0.05, 0.75); noise(0.12, 5000, 2, 0.06); },
+  nope() { tone(320, 0.07, 'square', 0.03); tone(240, 0.09, 'square', 0.03, 1, 0.07); },
+  boom() { noise(0.7, 900, 0.7, 0.32, 0.12); tone(70, 0.6, 'sine', 0.2, 0.5); },
+  thud(v) { tone(110, 0.14, 'sine', Math.min(0.16, 0.03 + v * 0.02), 0.6); noise(0.06, 500, 1, Math.min(0.08, v * 0.012)); },
+  splash() { noise(0.5, 1200, 0.8, 0.14, 0.35); noise(0.25, 3200, 1.5, 0.05, 0.6, 0.05); },
+  win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.22, 'triangle', 0.07, 1, i * 0.09)); tone(430, 0.28, 'sine', 0.06, 0.93, 0.5); tone(380, 0.4, 'sine', 0.06, 0.95, 0.82); },
+  click() { tone(660, 0.05, 'triangle', 0.04); },
+};
+
+// ---------- картинки ----------
+const img = {};
+const NAMES = { w: 'wood', i: 'ice', b: 'bomb', s: 'stone', r: 'rock' };
+const PAD = 8 / 128;
+function load(name) { return new Promise((res) => { const i = new Image(); i.onload = () => { img[name] = i; res(); }; i.onerror = res; i.src = `img/${name}`; }); }
+function spritesFor(def) {
+  const L = SL.parse(def), need = new Set(['owl_sleep.webp', 'owl_scared.webp', 'owl_happy.webp', 'ground_l.webp', 'ground_m.webp', 'ground_r.webp', 'bg.jpg']);
+  for (const b of [...L.blocks, ...L.rocks]) need.add(`${NAMES[b.type]}_${b.size}.webp`);
+  return [...need].filter((n) => !img[n]);
+}
+// Силуэт для тени: тот же спрайт, залитый тёмным.
+const shadows = new Map();
+function shadowOf(name) {
+  let s = shadows.get(name);
+  if (s !== undefined) return s;
+  const i = img[name]; if (!i) return null;
+  const c = document.createElement('canvas'); c.width = i.width; c.height = i.height;
+  const x = c.getContext('2d'); x.drawImage(i, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(20,30,60)'; x.fillRect(0, 0, c.width, c.height);
+  shadows.set(name, c); return c;
+}
+
+// ---------- состояние ----------
+let state = 'menu', cur = 0, lvl = null, taps = 0, removed = [], stillFor = 0, lostFor = 0, hintOn = false, hintPaid = false, ended = false;
+let fx = [], shake = 0, view = null, hover = null, landed = false, splashed = new Set();
+let acc = 0, last = 0, time = 0;
+
+function startLevel(i) {
+  audio();
+  cur = i; lvl = SL.build(LEVELS[i], Phys);
+  // те же 3 секунды успокоения, что и в решателе, — без них старт мог бы отличаться от проверенного
+  // то же начальное успокоение, что у решателя: уровень стартует ровно в проверенном состоянии
+  SL.settle(lvl, 360);
+  lvl.hard = 0;
+  taps = 0; removed = []; stillFor = 0; lostFor = 0; ended = false; fx = []; shake = 0; landed = false; splashed = new Set();
+  hintOn = hintOn && hintPaid; // оплаченная подсказка переживает перезапуск этого уровня
+  state = 'play'; show(null); $('hud').classList.remove('hidden');
+  $('hLevel').textContent = `Уровень ${i + 1}`;
+  updateHud(); fit();
+  sdk?.game.start();
+  intro(i);
+  const missing = spritesFor(LEVELS[i]);
+  if (missing.length) Promise.all(missing.map(load));
+}
+// Первая встреча с новым материалом — короткое объяснение.
+const INTRO = {
+  w: 'Коснитесь блока, чтобы убрать его. Падать совёнку можно не выше двух клеток — иначе ушибётся',
+  s: 'Серый камень убрать нельзя, он только падает и сдвигается',
+  i: 'Лёд скользкий: по нему совёнок съезжает',
+  b: 'Ящик с порохом взрывается и расталкивает всё вокруг',
+  r: 'Тёмную скалу не сдвинуть — на неё можно опереться',
+};
+function intro(i) {
+  const types = (d) => new Set([...SL.parse(d).blocks, ...SL.parse(d).rocks].map((b) => b.type));
+  const seen = new Set(); for (let k = 0; k < i; k++) for (const t of types(LEVELS[k])) seen.add(t);
+  const fresh = [...types(LEVELS[i])].filter((t) => !seen.has(t) && INTRO[t]);
+  if (i === 0) toast(INTRO.w); else if (fresh.length) toast(INTRO[fresh[0]]);
+}
+function updateHud() {
+  const par = SOL[cur]?.par;
+  $('hTaps').firstChild.textContent = `Касаний ${taps}`;
+  $('hPar').textContent = par ? `для трёх звёзд: ${par}` : '';
+  const hosted = sdk && sdk.environment.host === 'gamely';
+  $('hintCost').classList.toggle('hidden', !hosted || cur < 3 || hintPaid);
+}
+
+// ---------- вид: уровень целиком в экране ----------
+function fit() {
+  if (!lvl) return;
+  const L = lvl.L, hudH = 60;
+  // кадр по тому, что реально есть на уровне: остров, блоки, скалы, совёнок
+  const parts = [...L.blocks, ...L.rocks, { x: L.hero.x, y: L.hero.y, w: 1, h: 1.1 }];
+  const minX = Math.min(L.island.x0, ...parts.map((p) => p.x - p.w / 2)) - 0.5, maxX = Math.max(L.island.x1, ...parts.map((p) => p.x + p.w / 2)) + 0.5;
+  const topY = Math.max(...parts.map((p) => p.y + p.h / 2)) + 0.7, botY = -1.6;
+  const vw = Math.max(4.5, maxX - minX), vh = topY - botY;
+  const S = Math.min(W / vw, (H - hudH - 8) / vh);
+  view = { S, ox: W / 2 - ((minX + maxX) / 2) * S, oy: hudH + (H - hudH - vh * S) / 2 + topY * S };
+}
+const sx = (x) => view.ox + x * view.S;
+const sy = (y) => view.oy - y * view.S;
+const toWorld = (px, py) => ({ x: (px - view.ox) / view.S, y: (view.oy - py) / view.S });
+
+// ---------- ввод ----------
+function pick(px, py) {
+  const p = toWorld(px, py), tol = 22 / view.S;
+  let best = null, bd = Infinity;
+  for (const b of lvl.blocks) {
+    if (!lvl.world.bodies.includes(b)) continue;
+    if (b.contains(p.x, p.y)) return b;
+    // небольшой допуск по краю — блоки на телефоне мелкие
+    const d = distToBox(b, p);
+    if (d < tol && d < bd) { bd = d; best = b; }
+  }
+  return best;
+}
+function distToBox(b, p) {
+  const c = Math.cos(-b.rot), s = Math.sin(-b.rot), dx = p.x - b.pos.x, dy = p.y - b.pos.y;
+  const lx = c * dx - s * dy, ly = s * dx + c * dy;
+  return Math.hypot(Math.max(0, Math.abs(lx) - b.w / 2), Math.max(0, Math.abs(ly) - b.h / 2));
+}
+function tap(px, py) {
+  if (state !== 'play' || ended) return;
+  audio();
+  const b = pick(px, py);
+  if (!b) return;
+  if (!b.removable) { b.wiggle = 0.3; sfx.nope(); toast(b.type === 's' ? 'Камень не убрать — только сдвинуть' : 'Скалу не сдвинуть'); return; }
+  SL.removeBlock(lvl, b);
+  taps++; removed.push(b.idx); updateHud();
+  burst(b);
+  if (b.type === 'b') { sfx.boom(); shake = 16; fx.push({ flash: true, x: b.pos.x, y: b.pos.y, life: 0.35 }); }
+  else if (b.type === 'i') sfx.ice(); else sfx.wood();
+  if (hintOn) hintTarget();
+}
+function burst(b) {
+  const colors = { w: ['#c48a4a', '#8a5a2b', '#e0b07a'], i: ['#dff4ff', '#a6dcf6', '#ffffff'], b: ['#ffc531', '#ff7a1a', '#3a2a20'] }[b.type];
+  const n = b.type === 'b' ? 34 : 14 + Math.round(b.w * b.h * 6);
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * Math.PI * 2, v = (b.type === 'b' ? 6 : 2.4) * (0.4 + Math.random());
+    fx.push({ p: true, x: b.pos.x + (Math.random() - 0.5) * b.w, y: b.pos.y + (Math.random() - 0.5) * b.h, vx: Math.cos(a) * v, vy: Math.sin(a) * v + 1.5, life: 0.7 + Math.random() * 0.4, max: 1.1, c: colors[k % 3], s: 0.05 + Math.random() * 0.07, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 12 });
+  }
+}
+
+// ---------- подсказка ----------
+// Решатель знает лучший порядок с самого начала уровня. Если игрок уже убрал не то — предлагаем начать заново.
+function hintTarget() {
+  const sol = SOL[cur]?.sol; if (!sol) return null;
+  const ok = removed.every((r, k) => sol[k] === r);
+  if (!ok) return null;
+  return lvl.blocks[sol[removed.length]] || null;
+}
+async function askHint() {
+  if (state !== 'play' && state !== 'lose') return;
+  audio();
+  if (!hintPaid) {
+    const hosted = sdk && sdk.environment.host === 'gamely';
+    if (cur >= 3 && hosted) {
+      const r = await sdk.coins.spend(3, 'Подсказка в «Совёнке»').catch(() => ({ ok: false }));
+      if (!r.ok) { if (sdk.ads) { const a = await sdk.ads.rewarded().catch(() => ({})); if (!a.rewarded) return; } else return; }
+    } else if (cur >= 3 && sdk) {
+      const a = await sdk.ads.rewarded().catch(() => ({})); if (!a.rewarded) return;
+    }
+    hintPaid = true;
+  }
+  hintOn = true;
+  if (state === 'lose' || !hintTarget()) { startLevel(cur); toast('Подсказка ведёт с самого начала — светится блок, который убрать первым'); }
+  updateHud();
+}
+
+// ---------- шаг ----------
+function update(dt) {
+  time += dt;
+  for (const f of fx) { f.life -= dt; if (f.p) { f.vy -= 9 * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.vr * dt; } }
+  fx = fx.filter((f) => f.life > 0);
+  shake = Math.max(0, shake - dt * 40);
+  if (!lvl || state !== 'play') return;
+  acc += dt;
+  let steps = 0;
+  while (acc >= 1 / 120 && steps < 8) {
+    SL.step(lvl, 1 / 120); acc -= 1 / 120; steps++;
+    // удар совёнка о землю или блоки — глухой звук
+    const hv = Math.hypot(lvl.hero.vel.x, lvl.hero.vel.y);
+    if (hv > 2.5) landed = false;
+    if (!landed && hv < 0.6 && lvl.world.touching(lvl.hero).length) { landed = true; sfx.thud(2.5); }
+  }
+  if (steps === 8) acc = 0;
+  // тела, упавшие в воду: брызги и уборка
+  for (const b of lvl.world.bodies) {
+    if (b.invMass === 0) continue;
+    if (b.pos.y < SL.WATER && !splashed.has(b)) { splashed.add(b); splash(b.pos.x, Math.abs(b.vel.y)); }
+    if (b.pos.y < -5 && b !== lvl.hero) lvl.world.remove(b);
+  }
+  for (const b of lvl.blocks) if (b.wiggle) b.wiggle = Math.max(0, b.wiggle - dt);
+  if (ended) return;
+  if (SL.lost(lvl)) { lostFor += dt; if (lostFor > (lvl.hard ? 0.6 : 0.9)) lose(lvl.hard ? 'hard' : 'water'); return; }
+  if (SL.still(lvl.hero) && !SL.upright(lvl.hero)) { lostFor += dt; if (lostFor > 0.6) lose('side'); return; }
+  if (SL.onIsland(lvl) && SL.still(lvl.hero)) { stillFor += dt; if (stillFor > 0.5) win(); } else stillFor = 0;
+}
+function splash(x, v) {
+  sfx.splash();
+  for (let k = 0; k < 18; k++) fx.push({ p: true, drop: true, x: x + (Math.random() - 0.5) * 0.6, y: SL.WATER, vx: (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 3 + v * 0.2, life: 0.8, max: 0.8, c: '#e8f6ff', s: 0.05 + Math.random() * 0.05, rot: 0, vr: 0 });
+}
+function stars() { const par = SOL[cur]?.par || taps; return taps <= par ? 3 : taps <= par + 1 ? 2 : 1; }
+function win() {
+  ended = true; state = 'won'; sdk?.game.stop(); sfx.win();
+  const s = stars(), prev = save.stars[cur] || 0;
+  if (s > prev) { save.stars[cur] = s; persist(); if (sdk) sdk.leaderboard.setScore(totalStars()).catch(() => {}); }
+  hintOn = false; hintPaid = false;
+  setTimeout(() => {
+    $('wStars').innerHTML = [1, 2, 3].map((k) => STAR(k <= s)).join('');
+    const par = SOL[cur]?.par;
+    $('wTitle').textContent = cur === LEVELS.length - 1 ? 'Все уровни пройдены' : 'Совёнок на острове';
+    $('wText').textContent = s === 3 ? `Касаний: ${taps}. Лучше не бывает.` : `Касаний: ${taps}. Для трёх звёзд хватит ${par}.`;
+    $('nextBtn').classList.toggle('hidden', cur >= LEVELS.length - 1);
+    renderBoard(null); show('win');
+    if (sdk && sdk.environment.host === 'gamely') sdk.leaderboard.getEntries({ top: 5, around: 1 }).then(renderBoard, () => {});
+  }, 900);
+}
+const LOSE = {
+  water: ['Совёнок промок', 'Он упал в воду. Попробуйте убрать блоки в другом порядке.'],
+  hard: ['Совёнок ушибся', 'Падать было слишком высоко. Опускайте его постепенно — не больше двух клеток за раз.'],
+  side: ['Совёнок упал набок', 'Он должен приземлиться на лапки. Попробуйте другой порядок.'],
+};
+function lose(why) {
+  ended = true; state = 'lose'; sdk?.game.stop();
+  $('loseTitle').textContent = LOSE[why][0]; $('loseText').textContent = LOSE[why][1];
+  if (why === 'hard') sfx.thud(6); show('lose');
+}
+function renderBoard(r) {
+  const el = $('board');
+  if (!r || !sdk || sdk.environment.host !== 'gamely') { el.innerHTML = ''; return; }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const rows = r.entries.slice(); for (const e of r.around || []) if (!rows.some((x) => x.rank === e.rank)) rows.push(e);
+  el.innerHTML = rows.length ? `<p class="note">Больше всех звёзд</p><ol class="lb">${rows.map((e) => `<li class="${e.me ? 'me' : ''}"><span>${e.rank}</span><span>${esc(e.name)}</span><span>${e.score}</span></li>`).join('')}</ol>` : '';
+}
+
+// ---------- отрисовка ----------
+function resize() {
+  dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+  cv.width = W * dpr; cv.height = H * dpr; fit();
+}
+addEventListener('resize', resize);
+function drawBg() {
+  const i = img['bg.jpg'];
+  if (!i) { ctx.fillStyle = '#9fc0ea'; ctx.fillRect(0, 0, W, H); return; }
+  const k = Math.max(W / i.width, H / i.height), w = i.width * k, h = i.height * k;
+  // горизонт фона (≈54% картинки) — чуть выше уровня воды на экране
+  const wy = view ? sy(SL.WATER) : H * 0.8, y = Math.min(0, Math.max(H - h, wy - 0.56 * h));
+  ctx.drawImage(i, (W - w) / 2, y, w, h);
+}
+function drawSprite(name, x, y, w, h, rot, alpha = 1, scale = 1) {
+  const i = img[name]; if (!i) return false;
+  const S = view.S, dw = (w + 2 * PAD) * S * scale, dh = (h + 2 * PAD) * S * scale;
+  // тень на «стене» за сценой: тот же силуэт, сдвинутый вправо-вниз в экранных координатах
+  const sh = shadowOf(name);
+  if (sh) { ctx.save(); ctx.globalAlpha = 0.16 * alpha; ctx.translate(sx(x) + 0.07 * S, sy(y) + 0.09 * S); ctx.rotate(-rot); ctx.drawImage(sh, -dw / 2, -dh / 2, dw, dh); ctx.restore(); }
+  ctx.save(); ctx.globalAlpha = alpha; ctx.translate(sx(x), sy(y)); ctx.rotate(-rot);
+  ctx.drawImage(i, -dw / 2, -dh / 2, dw, dh);
+  ctx.restore(); return true;
+}
+function drawIsland() {
+  const L = lvl.L, S = view.S, x0 = L.island.x0, x1 = L.island.x1;
+  const tileW = 1, topZ = 0.69, frameTop = 0.7 + PAD, frameH = 1.6 + 2 * PAD;
+  const draw = (name, x, srcCrop = 0) => {
+    const i = img[name]; if (!i) return;
+    const px = PAD * 128, sw = i.width - 2 * px * srcCrop;
+    ctx.drawImage(i, px * srcCrop, 0, sw, i.height, sx(x - (srcCrop ? 0 : PAD)), sy(frameTop - topZ), (srcCrop ? tileW : tileW + 2 * PAD) * S + 1, frameH * S);
+  };
+  const width = x1 - x0;
+  if (width < 2) { draw('ground_l.webp', x0); return; }
+  for (let x = x0 + 1; x < x1 - 1 - 1e-6; x += tileW) {
+    ctx.save(); ctx.beginPath(); ctx.rect(sx(x), 0, Math.min(tileW, x1 - 1 - x) * S + 1, H); ctx.clip();
+    draw('ground_m.webp', x, 1); ctx.restore();
+  }
+  draw('ground_l.webp', x0); draw('ground_r.webp', x1 - 1);
+}
+function drawWater(front) {
+  const y0 = sy(SL.WATER), S = view.S;
+  ctx.save();
+  if (!front) {
+    ctx.fillStyle = 'rgba(52,128,184,0.92)'; ctx.fillRect(0, y0, W, H - y0);
+  } else {
+    // передняя волна прикрывает низ острова и то, что упало
+    ctx.fillStyle = 'rgba(64,146,204,0.55)';
+    ctx.beginPath(); ctx.moveTo(0, H);
+    for (let x = 0; x <= W + 10; x += 10) ctx.lineTo(x, y0 + 6 + Math.sin(x / (0.9 * S) + time * 1.6) * 0.05 * S + Math.sin(x / (0.37 * S) - time * 2.3) * 0.02 * S);
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(235,248,255,0.75)'; ctx.lineWidth = Math.max(1.5, 0.03 * S);
+    ctx.beginPath();
+    for (let x = 0; x <= W + 10; x += 8) { const y = y0 + 6 + Math.sin(x / (0.9 * S) + time * 1.6) * 0.05 * S + Math.sin(x / (0.37 * S) - time * 2.3) * 0.02 * S; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function owlState() {
+  if (state === 'won' || (ended && !SL.lost(lvl))) return 'happy';
+  const v = Math.hypot(lvl.hero.vel.x, lvl.hero.vel.y) + Math.abs(lvl.hero.angVel) * 0.3;
+  return v > 1.1 || SL.lost(lvl) || (SL.still(lvl.hero) && !SL.upright(lvl.hero)) ? 'scared' : 'sleep';
+}
+function draw() {
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (!lvl) { drawBg(); return; }
+  if (!view) fit();
+  ctx.save();
+  if (shake) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+  drawBg();
+  drawWater(false);
+  drawIsland();
+  for (const b of lvl.rocks) drawSprite(`rock_${b.size}.webp`, b.pos.x, b.pos.y, b.w, b.h, b.rot);
+  const target = hintOn && state === 'play' ? hintTarget() : null;
+  for (const b of lvl.blocks) {
+    if (!lvl.world.bodies.includes(b)) continue;
+    const wig = b.wiggle ? Math.sin(time * 60) * 0.03 * b.wiggle / 0.3 : 0;
+    drawSprite(`${NAMES[b.type]}_${b.size}.webp`, b.pos.x + wig, b.pos.y, b.w, b.h, b.rot);
+    if (b === hover && b.removable && !ended) outline(b, 'rgba(255,255,255,0.85)', 3);
+    if (b === target) outline(b, `rgba(255,197,49,${0.6 + 0.4 * Math.sin(time * 7)})`, 5);
+  }
+  const H_ = lvl.hero;
+  drawSprite(`owl_${owlState()}.webp`, H_.pos.x, H_.pos.y + 0.04, 1.1, 1.2, H_.rot);
+  // спящему — «з-з»
+  if (owlState() === 'sleep' && state === 'play') {
+    ctx.save(); ctx.font = `800 ${Math.round(0.28 * view.S)}px system-ui`; ctx.fillStyle = 'rgba(28,33,64,0.55)';
+    for (let k = 0; k < 2; k++) { const ph = (time * 0.6 + k * 0.5) % 1; ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.8; ctx.fillText('з', sx(H_.pos.x + 0.45 + ph * 0.35), sy(H_.pos.y + 0.55 + ph * 0.6)); }
+    ctx.restore();
+  }
+  for (const f of fx) {
+    if (f.p) {
+      ctx.save(); ctx.globalAlpha = Math.max(0, f.life / f.max); ctx.translate(sx(f.x), sy(f.y)); ctx.rotate(f.rot);
+      ctx.fillStyle = f.c; const s = f.s * view.S;
+      if (f.drop) { ctx.beginPath(); ctx.arc(0, 0, s / 2, 0, 7); ctx.fill(); } else ctx.fillRect(-s / 2, -s / 2, s, s * 0.6);
+      ctx.restore();
+    } else if (f.flash) {
+      const k = 1 - f.life / 0.35, R = (0.4 + 2.6 * k) * view.S;
+      const g = ctx.createRadialGradient(sx(f.x), sy(f.y), 0, sx(f.x), sy(f.y), R);
+      g.addColorStop(0, `rgba(255,240,180,${0.9 * (1 - k)})`); g.addColorStop(0.5, `rgba(255,150,40,${0.6 * (1 - k)})`); g.addColorStop(1, 'rgba(255,120,30,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx(f.x), sy(f.y), R, 0, 7); ctx.fill();
+    }
+  }
+  drawWater(true);
+  ctx.restore();
+}
+function outline(b, color, lw) {
+  ctx.save(); ctx.translate(sx(b.pos.x), sy(b.pos.y)); ctx.rotate(-b.rot);
+  ctx.strokeStyle = color; ctx.lineWidth = lw; const w = b.w * view.S + 6, h = b.h * view.S + 6, r = 8;
+  ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, r); ctx.stroke(); ctx.restore();
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - (last || now)) / 1000); last = now;
+  try { update(dt); draw(); } catch (e) { window.__err = String(e && e.stack || e); }
+}
+
+// ---------- экраны ----------
+function show(id) { for (const s of ['menu', 'levels', 'win', 'lose']) $(s).classList.toggle('hidden', s !== id); }
+let toastT = 0;
+function toast(t) { $('toast').textContent = t; $('toast').classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('on'), 2600); }
+function openMenu() {
+  state = 'menu'; sdk?.game.stop(); $('hud').classList.add('hidden');
+  $('muteBtn').textContent = save.mute ? 'Включить звук' : 'Выключить звук';
+  const t = totalStars();
+  $('mStars').textContent = t ? `Звёзд: ${t} из ${LEVELS.length * 3}` : `${LEVELS.length} уровней`;
+  $('playBtn').textContent = Object.keys(save.stars).length ? 'Продолжить' : 'Играть';
+  if (!lvl) { lvl = SL.build(LEVELS[0], Phys); fit(); }
+  show('menu');
+}
+function openLevels() {
+  state = 'levels'; sdk?.game.stop(); $('hud').classList.add('hidden');
+  $('lStars').textContent = `Звёзд: ${totalStars()} из ${LEVELS.length * 3}`;
+  $('grid').innerHTML = LEVELS.map((d, i) => unlocked(i)
+    ? `<button class="lv" data-i="${i}">${i + 1}<div class="st">${[1, 2, 3].map((k) => STAR(k <= (save.stars[i] || 0))).join('')}</div></button>`
+    : `<button class="lv" disabled>${LOCK}</button>`).join('');
+  show('levels');
+}
+const firstOpen = () => { for (let i = 0; i < LEVELS.length; i++) if (!save.stars[i]) return i; return 0; };
+$('playBtn').onclick = () => { sfx.click(); hintOn = hintPaid = false; startLevel(firstOpen()); };
+$('levelsBtn').onclick = () => { sfx.click(); openLevels(); };
+$('backBtn').onclick = () => { sfx.click(); openMenu(); };
+$('grid').onclick = (e) => { const b = e.target.closest('[data-i]'); if (!b) return; sfx.click(); hintOn = hintPaid = false; startLevel(Number(b.dataset.i)); };
+$('muteBtn').onclick = () => { audio(); save.mute = !save.mute; persist(); openMenu(); };
+$('restartBtn').onclick = () => { sfx.click(); startLevel(cur); };
+$('menuBtn').onclick = () => { sfx.click(); openLevels(); };
+$('hintBtn').onclick = () => askHint();
+$('loseHintBtn').onclick = () => askHint();
+$('retryBtn').onclick = () => { sfx.click(); startLevel(cur); };
+$('againBtn').onclick = () => { sfx.click(); startLevel(cur); };
+$('nextBtn').onclick = async () => { sfx.click(); if (sdk && (cur + 1) % 3 === 0) await sdk.ads.fullscreen().catch(() => {}); hintOn = hintPaid = false; startLevel(cur + 1); };
+
+cv.addEventListener('pointerdown', (e) => tap(e.clientX, e.clientY));
+cv.addEventListener('pointermove', (e) => { if (state === 'play' && e.pointerType === 'mouse') { const b = pick(e.clientX, e.clientY); hover = b; cv.style.cursor = b && b.removable ? 'pointer' : 'default'; } });
+addEventListener('keydown', (e) => {
+  if (state === 'play' && e.code === 'KeyR') startLevel(cur);
+  if (state === 'play' && e.code === 'KeyH') askHint();
+  if (e.code === 'Escape' && state === 'play') openLevels();
+});
+document.addEventListener('visibilitychange', () => { last = 0; });
+
+resize();
+Promise.all(['bg.jpg', 'owl_sleep.webp', 'owl_scared.webp', 'owl_happy.webp', 'ground_l.webp', 'ground_m.webp', 'ground_r.webp'].map(load)).then(() => Promise.all(spritesFor(LEVELS[0]).map(load)));
+openMenu(); requestAnimationFrame(frame);
+if (window.Gamely) Gamely.init().then(async (s) => {
+  const d = await s.data.get().catch(() => null);
+  applySave(d); sdk = s;
+  s.on('pause', () => { if (state === 'play') openLevels(); });
+  s.game.ready();
+  if (state === 'menu') openMenu();
+}).catch(() => {});
+window.__game = {
+  get state() { return state; }, get level() { return cur; }, get taps() { return taps; }, get lvl() { return lvl; },
+  start(i) { startLevel(i); }, tapBlock(idx) { const b = lvl.blocks[idx]; if (b) { SL.removeBlock(lvl, b); taps++; removed.push(idx); updateHud(); } },
+  hint() { hintOn = true; }, load, screenOf(x, y) { return [sx(x), sy(y)]; },
+  custom(def) { LEVELS.push(def); SOL.push({}); startLevel(LEVELS.length - 1); },
+};
+})();
+</script>
+</body>
+</html>
