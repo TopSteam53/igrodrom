@@ -13,6 +13,22 @@
   const COVER_BG = ['#3b2f8f', '#14532d', '#7c2d12', '#134e4a', '#1e3a8a', '#701a75', '#713f12', '#1f2937'];
   const NEW_DAYS = 14;
 
+  // Чистые адреса (/game/ogonek, /category/arkady) есть только у сервера: он всегда вставляет og:url.
+  // Статическая версия на GitHub Pages живёт на старых game.html?id= и index.html?category=.
+  const SLUG_MAP = {
+    а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm',
+    н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch',
+    ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+  };
+  // Та же функция — в server/slug.js.
+  const slugify = (text) => [...String(text || '').toLowerCase()].map((c) => SLUG_MAP[c] ?? c).join('')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/, '');
+  const onServer = () => !!document.querySelector('meta[property="og:url"]');
+  const gameUrl = (g) => (g.slug ? `/game/${encodeURIComponent(g.slug)}` : `game.html?id=${encodeURIComponent(g.id)}`);
+  const catUrl = (c) => (onServer() ? `/category/${slugify(c)}` : `index.html?category=${encodeURIComponent(c)}`);
+  const homeUrl = () => (onServer() ? '/' : 'index.html');
+  const withParam = (url, kv) => url + (url.includes('?') ? '&' : '?') + kv;
+
   // Нормализованная игра: одинаковые поля для API и статического каталога.
   function fromApi(g) {
     return {
@@ -73,7 +89,7 @@
 
   function cardHTML(g, i) {
     const r = rating(g);
-    return `<a class="card" href="game.html?id=${encodeURIComponent(g.id)}">${coverHTML(g, i)}
+    return `<a class="card" href="${gameUrl(g)}">${coverHTML(g, i)}
       <div class="card-body"><b class="card-title">${esc(g.title)}</b>
       <span class="card-meta">${r !== null ? `<span class="score" title="Доля положительных оценок">👍 ${r}%</span>` : ''}
       <span>${esc(g.genre)}</span></span></div></a>`;
@@ -214,7 +230,9 @@
     });
   }
 
-  const here = () => (location.pathname.split('/').pop() || 'index.html') + location.search;
+  // Адрес текущей страницы для возврата после входа: чистый путь или имя .html-файла.
+  const here = () => (/\.html$|^\/$/.test(location.pathname) || !onServer()
+    ? (location.pathname.split('/').pop() || 'index.html') : location.pathname) + location.search;
 
   // Текущий пользователь (или null). Без сервера — тоже null.
   let mePromise;
@@ -225,7 +243,7 @@
 
   // Куда вернуть после входа: только страница этого же сайта, никаких внешних адресов.
   function safeNext(value, fallback = 'account.html') {
-    return /^[\w-]+\.html(\?[^#]*)?$/.test(value || '') ? value : fallback;
+    return /^(?:[\w-]+\.html|\/(?:(?:game|category)\/[a-z0-9-]+|[\w-]*))(\?[^#]*)?$/.test(value || '') ? value : fallback;
   }
 
   function toast(msg) {
@@ -240,7 +258,7 @@
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${(g.tags || []).join(' ')} ${g.short_description || ''} ${g.description || ''}`).includes(norm(q));
 
   window.Igr = {
-    $, esc, fmt, me, safeNext, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
+    $, esc, fmt, me, safeNext, slugify, gameUrl, catUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
     toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML,
   };
 })();

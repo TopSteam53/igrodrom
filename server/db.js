@@ -192,5 +192,7 @@ export function openDb(file) {
   addColumn('cover', 'TEXT'); // имя файла обложки внутри папки игры (16:9)
   addColumn('icon', 'TEXT');  // квадратная иконка (1:1) — для маленьких размеров
   addColumn('featured', 'INTEGER NOT NULL DEFAULT 0'); // в подборке на главной: больше — раньше
+  addColumn('slug', 'TEXT'); // адрес страницы /game/<slug>; задаётся при публикации и потом не меняется
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS games_slug ON games(slug)');
   return db;
 }

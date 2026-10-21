@@ -80,7 +80,9 @@
 <script>
 const { $, esc, loadCatalog, rating, isNew, cardHTML, initHeader, matches } = Igr;
 const params = new URLSearchParams(location.search);
-let state = { q: params.get('q') || '', cat: params.get('category') || '', sort: 'popular' };
+// /category/<slug>: категорию кладёт в страницу сервер; старый адрес — index.html?category=…
+const pageCat = document.querySelector('meta[name="gamely-category"]')?.content || '';
+let state = { q: params.get('q') || '', cat: params.get('category') || pageCat, sort: 'popular' };
 let games = [];
 
 const SORTS = {
@@ -93,8 +95,8 @@ const SORTS = {
 function render() {
   // Категории — только те, в которых есть игры.
   const cats = [...new Set(games.map((g) => g.genre))].sort((a, b) => a.localeCompare(b, 'ru'));
-  $('chips').innerHTML = [`<a class="chip ${state.cat ? '' : 'on'}" href="index.html" data-cat="">Все игры</a>`,
-    ...cats.map((c) => `<a class="chip ${c === state.cat ? 'on' : ''}" href="index.html?category=${encodeURIComponent(c)}" data-cat="${esc(c)}">${esc(c)}</a>`)].join('');
+  $('chips').innerHTML = [`<a class="chip ${state.cat ? '' : 'on'}" href="${Igr.homeUrl()}" data-cat="">Все игры</a>`,
+    ...cats.map((c) => `<a class="chip ${c === state.cat ? 'on' : ''}" href="${Igr.catUrl(c)}" data-cat="${esc(c)}">${esc(c)}</a>`)].join('');
 
   const filtering = state.q || state.cat;
   $('home').classList.toggle('hidden', !!filtering);
@@ -112,7 +114,7 @@ function render() {
 
   const list = games.filter((g) => (!state.cat || g.genre === state.cat) && matches(g, state.q)).sort(SORTS[state.sort]);
   $('allTitle').textContent = state.q ? `Поиск: «${state.q}»` : state.cat || 'Все игры';
-  document.title = state.q || state.cat ? `${state.q ? `«${state.q}»` : state.cat} — Gamely` : 'Gamely — бесплатные игры онлайн';
+  document.title = state.q ? `«${state.q}» — Gamely` : state.cat ? `${state.cat} — играть онлайн бесплатно | Gamely` : 'Gamely — бесплатные игры онлайн';
   $('grid').innerHTML = list.length ? list.map(cardHTML).join('')
     : `<div class="empty"><p>По запросу «${esc(state.q)}» игр нет${state.cat ? ` в категории «${esc(state.cat)}»` : ''}. Проверьте написание или выберите игру из всего каталога.</p>
        <a class="btn" href="index.html">Показать все игры</a></div>`;
@@ -130,14 +132,14 @@ function renderHero() {
     .sort((a, b) => (b.featured || 0) - (a.featured || 0) || SORTS.popular(a, b)).slice(0, HERO_SIZE);
   if (games.length < 4 || !hero.games.length) return;
   $('heroSlides').innerHTML = hero.games.map((g, i) => {
-    const url = `game.html?id=${encodeURIComponent(g.id)}`;
+    const url = Igr.gameUrl(g);
     return `<article class="hero-slide" aria-roledescription="слайд" aria-label="${i + 1} из ${hero.games.length}">
       <div class="hero-bg"><img src="${esc(g.cover_url)}" alt="" onerror="this.remove()"></div>
       <div class="hero-text">
         <div class="hero-kicker"><span>${esc(g.genre)}</span><span class="age">${esc(g.age || '0+')}</span>${rating(g) !== null ? `<span>👍 ${rating(g)}%</span>` : ''}</div>
         <h2 class="hero-title">${esc(g.title)}</h2>
         ${g.description ? `<p class="hero-desc">${esc(g.description)}</p>` : ''}
-        <a class="btn play-btn md" href="${url}&play=1">Играть</a>
+        <a class="btn play-btn md" href="${Igr.withParam(url, 'play=1')}">Играть</a>
       </div>
       <a class="hero-cover" href="${url}" tabindex="-1" aria-hidden="true"><img src="${esc(g.cover_url)}" alt=""></a>
     </article>`;
@@ -194,8 +196,11 @@ function setState(patch) {
   state = { ...state, ...patch };
   const qs = new URLSearchParams();
   if (state.q) qs.set('q', state.q);
-  if (state.cat) qs.set('category', state.cat);
-  history.replaceState(null, '', qs.toString() ? `?${qs}` : location.pathname);
+  // На сервере категория — часть адреса (/category/arkady), в статике — параметр.
+  const clean = !!document.querySelector('meta[property="og:url"]');
+  if (state.cat && !clean) qs.set('category', state.cat);
+  const base = clean ? (state.cat ? Igr.catUrl(state.cat) : '/') : location.pathname;
+  history.replaceState(null, '', qs.toString() ? `${base}?${qs}` : base);
   render();
 }
 

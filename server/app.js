@@ -11,6 +11,7 @@ import { createEconomy, migrateLedger, packsFromEnv, yookassaFromEnv } from './e
 import { createAvatars, migrateAvatars, avatarUrl } from './avatars.js';
 import { createGameDev, migrateGameMeta, metaView } from './gamedev.js';
 import { createAdmin, migrateAdmin } from './admin.js';
+import { slugify } from './slug.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
 } from './auth.js';
@@ -58,7 +59,8 @@ const NAME_SPAM_RE = /https?:|www\.|t\.me\/|@\w|\.(ru|com|net|org|su|xyz|top|io|
 const OG_FILES = ['og.jpg', 'og.png'];
 const RASTER_RE = /\.(png|jpe?g|webp)$/i;
 // Страницы, которые поисковикам не нужны.
-const NOINDEX = ['/api/', '/preview/', '/preview-next/', '/cabinet', '/admin.html', '/account.html', '/login.html', '/reset.html', '/verify.html'];
+// Префиксы: закрывают и чистые адреса (/login), и старые (/login.html).
+const NOINDEX = ['/api/', '/preview/', '/preview-next/', '/cabinet', '/admin', '/account', '/login', '/reset', '/verify'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
@@ -164,7 +166,7 @@ export function createApp({
     insertSession: db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)'),
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
-    publicGames: db.prepare(`SELECT g.id, g.title, g.genre, g.age, g.cover, g.icon, g.description, g.short_description, g.tags,
+    publicGames: db.prepare(`SELECT g.id, g.slug, g.title, g.genre, g.age, g.cover, g.icon, g.description, g.short_description, g.tags,
                                g.featured, g.author_id, ${AUTHOR_SQL}, g.created_at, ${RATING_SQL},
                                u.email = '${STUDIO_EMAIL}' AS demo
                              FROM games g JOIN users u ON u.id = g.author_id
@@ -172,6 +174,12 @@ export function createApp({
     publicGame: db.prepare(`SELECT g.*, ${AUTHOR_SQL}, ${RATING_SQL}, u.email = '${STUDIO_EMAIL}' AS demo
                             FROM games g JOIN users u ON u.id = g.author_id
                             WHERE g.id = ? AND g.status = 'approved'`),
+    gameBySlug: db.prepare(`SELECT g.*, ${AUTHOR_SQL}, ${RATING_SQL}, u.email = '${STUDIO_EMAIL}' AS demo
+                            FROM games g JOIN users u ON u.id = g.author_id
+                            WHERE g.slug = ? AND g.status = 'approved'`),
+    slugTaken: db.prepare('SELECT 1 FROM games WHERE slug = ?'),
+    setSlug: db.prepare('UPDATE games SET slug = ? WHERE id = ? AND slug IS NULL'),
+    unslugged: db.prepare("SELECT id, title FROM games WHERE status = 'approved' AND slug IS NULL"),
     myGames: db.prepare('SELECT * FROM games WHERE author_id = ? ORDER BY created_at DESC'),
     updateMeta: db.prepare(`UPDATE games SET title = ?, genre = ?, age = ?, description = ?, how_to_play = ?, updated_at = ?
                             WHERE id = ?`),
@@ -258,6 +266,15 @@ export function createApp({
     studioEmail: STUDIO_EMAIL, avatars, economy,
   });
   if (seedDemoGames) seedDemo();
+  for (const g of q.unslugged.all()) assignSlug(g.id, g.title);
+
+  // Адрес /game/<slug> выдаётся один раз при публикации: потом ссылка не ломается, даже если игру переименуют.
+  function assignSlug(id, base) {
+    const root = slugify(base) || 'game';
+    let slug = root;
+    for (let n = 2; q.slugTaken.get(slug); n++) slug = `${root}-${n}`;
+    q.setSlug.run(slug, id);
+  }
   q.grandfatherAuthors.run(Date.now(), Date.now());
   db.prepare('UPDATE developer_applications SET studio = ? WHERE user_id = (SELECT id FROM users WHERE email = ?)').run(STUDIO_NAME, STUDIO_EMAIL);
 
@@ -298,6 +315,7 @@ export function createApp({
       const featured = Number.isInteger(meta.featured) ? meta.featured : 0;
       db.prepare('UPDATE games SET cover = ?, icon = ?, size = ?, file_count = ?, featured = ? WHERE id = ?')
         .run(cover, icon, size, files.length, featured, id);
+      assignSlug(id, slug);
     }
   }
 
@@ -750,6 +768,7 @@ export function createApp({
     if (game.author_id === user.id && !isAdmin(user)) throw new HttpError(403, 'Свою игру проверяет другой модератор');
     if (action === 'approve') {
       q.setStatus.run('approved', null, Date.now(), id);
+      assignSlug(id, game.title);
       logAction(user, 'game.approve', id, game.title);
     } else if (action === 'reject') {
       // Отказ и снятие с публикации — всегда с причиной: её увидит разработчик.
@@ -1057,14 +1076,24 @@ export function createApp({
     res.end(body);
   }
 
+  // ---------- адреса страниц ----------
+  // Игра — /game/<slug>, категория — /category/<slug>, страница — /developers. Старые адреса с .html и ?id=
+  // переадресуются сюда навсегда (301), чтобы ссылки из поиска и соцсетей не ломались.
+  const gamePath = (g) => (g.slug ? `/game/${g.slug}` : `/game.html?id=${g.id}`);
+  const catPath = (c) => `/category/${slugify(c)}`;
+  const pagePath = (rel) => (rel === '/index.html' ? '/' : rel.replace(/\.html$/, ''));
+  const gamesWord = (n) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? 'игра' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'игры' : 'игр'; };
+
   function sitemapXml(req, res) {
     const day = (ms) => new Date(ms).toISOString().slice(0, 10);
     const games = q.publicGames.all();
     const newest = Math.max(0, ...games.map((g) => g.created_at));
+    const cats = [...new Set(games.map((g) => g.genre))].sort((a, b) => a.localeCompare(b, 'ru'));
     const urls = [
       { loc: `${siteUrl}/`, lastmod: newest ? day(newest) : null },
-      ...games.map((g) => ({ loc: `${siteUrl}/game.html?id=${g.id}`, lastmod: day(g.created_at) })),
-      ...['developers.html', 'terms.html', 'privacy.html', 'contacts.html'].map((f) => ({ loc: `${siteUrl}/${f}` })),
+      ...cats.map((c) => ({ loc: `${siteUrl}${catPath(c)}` })),
+      ...games.map((g) => ({ loc: `${siteUrl}${gamePath(g)}`, lastmod: day(g.created_at) })),
+      ...['developers', 'terms', 'privacy', 'contacts'].map((f) => ({ loc: `${siteUrl}/${f}` })),
     ];
     const body = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
       urls.map((u) => `  <url><loc>${escHtml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`).join('\n') +
@@ -1080,22 +1109,28 @@ export function createApp({
   }
 
   // Заголовок, описание и картинка для превью — в HTML до запуска скриптов: Telegram, ВК и поисковики
-  // скрипты не выполняют. У страницы игры они свои, у остальных — из <title> и description самой страницы.
-  function withMeta(html, rel, url) {
+  // скрипты не выполняют. У страниц игры и категории они свои, у остальных — из <title> и description самой страницы.
+  // ctx.game / ctx.cat — страница открыта по чистому адресу; ctx.nested — адрес вложенный, нужен <base>.
+  function withMeta(html, rel, url, ctx = {}) {
     const title = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
     const description = (html.match(/<meta name="description" content="([^"]*)"/) || [])[1] || '';
-    let meta = { title, description, image: `${siteUrl}/og.jpg`, url: `${siteUrl}${rel === '/index.html' ? '/' : rel}`, type: 'website' };
-    if (rel === '/game.html') {
-      const id = url.searchParams.get('id');
-      const game = id && /^[0-9a-f]{16}$/.test(id) ? q.publicGame.get(id) : null;
-      if (game) {
-        const text = String(game.description || '').replace(/\s+/g, ' ').trim();
-        meta = {
-          title: `${game.title} — играть онлайн бесплатно`,
-          description: text.length > 200 ? `${text.slice(0, 197).replace(/\s+\S*$/, '')}…` : text || `${game.genre}: играйте в браузере без скачивания.`,
-          image: ogImageOf(game), url: `${siteUrl}/game.html?id=${game.id}`, type: 'website',
-        };
-      }
+    let meta = { title, description, image: `${siteUrl}/og.jpg`, url: `${siteUrl}${pagePath(rel)}`, type: 'website' };
+    const game = rel === '/game.html' ? ctx.game || pageGame(url) : null;
+    const games = rel === '/index.html' ? q.publicGames.all() : null;
+    if (game) {
+      const text = String(game.description || '').replace(/\s+/g, ' ').trim();
+      meta = {
+        title: `${game.title} — играть онлайн бесплатно`,
+        description: text.length > 200 ? `${text.slice(0, 197).replace(/\s+\S*$/, '')}…` : text || `${game.genre}: играйте в браузере без скачивания.`,
+        image: ogImageOf(game), url: `${siteUrl}${gamePath(game)}`, type: 'website',
+      };
+    }
+    if (ctx.cat) {
+      const n = games.filter((g) => g.genre === ctx.cat).length;
+      meta = {
+        ...meta, title: `${ctx.cat} — играть онлайн бесплатно | Gamely`, url: `${siteUrl}${catPath(ctx.cat)}`,
+        description: `${ctx.cat} онлайн: ${n} ${gamesWord(n)} в браузере без скачивания и регистрации. Играйте бесплатно на Gamely.`,
+      };
     }
     const e = escHtml;
     const tags = [
@@ -1112,48 +1147,70 @@ export function createApp({
       out = description ? out.replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${e(meta.description)}">`)
         : out.replace('</title>', `</title>\n<meta name="description" content="${e(meta.description)}">`);
     }
-    out = out.replace('</head>', `${tags}\n${jsonLd(rel, meta, url)}</head>`);
-    if (rel === '/index.html') return out.replace(/<!--grid-->[\s\S]*?<!--\/grid-->/, () => `<!--grid-->${q.publicGames.all().map(cardHtml).join('')}<!--/grid-->`);
-    return rel === '/game.html' ? gameHtml(out, url) : out;
+    // На вложенном адресе ссылки страницы (style.css, app.js, login.html) должны считаться от корня сайта.
+    if (ctx.nested) out = out.replace('<head>', '<head>\n<base href="/">');
+    out = out.replace('</head>', `${tags}\n${jsonLd(rel, meta, game, ctx.cat)}</head>`);
+    if (games) out = catalogHtml(out, games, ctx.cat);
+    if (game) out = gameHtml(out, game);
+    return out;
   }
 
   // Каталог и страница игры заполняются скриптом, а Яндекс скрипты почти не выполняет. Поэтому сервер
-  // сразу кладёт в HTML карточки игр и текст об игре — скрипт потом перерисует их так же.
+  // сразу кладёт в HTML карточки игр, ссылки на категории и текст об игре — скрипт потом перерисует их так же.
   const fileUrl = (id, file) => `/play/${id}/${file.split('/').map(encodeURIComponent).join('/')}`;
   const pageGame = (url) => { const id = url.searchParams.get('id'); return id && /^[0-9a-f]{16}$/.test(id) ? q.publicGame.get(id) : null; };
   function cardHtml(g) {
     const e = escHtml;
-    return `<a class="card" href="game.html?id=${g.id}"><div class="cover">` +
+    return `<a class="card" href="${e(gamePath(g))}"><div class="cover">` +
       (g.cover ? `<img src="${e(fileUrl(g.id, g.cover))}" alt="${e(g.title)}" loading="lazy">` : '') +
       `<span class="age">${e(g.age || '0+')}</span></div><div class="card-body"><b class="card-title">${e(g.title)}</b>` +
       `<span class="card-meta"><span>${e(g.genre)}</span></span></div></a>`;
   }
-  function gameHtml(html, url) {
-    const game = pageGame(url);
-    if (!game) return html;
+  function catalogHtml(html, games, cat) {
+    const e = escHtml;
+    const cats = [...new Set(games.map((g) => g.genre))].sort((a, b) => a.localeCompare(b, 'ru'));
+    const chips = [`<a class="chip ${cat ? '' : 'on'}" href="/" data-cat="">Все игры</a>`,
+      ...cats.map((c) => `<a class="chip ${c === cat ? 'on' : ''}" href="${catPath(c)}" data-cat="${e(c)}">${e(c)}</a>`)].join('');
+    const list = cat ? games.filter((g) => g.genre === cat) : games;
+    let out = html
+      .replace('<nav class="chips" id="chips" aria-label="Категории"></nav>', () => `<nav class="chips" id="chips" aria-label="Категории">${chips}</nav>`)
+      .replace(/<!--grid-->[\s\S]*?<!--\/grid-->/, () => `<!--grid-->${list.map(cardHtml).join('')}<!--/grid-->`);
+    if (cat) {
+      out = out.replace('<div id="home">', '<div id="home" class="hidden">')
+        .replace('<h2 id="allTitle">Все игры</h2>', () => `<h2 id="allTitle">${e(cat)}</h2>`)
+        .replace('</head>', () => `<meta name="gamely-category" content="${e(cat)}">\n</head>`);
+    }
+    return out;
+  }
+  function gameHtml(html, game) {
     const e = escHtml;
     return html
+      .replace('</head>', () => `<meta name="gamely-game" content="${game.id}">\n</head>`)
       .replace('<div class="empty" id="loading">', '<div class="empty hidden" id="loading">')
       .replace('<article id="game" class="hidden">', '<article id="game">')
       .replace('<h1 id="title"></h1>', () => `<h1 id="title">${e(game.title)}</h1>`)
+      .replace('<a id="category"></a>', () => `<a id="category" href="${catPath(game.genre)}">${e(game.genre)}</a>`)
       .replace('<p id="desc"></p>', () => `<p id="desc">${e(game.description || '')}</p>`)
       .replace('<p id="howto"></p>', () => `<p id="howto">${e(game.how_to_play || '')}</p>`);
   }
-  // Разметка schema.org: поисковик понимает, что это сайт с играми и что на странице — игра.
-  function jsonLd(rel, meta, url) {
-    let data = null;
-    if (rel === '/index.html') {
-      data = { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Gamely', url: `${siteUrl}/`, inLanguage: 'ru',
-        potentialAction: { '@type': 'SearchAction', target: `${siteUrl}/?q={query}`, 'query-input': 'required name=query' } };
-    } else if (rel === '/game.html') {
-      const game = pageGame(url);
-      if (game) {
-        data = { '@context': 'https://schema.org', '@type': 'VideoGame', name: game.title, description: meta.description, url: meta.url,
-          image: meta.image, genre: game.genre, inLanguage: 'ru', gamePlatform: 'Web browser', applicationCategory: 'Game',
-          operatingSystem: 'Any', offers: { '@type': 'Offer', price: '0', priceCurrency: 'RUB' } };
-      }
+  // Разметка schema.org: поисковик понимает, что это сайт с играми, что на странице — игра и где она в каталоге.
+  function jsonLd(rel, meta, game, cat) {
+    const blocks = [];
+    if (rel === '/index.html' && !cat) {
+      blocks.push({ '@context': 'https://schema.org', '@type': 'WebSite', name: 'Gamely', url: `${siteUrl}/`, inLanguage: 'ru',
+        potentialAction: { '@type': 'SearchAction', target: `${siteUrl}/?q={query}`, 'query-input': 'required name=query' } });
     }
-    return data ? `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>\n` : '';
+    if (game) {
+      blocks.push({ '@context': 'https://schema.org', '@type': 'VideoGame', name: game.title, description: meta.description, url: meta.url,
+        image: meta.image, genre: game.genre, inLanguage: 'ru', gamePlatform: 'Web browser', applicationCategory: 'Game',
+        operatingSystem: 'Any', offers: { '@type': 'Offer', price: '0', priceCurrency: 'RUB' } });
+    }
+    const crumbs = game ? [['Игры', '/'], [game.genre, catPath(game.genre)], [game.title, gamePath(game)]] : cat ? [['Игры', '/'], [cat, catPath(cat)]] : null;
+    if (crumbs) {
+      blocks.push({ '@context': 'https://schema.org', '@type': 'BreadcrumbList',
+        itemListElement: crumbs.map(([name, p], i) => ({ '@type': 'ListItem', position: i + 1, name, item: `${siteUrl}${p}` })) });
+    }
+    return blocks.map((d) => `<script type="application/ld+json">${JSON.stringify(d).replace(/</g, '\\u003c')}</script>\n`).join('');
   }
 
   async function playEnd(req, res, id) {
@@ -1235,25 +1292,60 @@ export function createApp({
   function serveStatic(req, res, url) {
     let rel;
     try { rel = decodeURIComponent(url.pathname); } catch { return send(res, 400, { error: 'Bad path' }); }
+    let mm;
+    if ((mm = rel.match(/^\/game\/([a-z0-9-]+)\/?$/))) {
+      const game = q.gameBySlug.get(mm[1]);
+      return game ? sendPage(req, res, '/game.html', url, { game, nested: true }) : pageNotFound(req, res);
+    }
+    if ((mm = rel.match(/^\/category\/([a-z0-9-]+)\/?$/))) {
+      const cat = CATEGORIES.find((c) => slugify(c) === mm[1]);
+      return cat ? sendPage(req, res, '/index.html', url, { cat, nested: true }) : pageNotFound(req, res);
+    }
+    const moved = oldAddress(rel, url);
+    if (moved) {
+      res.writeHead(301, { Location: moved, 'Cache-Control': 'public, max-age=86400' });
+      return res.end();
+    }
     if (rel === '/') rel = '/index.html';
-    if (rel === '/cabinet') rel = '/cabinet.html';
+    else if (/^\/[\w-]+$/.test(rel) && fs.existsSync(path.join(publicDir, `${rel}.html`))) rel = `${rel}.html`;
     const file = path.resolve(publicDir, `.${rel}`);
     if (!file.startsWith(publicDir + path.sep)) return pageNotFound(req, res);
 
     fs.stat(file, (err, st) => {
       if (err || !st.isFile() || rel === '/404.html') return pageNotFound(req, res);
       const ext = path.extname(file);
-      if (ext === '.html') {
-        return fs.readFile(file, 'utf8', (readErr, html) => {
-          if (readErr) return pageNotFound(req, res);
-          res.writeHead(200, pageHeaders(MIME[ext]));
-          res.end(req.method === 'HEAD' ? undefined : withMeta(html, rel, url));
-        });
-      }
+      if (ext === '.html') return sendPage(req, res, rel, url);
       res.writeHead(200, pageHeaders(MIME[ext] || 'application/octet-stream'));
       if (req.method === 'HEAD') return res.end();
       fs.createReadStream(file).pipe(res);
     });
+  }
+
+  function sendPage(req, res, rel, url, ctx) {
+    fs.readFile(path.join(publicDir, rel), 'utf8', (err, html) => {
+      if (err) return pageNotFound(req, res);
+      res.writeHead(200, pageHeaders(MIME['.html']));
+      res.end(req.method === 'HEAD' ? undefined : withMeta(html, rel, url, ctx));
+    });
+  }
+
+  // Старый адрес → новый: /game.html?id=… → /game/<slug>, /?category=… → /category/<slug>, /terms.html → /terms.
+  function oldAddress(rel, url) {
+    const qs = new URLSearchParams(url.search);
+    const tail = () => (qs.toString() ? `?${qs}` : '');
+    if (rel === '/game.html') {
+      const game = pageGame(url);
+      if (!game || !game.slug) return null;
+      qs.delete('id');
+      return `/game/${game.slug}${tail()}`;
+    }
+    if (rel === '/' || rel === '/index.html') {
+      const c = qs.get('category');
+      if (c && CATEGORIES.includes(c)) { qs.delete('category'); return `${catPath(c)}${tail()}`; }
+      return rel === '/index.html' ? `/${tail()}` : null;
+    }
+    if (/^\/[\w-]+\.html$/.test(rel) && rel !== '/404.html' && fs.existsSync(path.join(publicDir, rel))) return `${rel.slice(0, -5)}${tail()}`;
+    return null;
   }
 
   // ---------- router ----------

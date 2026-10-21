@@ -35,7 +35,7 @@
 <script>
 const { $ } = Igr;
 const token = new URLSearchParams(location.search).get('token');
-if (token) history.replaceState(null, '', 'verify.html');
+if (token) history.replaceState(null, '', location.pathname);
 
 function show(title, text, link) {
   $('title').textContent = title;

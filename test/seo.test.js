@@ -61,8 +61,10 @@ test('sitemap.xml: главная и страницы всех одобренн�
   assert.equal(r.status, 200);
   assert.match(r.type, /xml/);
   assert.ok(r.body.includes('<loc>https://igry.test/</loc>'));
-  assert.ok(r.body.includes(`<loc>https://igry.test/game.html?id=${rasterId}</loc>`));
-  assert.ok(r.body.includes(`<loc>https://igry.test/game.html?id=${svgId}</loc>`));
+  assert.ok(r.body.includes('<loc>https://igry.test/game/raster</loc>'));
+  assert.ok(r.body.includes('<loc>https://igry.test/game/vector</loc>'));
+  assert.ok(r.body.includes('<loc>https://igry.test/category/arkady</loc>'));
+  assert.ok(r.body.includes('<loc>https://igry.test/terms</loc>') && !r.body.includes('.html'));
 });
 
 test('страница игры: свой заголовок, описание и картинка для превью ссылки', async () => {
@@ -70,7 +72,8 @@ test('страница игры: свой заголовок, описание �
   assert.match(body, /<title>Ракета — играть онлайн бесплатно<\/title>/);
   assert.equal(og(body, 'title'), 'Ракета — играть онлайн бесплатно');
   assert.equal(og(body, 'image'), `https://igry.test/play/${rasterId}/og.jpg`);
-  assert.equal(og(body, 'url'), `https://igry.test/game.html?id=${rasterId}`);
+  assert.equal(og(body, 'url'), 'https://igry.test/game/raster');
+  assert.ok(body.includes('<link rel="canonical" href="https://igry.test/game/raster">'));
   const description = og(body, 'description');
   assert.ok(description.replace(/&\w+;/g, '_').length <= 200 && description.endsWith('…'));
   assert.ok(description.includes('&lt;выше&gt;') && description.includes('&amp;'), 'текст игры экранируется');
@@ -88,7 +91,7 @@ test('страница игры: свой заголовок, описание �
 test('поисковикам без скриптов: карточки каталога, текст игры и разметка schema.org', async () => {
   const home = (await text('/')).body;
   assert.ok(!home.includes('силуэт'));
-  assert.ok(home.includes(`href="game.html?id=${rasterId}"`) && home.includes('<b class="card-title">Ракета</b>'));
+  assert.ok(home.includes('href="/game/raster"') && home.includes('<b class="card-title">Ракета</b>'));
   assert.ok(home.includes('"@type":"WebSite"'));
   const game = (await text(`/game.html?id=${rasterId}`)).body;
   assert.ok(game.includes('<h1 id="title">Ракета</h1>'));
@@ -101,6 +104,32 @@ test('поисковикам без скриптов: карточки ката�
   assert.ok(ld.description.includes('<выше>'));
   const missing = (await text('/game.html?id=0000000000000000')).body;
   assert.ok(missing.includes('<article id="game" class="hidden">') && !missing.includes('VideoGame'));
+});
+
+test('чистые адреса: /game/<slug>, /category/<slug>, страницы без .html; старые ссылки переадресуются', async () => {
+  const head = async (url) => { const r = await fetch(base + url, { redirect: 'manual' }); return [r.status, r.headers.get('location')]; };
+  assert.deepEqual(await head(`/game.html?id=${rasterId}&play=1`), [301, '/game/raster?play=1']);
+  assert.deepEqual(await head(`/?category=${encodeURIComponent('Аркады')}&q=x`), [301, '/category/arkady?q=x']);
+  assert.deepEqual(await head(`/index.html?category=${encodeURIComponent('Аркады')}`), [301, '/category/arkady']);
+  assert.deepEqual(await head('/index.html?q=a'), [301, '/?q=a']);
+  assert.deepEqual(await head('/game.html?id=0000000000000000'), [200, null], 'неизвестная игра — страница сама скажет, что её нет');
+  assert.equal((await head('/404.html'))[0], 404);
+
+  const game = await text('/game/raster');
+  assert.equal(game.status, 200);
+  assert.ok(game.body.includes('<base href="/">'), 'ссылки вложенной страницы считаются от корня');
+  assert.ok(game.body.includes(`<meta name="gamely-game" content="${rasterId}">`));
+  assert.ok(game.body.includes('"@type":"BreadcrumbList"') && game.body.includes('https://igry.test/category/arkady'));
+
+  const cat = await text('/category/arkady');
+  assert.equal(cat.status, 200);
+  assert.match(cat.body, /<title>Аркады — играть онлайн бесплатно \| Gamely<\/title>/);
+  assert.match(og(cat.body, 'description'), /^Аркады онлайн: 2 игры в браузере/);
+  assert.ok(cat.body.includes('<link rel="canonical" href="https://igry.test/category/arkady">'));
+  assert.ok(cat.body.includes('<meta name="gamely-category" content="Аркады">') && cat.body.includes('href="/game/vector"'));
+  assert.ok(!cat.body.includes('"@type":"WebSite"'));
+
+  for (const url of ['/game/net-takoy', '/category/net-takoy']) assert.equal((await text(url)).status, 404, url);
 });
 
 test('главная: превью из своего заголовка и описания', async () => {

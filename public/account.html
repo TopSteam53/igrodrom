@@ -178,7 +178,7 @@ $('packs').onclick = async (e) => {
 async function checkOrder() {
   const id = new URLSearchParams(location.search).get('order');
   if (!/^[0-9a-f]{16}$/.test(id || '')) return;
-  history.replaceState(null, '', 'account.html#coins');
+  history.replaceState(null, '', `${location.pathname}#coins`);
   for (let i = 0; i < 10; i++) {
     const r = await fetch(`/api/coins/orders/${id}`);
     if (!r.ok) return;

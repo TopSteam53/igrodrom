@@ -97,7 +97,8 @@
 <script src="sdk-host.js"></script>
 <script>
 const { $, esc, fmt, loadCatalog, rating, cardHTML, iconHTML, initHeader, toast } = Igr;
-const id = new URLSearchParams(location.search).get('id');
+// /game/<slug>: номер игры кладёт в страницу сервер; старый адрес — game.html?id=…
+const id = new URLSearchParams(location.search).get('id') || document.querySelector('meta[name="gamely-game"]')?.content;
 initHeader();
 
 let game, live;
@@ -131,7 +132,7 @@ function render(all) {
   $('author').innerHTML = game.author && game.author_id && !game.demo
     ? `<a href="developer.html?id=${encodeURIComponent(game.author_id)}">${esc(game.author)}</a>` : esc(game.author || '');
   $('category').textContent = game.genre;
-  $('category').href = `index.html?category=${encodeURIComponent(game.genre)}`;
+  $('category').href = Igr.catUrl(game.genre);
   // Заставка: размытая обложка фоном, поверх — иконка, название и «Играть».
   if (game.cover_url) $('splashBg').innerHTML = `<img src="${esc(game.cover_url)}" alt="" onerror="this.remove()">`;
   $('splashIcon').innerHTML = iconHTML(game, 'game-icon big');
@@ -173,7 +174,7 @@ function render(all) {
   const qs = new URLSearchParams(location.search);
   if (qs.get('play') === '1') {
     qs.delete('play');
-    history.replaceState(null, '', `?${qs}`);
+    history.replaceState(null, '', location.pathname + (qs.toString() ? `?${qs}` : ''));
     $('play').click();
   }
   // Гостю — подсказка: прогресс сейчас живёт только в этом браузере.
@@ -185,7 +186,7 @@ function render(all) {
   if (live) { loadBoard(); loadReviews(); }
 }
 
-const loginUrl = () => `login.html?next=${encodeURIComponent(`game.html?id=${game.id}`)}`;
+const loginUrl = () => `login.html?next=${encodeURIComponent(Igr.gameUrl(game))}`;
 
 const PLATFORMS = { desktop: 'Компьютер', mobile: 'Телефон и планшет', tv: 'Телевизор' };
 const CONTROLS = { keyboard: 'Клавиатура', mouse: 'Мышь', touch: 'Сенсорный экран', gamepad: 'Геймпад' };

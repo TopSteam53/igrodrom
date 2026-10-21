@@ -59,7 +59,7 @@
 const { $, esc } = Igr;
 const token = new URLSearchParams(location.search).get('token');
 // Токен из адреса убираем сразу: он не должен остаться в истории браузера.
-if (token) history.replaceState(null, '', 'reset.html');
+if (token) history.replaceState(null, '', location.pathname);
 $('ask').classList.toggle('hidden', !!token);
 $('set').classList.toggle('hidden', !token);
 
