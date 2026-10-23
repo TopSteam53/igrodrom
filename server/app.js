@@ -60,7 +60,7 @@ const OG_FILES = ['og.jpg', 'og.png'];
 const RASTER_RE = /\.(png|jpe?g|webp)$/i;
 // Страницы, которые поисковикам не нужны.
 // Префиксы: закрывают и чистые адреса (/login), и старые (/login.html).
-const NOINDEX = ['/api/', '/preview/', '/preview-next/', '/cabinet', '/admin', '/account', '/login', '/reset', '/verify'];
+const NOINDEX = ['/api/', '/preview/', '/preview-next/', '/test-run/', '/cabinet', '/admin', '/account', '/login', '/reset', '/verify'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
@@ -84,6 +84,8 @@ const ENCODINGS = { '.br': 'br', '.gz': 'gzip' };
 
 // Uploaded games run with an opaque origin: no access to our cookies, storage or API.
 const GAME_CSP = 'sandbox allow-scripts allow-pointer-lock';
+// Журнал тестового запуска: сервер подключает его в HTML игры только по ссылке /test-run/…
+const TEST_CONSOLE_JS = fs.readFileSync(new URL('./test-console.js', import.meta.url));
 
 const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -258,7 +260,7 @@ export function createApp({
     db, dataDir, now, send, readBody, readJson, HttpError, requireUser, requireModerator, isModerator, logAction, createLimiter,
   });
   const gamedev = createGameDev({
-    db, now, send, readJson, readBody, HttpError, requireUser, requireDeveloper, requireModerator, isAdmin, logAction, gameDir,
+    db, now, send, readJson, readBody, HttpError, requireUser, requireDeveloper, requireModerator, isAdmin, isModerator, logAction, gameDir,
     previewSign: (id, exp) => sign(id, exp), CATEGORIES, AGES, unpackBuild, writeBuild, detectArt, avatarUrl,
   });
   const admin = createAdmin({
@@ -1220,8 +1222,8 @@ export function createApp({
     send(res, 200, { recorded });
   }
 
-  function notFound(res, text = 'Игра не найдена') {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff' });
+  function notFound(res, text = 'Игра не найдена', headers = {}) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'X-Content-Type-Options': 'nosniff', ...headers });
     res.end(text);
   }
 
@@ -1243,29 +1245,41 @@ export function createApp({
     serveFromDir(req, res, gameDir(id), rest, cacheControl);
   }
 
-  function serveFromDir(req, res, root, rest, cacheControl) {
+  // transformHtml(buf) — правка HTML-страниц игры перед отдачей (журнал тестового запуска).
+  function serveFromDir(req, res, root, rest, cacheControl, transformHtml = null) {
+    // 404 тоже с CORS: fetch из песочницы получит ответ 404, а не сетевую ошибку.
+    const missing = () => notFound(res, 'Файл не найден', { 'Access-Control-Allow-Origin': '*' });
     let rel;
-    try { rel = decodeURIComponent(rest); } catch { return notFound(res, 'Файл не найден'); }
+    try { rel = decodeURIComponent(rest); } catch { return missing(); }
     if (rel === '' || rel.endsWith('/')) rel += 'index.html';
     const file = path.resolve(root, rel);
-    if (!file.startsWith(root + path.sep)) return notFound(res, 'Файл не найден');
+    if (!file.startsWith(root + path.sep)) return missing();
 
     const ext = path.extname(file).toLowerCase();
     const encoding = ENCODINGS[ext];
     const typeExt = encoding ? path.extname(file.slice(0, -ext.length)).toLowerCase() : ext;
-    fs.stat(file, (err, st) => {
-      if (err || !st.isFile()) return notFound(res, 'Файл не найден');
-      res.writeHead(200, {
-        'Content-Type': MIME[typeExt] || 'application/octet-stream',
-        ...(encoding && { 'Content-Encoding': encoding }),
-        'Content-Length': st.size,
-        'Content-Security-Policy': GAME_CSP,
-        // The sandboxed game has an opaque origin, so its own fetch() calls are cross-origin.
-        'Access-Control-Allow-Origin': '*',
-        'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'no-referrer',
-        'Cache-Control': cacheControl,
+    const headers = (size) => ({
+      'Content-Type': MIME[typeExt] || 'application/octet-stream',
+      ...(encoding && { 'Content-Encoding': encoding }),
+      'Content-Length': size,
+      'Content-Security-Policy': GAME_CSP,
+      // The sandboxed game has an opaque origin, so its own fetch() calls are cross-origin.
+      'Access-Control-Allow-Origin': '*',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+      'Cache-Control': cacheControl,
+    });
+    if (transformHtml && !encoding && (ext === '.html' || ext === '.htm')) {
+      return fs.readFile(file, (err, buf) => {
+        if (err) return missing();
+        const body = transformHtml(buf);
+        res.writeHead(200, headers(body.length));
+        res.end(req.method === 'HEAD' ? undefined : body);
       });
+    }
+    fs.stat(file, (err, st) => {
+      if (err || !st.isFile()) return missing();
+      res.writeHead(200, headers(st.size));
       if (req.method === 'HEAD') return res.end();
       fs.createReadStream(file).pipe(res);
     });
@@ -1462,7 +1476,7 @@ export function createApp({
     if (p === '/api/admin/team' && m === 'POST') return teamAdd(req, res);
     if ((mm = p.match(/^\/api\/admin\/team\/(\d+)$/)) && m === 'DELETE') return teamRemove(req, res, Number(mm[1]));
     const isRead = m === 'GET' || m === 'HEAD';
-    if ((mm = p.match(/^\/(play\/[0-9a-f]{16}|preview(?:-next)?\/[0-9a-f]{16}\.\d+\.[0-9a-f]{32})$/)) && isRead) {
+    if ((mm = p.match(/^\/(play\/[0-9a-f]{16}|preview(?:-next)?\/[0-9a-f]{16}\.\d+\.[0-9a-f]{32}|test-run\/[0-9a-f]{16}\.(?:cur|next)\.\d+\.[0-9a-f]{32})$/)) && isRead) {
       // Relative paths inside the game resolve against the folder, so it needs a trailing slash.
       res.writeHead(301, { Location: `${p}/${url.search}` });
       return res.end();
@@ -1473,6 +1487,18 @@ export function createApp({
     }
     if ((mm = p.match(/^\/preview-next\/([0-9a-f]{16})\.(\d+)\.([0-9a-f]{32})\/(.*)$/)) && isRead) {
       return gamedev.previewNext(req, res, mm[1], mm[2], mm[3], mm[4], (rq, rs, root, rest) => serveFromDir(rq, rs, root, rest, 'private, no-store'));
+    }
+    // Тестовый запуск из кабинета: та же игра, но с журналом консоли (server/test-console.js).
+    if ((mm = p.match(/^\/test-run\/([0-9a-f]{16})\.(cur|next)\.(\d+)\.([0-9a-f]{32})\/(.*)$/)) && isRead) {
+      return gamedev.testRunFile(req, res, mm[1], mm[2], mm[3], mm[4], mm[5],
+        (rq, rs, root, rest, transform) => serveFromDir(rq, rs, root, rest, 'private, no-store', transform));
+    }
+    if (p === '/test-run-console.js' && isRead) {
+      res.writeHead(200, {
+        'Content-Type': MIME['.js'], 'Content-Length': TEST_CONSOLE_JS.length, 'Cache-Control': 'no-cache',
+        'X-Content-Type-Options': 'nosniff', 'Access-Control-Allow-Origin': '*',
+      });
+      return res.end(req.method === 'HEAD' ? undefined : TEST_CONSOLE_JS);
     }
     if (p.startsWith('/api/')) throw new HttpError(404, 'Нет такого метода');
     if (isRead) return serveStatic(req, res, url);

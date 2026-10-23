@@ -389,6 +389,7 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .narrow-left{max-width:720px}
 .form-acts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
 .form-acts .spacer,.ed-head .spacer{flex:1}
+.form-acts label.btn{margin:0}
 .game-row{cursor:pointer}.game-row:hover{background:var(--panel-hover)}
 .game-thumb{width:96px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:var(--skeleton);flex:none;display:flex;align-items:center;justify-content:center}
 .game-thumb img{width:100%;height:100%;object-fit:cover}
@@ -419,6 +420,36 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .shot-acts{position:absolute;top:6px;right:6px;display:flex;gap:6px}
 .shot.add{display:flex;align-items:center;justify-content:center;border:2px dashed var(--field);cursor:pointer;color:var(--link);font-weight:600;margin:0}
 .shot.add:hover{background:var(--panel-hover)}
+/* ---------- тестовый запуск: игра и журнал рядом, на узком экране — журнал под игрой ---------- */
+.tr-page{padding-top:22px;padding-bottom:40px}
+.tr-note{max-width:80ch;margin:0 0 14px;color:var(--ink-2)}
+.tr-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.tr-bar .tabs{margin:0}
+.tr-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,440px);gap:16px;align-items:stretch}
+@media(max-width:1100px){.tr-grid{grid-template-columns:minmax(0,1fr)}}
+.tr-stage{position:relative;background:#000;border:3px solid var(--key-line);border-radius:16px;overflow:hidden;aspect-ratio:16/9;width:100%}
+.tr-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+/* 360×640 внутри рамки толщиной 3px */
+.tr-stage.phone{width:366px;max-width:100%;aspect-ratio:366/646;margin:0 auto}
+@media(max-width:640px){.tr-stage:not(.phone){aspect-ratio:auto;height:70vh}}
+.tr-log{display:flex;flex-direction:column;padding:16px;min-width:0}
+.tr-log-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tr-log-head h3{margin:0;font-size:17px}.tr-log-head .spacer{flex:1}
+.tr-filter{margin-bottom:8px}.tr-filter .tab{font-size:14px;padding:5px 12px}.tr-filter b{font-weight:700}
+.tr-lines{flex:1 1 auto;height:0;min-height:320px;overflow:auto;border-top:1px solid var(--line);font:13px/1.45 ui-monospace,Consolas,monospace}
+@media(max-width:1100px){.tr-lines{height:420px;flex:none}}
+.tr-line{display:grid;grid-template-columns:auto 84px minmax(0,1fr);gap:2px 8px;padding:5px 2px;border-bottom:1px solid var(--line)}
+.tr-line time{color:var(--ink-2)}
+.tr-kind{color:var(--ink-2)}
+.tr-msg{min-width:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.tr-src{display:block;color:var(--ink-2)}
+.tr-msg details{margin-top:2px;color:var(--ink-2)}.tr-msg summary{cursor:pointer}
+.tr-msg pre{margin:4px 0 0;white-space:pre-wrap;font:inherit}
+.tr-line.k-warn .tr-kind,.tr-line.k-warn .tr-text{font-weight:700}
+.tr-line.bad .tr-kind,.tr-line.bad .tr-text{color:var(--err)}
+.tr-line.k-sdk .tr-kind{color:var(--link)}
+.tr-lines[data-filter=errors] .tr-line:not(.bad),.tr-lines[data-filter=sdk] .tr-line:not(.k-sdk){display:none}
+@media(max-width:640px){.tr-line{grid-template-columns:auto minmax(0,1fr)}.tr-line .tr-msg{grid-column:1/-1}}
 /* ---------- страница игры: скриншоты, теги; страница студии ---------- */
 .gallery{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px,40%);gap:10px;overflow-x:auto;margin:0 0 18px;padding-bottom:4px;scroll-snap-type:x mandatory}
 .gallery-item{padding:0;border:0;border-radius:12px;overflow:hidden;aspect-ratio:16/9;cursor:zoom-in;background:var(--paper);scroll-snap-align:start}

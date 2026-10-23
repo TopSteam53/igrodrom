@@ -135,3 +135,119 @@ function readEntry(buf, e) {
   }
   return data;
 }
+
+// ---------- запись ----------
+// Минимальный ZIP для скачивания сборки и картинок из кабинета: stored или deflate, имена в UTF-8
+// (флаг 11), без ZIP64. Каждый файл сжимается целиком в памяти, а архив можно отдавать по частям:
+// add() возвращает куски для потока, finish() — центральный каталог и конец архива.
+
+const MAX_ZIP_BYTES = 0xffffffff; // больше 4 ГБ без ZIP64 не записать
+// Уже сжатые форматы deflate не уменьшит — кладём как есть и не тратим процессор.
+const STORED_EXT = /\.(png|jpe?g|gif|webp|avif|mp3|ogg|oga|m4a|aac|mp4|webm|woff2?|zip|gz|br|7z|rar)$/i;
+const deflateRaw = (data) => new Promise((resolve, reject) => zlib.deflateRaw(data, (err, out) => (err ? reject(err) : resolve(out))));
+
+// Время в формате MS-DOS: точность 2 секунды, годы с 1980.
+function dosTime(d) {
+  const year = Math.max(d.getFullYear(), 1980);
+  return {
+    time: (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1),
+    date: ((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+  };
+}
+
+export class ZipWriter {
+  #central = [];
+  #offset = 0;
+  #names = new Set();
+
+  #name(name) {
+    if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0') ||
+      name.split('/').some((p) => p === '' || p === '.' || p === '..')) throw new ZipError(`Недопустимое имя файла: ${name}`);
+    const nameBuf = Buffer.from(name, 'utf8');
+    if (nameBuf.length > 0xffff) throw new ZipError(`Слишком длинное имя: ${name}`);
+    if (this.#names.has(name)) throw new ZipError(`Файл встречается дважды: ${name}`);
+    if (this.#names.size >= 0xffff) throw new ZipError('Больше 65535 файлов без ZIP64 не записать');
+    return nameBuf;
+  }
+
+  #entry(name, nameBuf, data, body, method, mtime) {
+    if (data.length > MAX_ZIP_BYTES || this.#offset + 30 + nameBuf.length + body.length > MAX_ZIP_BYTES) {
+      throw new ZipError('Архив больше 4 ГБ');
+    }
+    const crc = zlib.crc32(data);
+    const { time, date } = dosTime(mtime);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(LOC_SIG, 0);
+    local.writeUInt16LE(20, 4);       // нужна версия 2.0
+    local.writeUInt16LE(0x800, 6);    // имя в UTF-8
+    local.writeUInt16LE(method, 8);
+    local.writeUInt16LE(time, 10);
+    local.writeUInt16LE(date, 12);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(body.length, 18);
+    local.writeUInt32LE(data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+
+    const cen = Buffer.alloc(46);
+    cen.writeUInt32LE(CEN_SIG, 0);
+    cen.writeUInt16LE(20, 4);
+    cen.writeUInt16LE(20, 6);
+    cen.writeUInt16LE(0x800, 8);
+    cen.writeUInt16LE(method, 10);
+    cen.writeUInt16LE(time, 12);
+    cen.writeUInt16LE(date, 14);
+    cen.writeUInt32LE(crc, 16);
+    cen.writeUInt32LE(body.length, 20);
+    cen.writeUInt32LE(data.length, 24);
+    cen.writeUInt16LE(nameBuf.length, 28);
+    cen.writeUInt32LE(this.#offset, 42);
+    this.#central.push(cen, nameBuf);
+    this.#names.add(name);
+    this.#offset += 30 + nameBuf.length + body.length;
+    return [local, nameBuf, body];
+  }
+
+  // Сжатый вариант берём, только если он и правда меньше.
+  #pack(name, data, compress, deflate) {
+    if (!(compress ?? !STORED_EXT.test(name)) || data.length === 0) return { body: data, method: 0 };
+    const pick = (packed) => (packed.length < data.length ? { body: packed, method: 8 } : { body: data, method: 0 });
+    const packed = deflate(data);
+    return packed instanceof Promise ? packed.then(pick) : pick(packed);
+  }
+
+  /** Добавить файл. Возвращает куски архива для записи. */
+  add(name, data, { compress, mtime = new Date() } = {}) {
+    const nameBuf = this.#name(name);
+    const { body, method } = this.#pack(name, data, compress, zlib.deflateRawSync);
+    return this.#entry(name, nameBuf, data, body, method, mtime);
+  }
+
+  /** То же, но сжатие не останавливает сервер на время большого файла. */
+  async addAsync(name, data, { compress, mtime = new Date() } = {}) {
+    const nameBuf = this.#name(name);
+    const { body, method } = await this.#pack(name, data, compress, deflateRaw);
+    return this.#entry(name, nameBuf, data, body, method, mtime);
+  }
+
+  /** Центральный каталог и конец архива — последний кусок. */
+  finish() {
+    const cen = Buffer.concat(this.#central);
+    if (this.#offset + cen.length > MAX_ZIP_BYTES) throw new ZipError('Архив больше 4 ГБ');
+    const eocd = Buffer.alloc(22);
+    eocd.writeUInt32LE(EOCD_SIG, 0);
+    eocd.writeUInt16LE(this.#names.size, 8);
+    eocd.writeUInt16LE(this.#names.size, 10);
+    eocd.writeUInt32LE(cen.length, 12);
+    eocd.writeUInt32LE(this.#offset, 16);
+    return Buffer.concat([cen, eocd]);
+  }
+}
+
+/** Архив целиком в памяти: [{ path, data, compress?, mtime? }] → Buffer. */
+export function createZip(files) {
+  const zip = new ZipWriter();
+  const parts = [];
+  for (const f of files) parts.push(...zip.add(f.path, Buffer.isBuffer(f.data) ? f.data : Buffer.from(f.data ?? '', 'utf8'), f));
+  parts.push(zip.finish());
+  return Buffer.concat(parts);
+}

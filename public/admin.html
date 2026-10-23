@@ -300,6 +300,7 @@ async function loadQueue() {
       <span class="facts-line"><span>${esc(g.author)}, ${esc(g.author_email)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${when(g.created_at)}</span></span>
       ${g.changelog ? `<p class="app-about">Что нового: ${esc(g.changelog)}</p>` : ''}</div>
       <div class="acts"><a class="btn sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить новую версию</a>
+      <a class="btn sm" href="/cabinet-test?id=${g.id}&amp;build=next" target="_blank" rel="noopener">С журналом</a>
       ${own(g) ? '<span class="mut">Ваша игра</span>' : `<button class="btn ok sm" data-upd="approve" data-id="${g.id}">Выпустить</button>
       <button class="btn bad sm" data-upd="reject" data-id="${g.id}">Отклонить</button>`}</div></div>`).join('')}</div><h2 class="adm-sub">Новые игры</h2>` : '';
   $('queue').innerHTML = games.length ? games.map((g) => `
@@ -307,6 +308,7 @@ async function loadQueue() {
       <span class="facts-line"><span>${esc(g.genre)}</span><span>${esc(g.author)}, ${esc(g.author_email)}</span><span>${files(g.file_count)}, ${kb(g.size)}</span><span>${date(g.created_at)}</span></span>
       ${g.status === 'rejected' && g.reject_reason ? `<p class="reject-reason">Причина: ${esc(g.reject_reason)}</p>` : ''}</div>
       <div class="acts"><a class="btn sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить</a>
+      <a class="btn sm" href="/cabinet-test?id=${g.id}" target="_blank" rel="noopener">С журналом</a>
       ${g.status === 'approved' ? `<a class="btn sm" href="game.html?id=${g.id}" target="_blank" rel="noopener">Страница</a>` : ''}
       ${own(g) ? '<span class="mut">Ваша игра — проверит другой модератор</span>' : `
       ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Опубликовать</button>` : ''}
