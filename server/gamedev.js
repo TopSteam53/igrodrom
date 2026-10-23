@@ -41,6 +41,18 @@ export function migrateGameMeta(db) {
   add('next_at', 'INTEGER');
   const appCols = db.prepare('PRAGMA table_info(developer_applications)').all().map((c) => c.name);
   if (!appCols.includes('website')) db.exec("ALTER TABLE developer_applications ADD COLUMN website TEXT NOT NULL DEFAULT ''");
+  // Контакт для игроков и партнёров — кнопка «Связаться» на странице студии. Контакт из заявки видят только модераторы.
+  if (!appCols.includes('public_contact')) db.exec("ALTER TABLE developer_applications ADD COLUMN public_contact TEXT NOT NULL DEFAULT ''");
+}
+
+// Контакт студии → ссылка: @ник или t.me/… → Telegram, адрес почты → mailto:, https://… как есть.
+export function contactLink(s) {
+  const v = String(s || '').trim();
+  let m;
+  if ((m = v.match(/^(?:@|(?:https:\/\/)?t\.me\/)([A-Za-z0-9_]{4,32})$/))) return { href: `https://t.me/${m[1]}`, label: `@${m[1]}` };
+  if (/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(v)) return { href: `mailto:${v}`, label: v };
+  if (/^https:\/\/[^\s]+$/i.test(v)) return { href: v, label: v.replace(/^https:\/\//i, '').replace(/\/$/, '') };
+  return null;
 }
 
 const json = (s, fallback) => { try { const v = JSON.parse(s); return Array.isArray(v) ? v : fallback; } catch { return fallback; } };
@@ -73,7 +85,8 @@ export function createGameDev({
                           WHERE id = ?`),
     replaceBuild: db.prepare('UPDATE games SET size = ?, file_count = ?, cover = ?, icon = ?, updated_at = ? WHERE id = ?'),
     application: db.prepare('SELECT * FROM developer_applications WHERE user_id = ?'),
-    updateProfile: db.prepare('UPDATE developer_applications SET studio = ?, about = ?, website = ?, updated_at = ? WHERE user_id = ?'),
+    updateProfile: db.prepare(`UPDATE developer_applications SET studio = ?, about = ?, website = ?, public_contact = ?, updated_at = ?
+                                WHERE user_id = ?`),
     devUser: db.prepare('SELECT id, name, avatar FROM users WHERE id = ?'),
     devGames: db.prepare(`SELECT id, title, genre, age, cover, icon, short_description, description, created_at FROM games
                           WHERE author_id = ? AND status = 'approved' ORDER BY created_at DESC`),
@@ -257,22 +270,32 @@ export function createGameDev({
     const studio = String(b.studio ?? app.studio).trim();
     const about = String(b.about ?? app.about).trim();
     const website = String(b.website ?? app.website ?? '').trim();
+    const contact = String(b.public_contact ?? app.public_contact ?? '').trim();
     if (studio.length < 2 || studio.length > 60) throw new HttpError(400, 'Имя или студия: от 2 до 60 символов');
     if (about.length > 1500) throw new HttpError(400, 'О студии: до 1500 символов');
     if (website && (!/^https:\/\/[^\s]+$/i.test(website) || website.length > 200)) throw new HttpError(400, 'Сайт: ссылка https://…, до 200 символов');
-    q.updateProfile.run(studio, about, website, now(), user.id);
+    if (contact && (contact.length > 200 || !contactLink(contact))) throw new HttpError(400, 'Контакт: @ник в Telegram, адрес почты или ссылка https://…');
+    q.updateProfile.run(studio, about, website, contact, now(), user.id);
     send(res, 200, { ok: true });
   }
 
-  function studioPage(req, res, userId) {
+  // Страница студии открыта всем, без входа: одобренный разработчик хотя бы с одной опубликованной игрой.
+  function studio(userId) {
     const app = q.application.get(userId);
     const user = q.devUser.get(userId);
     const games = user ? q.devGames.all(userId) : [];
-    if (!user || !app || app.status !== 'approved' || !games.length) throw new HttpError(404, 'Разработчик не найден');
-    send(res, 200, {
-      developer: { id: userId, studio: app.studio, about: app.about, website: app.website || '', avatar: avatarUrl(user.avatar) },
+    if (!user || !app || app.status !== 'approved' || !games.length) return null;
+    return {
+      developer: { id: userId, studio: app.studio, about: app.about, website: app.website || '', public_contact: contactLink(app.public_contact),
+        avatar: avatarUrl(user.avatar) },
       games,
-    });
+    };
+  }
+
+  function studioPage(req, res, userId) {
+    const data = studio(userId);
+    if (!data) throw new HttpError(404, 'Разработчик не найден');
+    send(res, 200, data);
   }
 
   function route(p, m) {
@@ -293,5 +316,5 @@ export function createGameDev({
     return null;
   }
 
-  return { route, previewNext };
+  return { route, previewNext, studio };
 }

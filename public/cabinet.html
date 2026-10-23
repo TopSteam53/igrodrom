@@ -66,9 +66,17 @@
         <label for="sStudio">Название студии или имя</label><input id="sStudio" maxlength="60" required>
         <label for="sAbout">О студии</label><textarea id="sAbout" maxlength="1500" placeholder="Какие игры делаете, чем они особенные"></textarea>
         <label for="sSite">Сайт или страница в соцсети</label><input id="sSite" maxlength="200" placeholder="https://…">
+        <label for="sContact">Контакт для кнопки «Связаться»</label><input id="sContact" maxlength="200" placeholder="@ник в Telegram, почта или https://…">
+        <p class="mut field-note">Его увидят все. Контакт из заявки по-прежнему видят только модераторы.</p>
         <div class="err-text" id="studioErr"></div>
         <div class="form-acts"><button class="btn primary">Сохранить</button><a class="btn" id="studioLink" target="_blank" rel="noopener">Открыть страницу студии</a></div>
       </form>
+    </div>
+    <div class="panel narrow-left">
+      <h2 style="margin-top:0">Пригласить автора</h2>
+      <p class="mut">Отправьте ссылку знакомым разработчикам. Если по ней подадут заявку, она засчитается вам.</p>
+      <div class="copy-row"><input id="refLink" readonly aria-label="Ваша ссылка-приглашение"><button class="btn" id="refCopy" type="button">Скопировать</button></div>
+      <dl class="facts"><dt>Подали заявку</dt><dd id="refInvited">0</dd><dt>Одобрено</dt><dd id="refApproved">0</dd></dl>
     </div>
   </section>
 
@@ -170,6 +178,7 @@ async function showApply() {
         studio: $('aStudio').value, about: $('aAbout').value, links: $('aLinks').value, contact: $('aContact').value,
       });
       toast('Заявка отправлена');
+      Igr.goal('dev_apply');
       showApply();
     } catch (err) { $('applyErr').textContent = err.message; $('applyBtn').disabled = false; }
   };
@@ -193,6 +202,7 @@ $('upForm').onsubmit = async (e) => {
     const { game, yandex_sdk: yandexSdk } = await api('POST', `/api/games?${qs}`, f, sizeOk(f));
     $('upForm').reset();
     toast(yandexSdk ? 'Сборка загружена, Яндекс SDK подключён. Заполните карточку' : 'Сборка загружена. Заполните карточку');
+    Igr.goal('dev_upload');
     await loadMine();
     openGame(game.id);
   } catch (err) { $('upErr').textContent = err.message; }
@@ -210,7 +220,7 @@ async function loadMine() {
       <div class="t"><b>${esc(g.title)}</b>
         <span class="facts-line"><span>${esc(g.genre)}</span><span>${g.version ? `версия ${esc(g.version)}` : files(g.file_count)}</span><span>${date(g.created_at)}</span></span>
         ${g.status === 'rejected' ? `<div class="reject-reason">Причина: ${esc(g.reject_reason || '')}</div>` : ''}
-        ${g.next ? `<div class="mut">${g.next.status === 'pending' ? '⏳ Новая версия на проверке' : `⚠️ Новую версию не приняли: ${esc(g.next.reason || '')}`}</div>` : ''}
+        ${g.next ? `<div class="mut">${g.next.status === 'pending' ? 'Новая версия на проверке' : `Новую версию не приняли: ${esc(g.next.reason || '')}`}</div>` : ''}
         ${todo(g).length ? `<div class="mut">Заполните: ${todo(g).join(', ')}</div>` : ''}</div>
       <span class="badge ${g.status}">${STATUS[g.status]}</span>
       <div class="acts"><button class="btn sm primary" data-open="${g.id}">Карточка</button></div>
@@ -367,13 +377,24 @@ async function loadStudio() {
   const { application: a } = await api('GET', '/api/developer/application');
   if (!a) return;
   $('sStudio').value = a.studio; $('sAbout').value = a.about; $('sSite').value = a.website || '';
-  $('studioLink').href = `developer.html?id=${me.id}`;
+  $('sContact').value = a.public_contact || '';
+  $('studioLink').href = Igr.devUrl(me.id);
+  const ref = await api('GET', '/api/developer/referrals');
+  $('refLink').value = ref.link;
+  $('refInvited').textContent = fmt(ref.invited);
+  $('refApproved').textContent = fmt(ref.approved);
 }
+$('refCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('refLink').value); toast('Ссылка скопирована'); }
+  catch { $('refLink').select(); toast('Выделите ссылку и скопируйте вручную', true); }
+};
 $('studioForm').onsubmit = async (e) => {
   e.preventDefault();
   $('studioErr').textContent = '';
   try {
-    await api('PATCH', '/api/developer/profile', { studio: $('sStudio').value, about: $('sAbout').value, website: $('sSite').value });
+    await api('PATCH', '/api/developer/profile', {
+      studio: $('sStudio').value, about: $('sAbout').value, website: $('sSite').value, public_contact: $('sContact').value,
+    });
     toast('Сохранено');
   } catch (err) { $('studioErr').textContent = err.message; }
 };

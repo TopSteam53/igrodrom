@@ -89,6 +89,7 @@ $('form').onsubmit = async (e) => {
     // Билет устарел или подпись не сошлась — берём новый, чтобы следующая попытка прошла.
     if (!r.ok && mode === 'register' && r.status === 400 && /страниц/i.test(data.error || '')) { ticket = ''; getTicket(); }
     if (!r.ok) throw new Error(data.error || 'Сервер недоступен. Вход работает только в полной версии сайта.');
+    await Igr.goal(mode === 'register' ? 'register' : 'login');
     location.replace(next);
   } catch (err) { $('err').textContent = err.message; $('submit').disabled = false; }
 };

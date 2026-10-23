@@ -387,6 +387,8 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .cab-nav button:hover{color:var(--ink)}.cab-nav button.on{color:var(--ink);border-bottom-color:var(--ink)}
 .cab-nav .cab-new{margin-left:auto;color:var(--link)}
 .narrow-left{max-width:720px}
+.cab-pane .panel+.panel{margin-top:16px}
+.copy-row{display:flex;gap:8px;margin:12px 0 16px}.copy-row input{flex:1;min-width:0;margin:0}
 .form-acts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
 .form-acts .spacer,.ed-head .spacer{flex:1}
 .game-row{cursor:pointer}.game-row:hover{background:var(--panel-hover)}
@@ -431,6 +433,7 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .game-sub a{color:inherit;text-decoration:underline;text-underline-offset:3px}
 .facts a{color:var(--link)}
 .dev-ava{width:96px;height:96px;font-size:42px}
+.field-note{margin:-4px 0 12px;font-size:13px}
 .dev-about{max-width:70ch;white-space:pre-line;margin:8px 0 0}
 /* ---------- админка ---------- */
 .adm{display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;padding-top:24px;padding-bottom:48px;align-items:start}

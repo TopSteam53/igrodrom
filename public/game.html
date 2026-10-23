@@ -130,7 +130,7 @@ function render(all) {
   $('icon').innerHTML = iconHTML(game);
   $('title').textContent = game.title;
   $('author').innerHTML = game.author && game.author_id && !game.demo
-    ? `<a href="developer.html?id=${encodeURIComponent(game.author_id)}">${esc(game.author)}</a>` : esc(game.author || '');
+    ? `<a href="${Igr.devUrl(game.author_id)}">${esc(game.author)}</a>` : esc(game.author || '');
   $('category').textContent = game.genre;
   $('category').href = Igr.catUrl(game.genre);
   // Заставка: размытая обложка фоном, поверх — иконка, название и «Играть».
@@ -269,6 +269,7 @@ function countAd(kind) {
 // Время считается, только пока вкладка видна.
 function startSession() {
   fetch(`/api/games/${game.id}/play`, { method: 'POST' }).catch(() => {});
+  Igr.goal('game_start', { game: game.slug || game.id });
   session = { visibleMs: 0, since: document.hidden ? null : Date.now() };
 }
 
@@ -401,6 +402,7 @@ async function saveReview(text) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) return data.error || 'Не удалось сохранить отзыв';
   toast('Спасибо за отзыв');
+  Igr.goal('review', { game: game.slug || game.id });
   await loadReviews();
   return null;
 }

@@ -242,7 +242,7 @@ async function openUser(id) {
       ${u.blocked ? `<span class="badge rejected">заблокирован: ${esc(u.blocked_reason || '')}</span>` : ''}</div></div></div>
     <dl class="facts"><dt>Монетки</dt><dd>${COIN_SVG} ${fmt(u.coins)}</dd><dt>Регистрация</dt><dd>${when(u.created_at)}</dd>
       <dt>Был на сайте</dt><dd>${when(u.last_seen_at)}</dd><dt>Отзывов</dt><dd>${fmt(d.reviews)}</dd>
-      ${d.application ? `<dt>Студия</dt><dd>${esc(d.application.studio)} · ${esc(d.application.contact || '')}</dd>` : ''}
+      ${d.application ? `<dt>Студия</dt><dd>${esc(d.application.studio)}, ${esc(d.application.contact || '')}</dd>` : ''}
       ${d.games.length ? `<dt>Игры</dt><dd>${d.games.map((g) => `<a href="${g.status === 'approved' ? `game.html?id=${g.id}` : '#'}" target="_blank" rel="noopener">${esc(g.title)}</a> <span class="mut">(${STATUS[g.status]})</span>`).join(', ')}</dd>` : ''}</dl>
     ${u.avatar_pending_url ? `<p class="mut">Аватарка на проверке: <img class="ava" src="${esc(u.avatar_pending_url)}" width="40" height="40" alt=""></p>` : ''}
     <div class="u-acts">
@@ -308,6 +308,9 @@ async function loadQueue() {
       ${g.status === 'rejected' && g.reject_reason ? `<p class="reject-reason">Причина: ${esc(g.reject_reason)}</p>` : ''}</div>
       <div class="acts"><a class="btn sm" href="${g.preview_url}" target="_blank" rel="noopener">Проверить</a>
       ${g.status === 'approved' ? `<a class="btn sm" href="game.html?id=${g.id}" target="_blank" rel="noopener">Страница</a>` : ''}
+      ${g.status === 'approved' && me.isAdmin ? (g.featured > 0
+        ? `<button class="btn sm" data-act="unfeature" data-id="${g.id}">Убрать с главной</button>`
+        : `<button class="btn sm" data-act="feature" data-id="${g.id}">На главную</button>`) : ''}
       ${own(g) ? '<span class="mut">Ваша игра — проверит другой модератор</span>' : `
       ${g.status !== 'approved' ? `<button class="btn ok sm" data-act="approve" data-id="${g.id}">Опубликовать</button>` : ''}
       ${g.status !== 'rejected' ? `<button class="btn bad sm" data-act="reject" data-id="${g.id}">${g.status === 'approved' ? 'Снять с публикации' : 'Отклонить'}</button>` : ''}`}
@@ -337,7 +340,7 @@ $('pane-games').onclick = async (e) => {
       let reason;
       if (act === 'reject' && (reason = await ask('Причина', 'Её увидит разработчик.')) === null) return;
       await api('POST', `/api/admin/games/${id}`, { action: act, reason });
-      toast(act === 'approve' ? 'Опубликовано' : 'Отклонено');
+      toast({ approve: 'Опубликовано', reject: 'Отклонено', feature: 'Игра первой в подборке на главной', unfeature: 'Убрано с главной' }[act]);
     }
     loadQueue();
   } catch (err) { toast(err.message, true); }
@@ -352,7 +355,7 @@ async function loadDevQueue() {
   if (dStatus === 'pending') $('cntDevs').textContent = applications.length || '';
   $('devQueue').innerHTML = applications.length ? applications.map((a) => `
     <div class="row"><div class="t"><b>${esc(a.studio)}</b>
-      <span class="facts-line"><span>${esc(a.name)}, ${esc(a.email)}</span><span>${esc(a.contact)}</span><span>${date(a.updated_at)}</span></span>
+      <span class="facts-line"><span>${esc(a.name)}, ${esc(a.email)}</span><span>${esc(a.contact)}</span>${a.referrer ? `<span>пригласил ${esc(a.referrer)}</span>` : ''}<span>${date(a.updated_at)}</span></span>
       <p class="app-about">${esc(a.about)}</p>
       ${a.links ? `<p class="app-links">${linkify(a.links)}</p>` : ''}
       ${a.reason ? `<p class="reject-reason">Причина отказа: ${esc(a.reason)}</p>` : ''}</div>
@@ -397,7 +400,7 @@ $('avaQueue').onclick = async (e) => {
 };
 
 // ---------- платежи ----------
-const PAY = { paid: '✅ оплачен', pending: '⏳ ждёт оплаты', canceled: '✖ отменён' };
+const PAY = { paid: 'оплачен', pending: 'ждёт оплаты', canceled: 'отменён' };
 let pStatus = 'all';
 async function loadPayments() {
   const { orders } = await api('GET', `/api/admin/payments?status=${pStatus}`);
@@ -420,6 +423,7 @@ $('payTable').onclick = (e) => { const tr = e.target.closest('[data-user]'); if 
 const ACTIONS = {
   // Без глаголов прошедшего времени: пол модератора мы не знаем.
   'game.approve': 'публикация игры', 'game.reject': 'отклонение игры', 'game.delete': 'удаление игры',
+  'game.feature': 'игра в подборку на главной', 'game.unfeature': 'снятие с главной',
   'game.update.approve': 'выпуск новой версии', 'game.update.reject': 'отказ в новой версии',
   'developer.approve': 'одобрение разработчика', 'developer.reject': 'отказ в заявке разработчика',
   'team.add': 'назначение модератором', 'team.remove': 'снятие с модераторов',

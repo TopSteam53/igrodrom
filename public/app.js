@@ -26,6 +26,7 @@
   const onServer = () => !!document.querySelector('meta[property="og:url"]');
   const gameUrl = (g) => (g.slug ? `/game/${encodeURIComponent(g.slug)}` : `game.html?id=${encodeURIComponent(g.id)}`);
   const catUrl = (c) => (onServer() ? `/category/${slugify(c)}` : `index.html?category=${encodeURIComponent(c)}`);
+  const devUrl = (id) => (onServer() ? `/developer/${encodeURIComponent(id)}` : `developer.html?id=${encodeURIComponent(id)}`);
   const homeUrl = () => (onServer() ? '/' : 'index.html');
   const withParam = (url, kv) => url + (url.includes('?') ? '&' : '?') + kv;
 
@@ -230,6 +231,19 @@
     });
   }
 
+  // Цель Метрики: регистрация, запуск игры, заявка автора, оплата. Цели с такими же именами нужно завести
+  // в настройках счётчика. Обещание выполняется, когда цель ушла (или через 800 мс), — перед уходом со страницы его ждут.
+  function goal(name, params) {
+    return config().then(({ site }) => {
+      const id = site && Number(site.metrika);
+      if (!id || !window.ym) return;
+      return new Promise((done) => {
+        setTimeout(done, 800);
+        try { window.ym(id, 'reachGoal', name, params || {}, done); } catch { done(); }
+      });
+    }).catch(() => {});
+  }
+
   // Адрес текущей страницы для возврата после входа: чистый путь или имя .html-файла.
   const here = () => (/\.html$|^\/$/.test(location.pathname) || !onServer()
     ? (location.pathname.split('/').pop() || 'index.html') : location.pathname) + location.search;
@@ -258,7 +272,7 @@
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${(g.tags || []).join(' ')} ${g.short_description || ''} ${g.description || ''}`).includes(norm(q));
 
   window.Igr = {
-    $, esc, fmt, me, safeNext, slugify, gameUrl, catUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
+    $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
     toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML,
   };
 })();

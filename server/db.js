@@ -194,5 +194,7 @@ export function openDb(file) {
   addColumn('featured', 'INTEGER NOT NULL DEFAULT 0'); // в подборке на главной: больше — раньше
   addColumn('slug', 'TEXT'); // адрес страницы /game/<slug>; задаётся при публикации и потом не меняется
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS games_slug ON games(slug)');
+  // Кто пригласил автора (server/devref.js): номер одобренного разработчика.
+  addColumnTo('developer_applications')('referred_by', 'INTEGER');
   return db;
 }

@@ -27,6 +27,7 @@
       <h1 id="studio" class="profile-name"></h1>
       <a id="site" class="mut hidden" target="_blank" rel="noopener nofollow ugc"></a>
     </div>
+    <div class="me-acts"><a class="btn primary hidden" id="contact" target="_blank" rel="noopener nofollow ugc">Связаться</a></div>
   </section>
   <p class="dev-about hidden" id="about"></p>
   <section class="sec hidden" id="gamesSec">
@@ -44,7 +45,8 @@
 <script>
 const { $, esc, fmt, fromApi, cardHTML, avatarHTML, loadCatalog, initHeader } = Igr;
 initHeader();
-const id = new URLSearchParams(location.search).get('id');
+// Номер студии: сервер кладёт его в meta на адресе /developer/<id>; старый адрес — developer.html?id=.
+const id = document.querySelector('meta[name="gamely-developer"]')?.content || new URLSearchParams(location.search).get('id');
 
 (async () => {
   const r = /^\d+$/.test(id || '') ? await fetch(`/api/developers/${id}`).catch(() => null) : null;
@@ -65,6 +67,12 @@ const id = new URLSearchParams(location.search).get('id');
     $('site').textContent = d.website.replace(/^https:\/\//, '');
     $('site').href = d.website;
     $('site').classList.remove('hidden');
+  }
+  // «Связаться» — Telegram, почта или ссылка, которую студия указала в кабинете.
+  if (d.public_contact) {
+    $('contact').href = d.public_contact.href;
+    $('contact').title = d.public_contact.label;
+    $('contact').classList.remove('hidden');
   }
   if (d.about) { $('about').textContent = d.about; $('about').classList.remove('hidden'); }
   $('count').textContent = fmt(games.length);

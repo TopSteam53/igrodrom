@@ -170,6 +170,7 @@ $('packs').onclick = async (e) => {
     const r = await fetch('/api/coins/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pack: pack.id }) });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Не получилось создать заказ');
+    await Igr.goal('coins_checkout', { pack: pack.id });
     location.href = data.confirmation_url;
   } catch (err) { toast(err.message); b.disabled = false; }
 };
@@ -183,7 +184,7 @@ async function checkOrder() {
     const r = await fetch(`/api/coins/orders/${id}`);
     if (!r.ok) return;
     const { order } = await r.json();
-    if (order.status === 'paid') { toast(`Оплата прошла: +${coinsText(order.coins)}`); return loadCoins(); }
+    if (order.status === 'paid') { toast(`Оплата прошла: +${coinsText(order.coins)}`); Igr.goal('coins_paid', { coins: order.coins }); return loadCoins(); }
     if (order.status === 'canceled') { toast('Оплата отменена, деньги не списаны'); return; }
     await new Promise((ok) => setTimeout(ok, 3000));
   }

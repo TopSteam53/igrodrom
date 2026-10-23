@@ -10,6 +10,7 @@ import { logMailer } from './mail.js';
 import { createEconomy, migrateLedger, packsFromEnv, yookassaFromEnv } from './economy.js';
 import { createAvatars, migrateAvatars, avatarUrl } from './avatars.js';
 import { createGameDev, migrateGameMeta, metaView } from './gamedev.js';
+import { createDevRef } from './devref.js';
 import { createAdmin, migrateAdmin } from './admin.js';
 import { slugify } from './slug.js';
 import {
@@ -202,7 +203,8 @@ export function createApp({
                                    ON CONFLICT (user_id) DO UPDATE SET studio = excluded.studio, about = excluded.about,
                                      links = excluded.links, contact = excluded.contact, status = 'pending', reason = NULL,
                                      updated_at = excluded.updated_at`),
-    applicationsByStatus: db.prepare(`SELECT a.*, u.name, u.email FROM developer_applications a JOIN users u ON u.id = a.user_id
+    applicationsByStatus: db.prepare(`SELECT a.*, u.name, u.email, r.studio AS referrer FROM developer_applications a
+                                      JOIN users u ON u.id = a.user_id LEFT JOIN developer_applications r ON r.user_id = a.referred_by
                                       WHERE a.status = ? ORDER BY a.updated_at ASC LIMIT 200`),
     setApplicationStatus: db.prepare('UPDATE developer_applications SET status = ?, reason = ?, updated_at = ? WHERE user_id = ?'),
     // Авторы, у которых игры появились до введения заявок, считаются одобренными разработчиками.
@@ -210,7 +212,7 @@ export function createApp({
                                     SELECT DISTINCT u.id, u.name, 'Публиковал игры до введения заявок', 'approved', ?, ?
                                     FROM users u JOIN games g ON g.author_id = u.id`),
     gamesByStatus: db.prepare(`SELECT g.id, g.title, g.genre, g.status, g.size, g.file_count, g.created_at, g.reject_reason,
-                               g.author_id, u.name AS author, u.email AS author_email
+                               g.featured, g.author_id, u.name AS author, u.email AS author_email
                                FROM games g JOIN users u ON u.id = g.author_id
                                WHERE g.status = ? ORDER BY g.created_at ASC LIMIT 200`),
     // Новые версии опубликованных игр, ждущие проверки.
@@ -261,6 +263,7 @@ export function createApp({
     db, now, send, readJson, readBody, HttpError, requireUser, requireDeveloper, requireModerator, isAdmin, logAction, gameDir,
     previewSign: (id, exp) => sign(id, exp), CATEGORIES, AGES, unpackBuild, writeBuild, detectArt, avatarUrl,
   });
+  const devref = createDevRef({ db, secret: previewSecret, secureCookies, cookies, send, requireDeveloper, siteUrl });
   const admin = createAdmin({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, HttpError, requireModerator, isAdmin, isModerator, admins, logAction,
     studioEmail: STUDIO_EMAIL, avatars, economy,
@@ -776,7 +779,14 @@ export function createApp({
       if (why.length < 3) throw new HttpError(400, 'Напишите причину — её увидит разработчик');
       q.setStatus.run('rejected', why.slice(0, 300), Date.now(), id);
       logAction(user, 'game.reject', id, game.title, why.slice(0, 300));
-    } else throw new HttpError(400, 'action: approve или reject');
+    } else if (action === 'feature' || action === 'unfeature') {
+      // Подборка вверху главной: владелец ставит игру первой или убирает её оттуда.
+      if (!isAdmin(user)) throw new HttpError(403, 'Подборку на главной меняет владелец');
+      if (game.status !== 'approved') throw new HttpError(400, 'На главную можно поставить только опубликованную игру');
+      const top = db.prepare("SELECT COALESCE(MAX(featured), 0) AS n FROM games WHERE status = 'approved'").get().n;
+      db.prepare('UPDATE games SET featured = ? WHERE id = ?').run(action === 'feature' ? top + 1 : 0, id);
+      logAction(user, `game.${action}`, id, game.title);
+    } else throw new HttpError(400, 'action: approve, reject, feature или unfeature');
     send(res, 200, { ok: true });
   }
 
@@ -804,7 +814,7 @@ export function createApp({
 
   // ---------- заявки разработчиков ----------
   const appView = (a) => a && ({
-    studio: a.studio, about: a.about, links: a.links, contact: a.contact,
+    studio: a.studio, about: a.about, links: a.links, contact: a.contact, website: a.website || '', public_contact: a.public_contact || '',
     status: a.status, reason: a.reason, created_at: a.created_at, updated_at: a.updated_at,
   });
 
@@ -823,6 +833,7 @@ export function createApp({
     if (contact.length < 3 || contact.length > 200) throw new HttpError(400, 'Как с вами связаться: от 3 до 200 символов');
     const t = now();
     q.upsertApplication.run(user.id, studio, about, links, contact, t, t);
+    devref.remember(req, user.id);
     send(res, 201, { application: appView(q.application.get(user.id)) });
   }
 
@@ -1081,6 +1092,7 @@ export function createApp({
   // переадресуются сюда навсегда (301), чтобы ссылки из поиска и соцсетей не ломались.
   const gamePath = (g) => (g.slug ? `/game/${g.slug}` : `/game.html?id=${g.id}`);
   const catPath = (c) => `/category/${slugify(c)}`;
+  const devPath = (id) => `/developer/${id}`;
   const pagePath = (rel) => (rel === '/index.html' ? '/' : rel.replace(/\.html$/, ''));
   const gamesWord = (n) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? 'игра' : a >= 2 && a <= 4 && (b < 12 || b > 14) ? 'игры' : 'игр'; };
 
@@ -1089,10 +1101,12 @@ export function createApp({
     const games = q.publicGames.all();
     const newest = Math.max(0, ...games.map((g) => g.created_at));
     const cats = [...new Set(games.map((g) => g.genre))].sort((a, b) => a.localeCompare(b, 'ru'));
+    const devs = [...new Set(games.filter((g) => !g.demo).map((g) => g.author_id))].filter((id) => gamedev.studio(id));
     const urls = [
       { loc: `${siteUrl}/`, lastmod: newest ? day(newest) : null },
       ...cats.map((c) => ({ loc: `${siteUrl}${catPath(c)}` })),
       ...games.map((g) => ({ loc: `${siteUrl}${gamePath(g)}`, lastmod: day(g.created_at) })),
+      ...devs.map((id) => ({ loc: `${siteUrl}${devPath(id)}` })),
       ...['developers', 'terms', 'privacy', 'contacts'].map((f) => ({ loc: `${siteUrl}/${f}` })),
     ];
     const body = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
@@ -1132,6 +1146,14 @@ export function createApp({
         description: `${ctx.cat} онлайн: ${n} ${gamesWord(n)} в браузере без скачивания и регистрации. Играйте бесплатно на Gamely.`,
       };
     }
+    if (ctx.dev) {
+      const d = ctx.dev.developer, n = ctx.dev.games.length;
+      const about = String(d.about || '').replace(/\s+/g, ' ').trim();
+      meta = {
+        ...meta, title: `${d.studio} — игры на Gamely`, url: `${siteUrl}${devPath(d.id)}`,
+        description: `${d.studio}: ${n} ${gamesWord(n)} на Gamely, играйте бесплатно в браузере.${about ? ` ${about.slice(0, 150)}` : ''}`,
+      };
+    }
     const e = escHtml;
     const tags = [
       `<meta property="og:type" content="${meta.type}">`,
@@ -1152,6 +1174,7 @@ export function createApp({
     out = out.replace('</head>', `${tags}\n${jsonLd(rel, meta, game, ctx.cat)}</head>`);
     if (games) out = catalogHtml(out, games, ctx.cat);
     if (game) out = gameHtml(out, game);
+    if (ctx.dev) out = devHtml(out, ctx.dev);
     return out;
   }
 
@@ -1192,6 +1215,19 @@ export function createApp({
       .replace('<a id="category"></a>', () => `<a id="category" href="${catPath(game.genre)}">${e(game.genre)}</a>`)
       .replace('<p id="desc"></p>', () => `<p id="desc">${e(game.description || '')}</p>`)
       .replace('<p id="howto"></p>', () => `<p id="howto">${e(game.how_to_play || '')}</p>`);
+  }
+  function devHtml(html, { developer: d, games }) {
+    const e = escHtml;
+    const all = new Map(q.publicGames.all().map((g) => [g.id, g]));
+    const cards = games.map((g) => all.get(g.id)).filter(Boolean).map(cardHtml).join('');
+    return html
+      .replace('</head>', () => `<meta name="gamely-developer" content="${d.id}">\n</head>`)
+      .replace('<div class="empty" id="loading">Загрузка…</div>', '<div class="empty hidden" id="loading">Загрузка…</div>')
+      .replace('<section class="me-card hidden" id="head">', '<section class="me-card" id="head">')
+      .replace('<h1 id="studio" class="profile-name"></h1>', () => `<h1 id="studio" class="profile-name">${e(d.studio)}</h1>`)
+      .replace('<p class="dev-about hidden" id="about"></p>', () => (d.about ? `<p class="dev-about" id="about">${e(d.about)}</p>` : '<p class="dev-about hidden" id="about"></p>'))
+      .replace('<section class="sec hidden" id="gamesSec">', '<section class="sec" id="gamesSec">')
+      .replace('<div class="grid" id="games"></div>', () => `<div class="grid" id="games">${cards}</div>`);
   }
   // Разметка schema.org: поисковик понимает, что это сайт с играми, что на странице — игра и где она в каталоге.
   function jsonLd(rel, meta, game, cat) {
@@ -1301,6 +1337,10 @@ export function createApp({
       const cat = CATEGORIES.find((c) => slugify(c) === mm[1]);
       return cat ? sendPage(req, res, '/index.html', url, { cat, nested: true }) : pageNotFound(req, res);
     }
+    if ((mm = rel.match(/^\/developer\/(\d{1,9})\/?$/))) {
+      const dev = gamedev.studio(Number(mm[1]));
+      return dev ? sendPage(req, res, '/developer.html', url, { dev, nested: true }) : pageNotFound(req, res);
+    }
     const moved = oldAddress(rel, url);
     if (moved) {
       res.writeHead(301, { Location: moved, 'Cache-Control': 'public, max-age=86400' });
@@ -1324,7 +1364,7 @@ export function createApp({
   function sendPage(req, res, rel, url, ctx) {
     fs.readFile(path.join(publicDir, rel), 'utf8', (err, html) => {
       if (err) return pageNotFound(req, res);
-      res.writeHead(200, pageHeaders(MIME['.html']));
+      res.writeHead(200, { ...pageHeaders(MIME['.html']), ...devref.cookieHeader(url) });
       res.end(req.method === 'HEAD' ? undefined : withMeta(html, rel, url, ctx));
     });
   }
@@ -1338,6 +1378,12 @@ export function createApp({
       if (!game || !game.slug) return null;
       qs.delete('id');
       return `/game/${game.slug}${tail()}`;
+    }
+    if (rel === '/developer.html' || rel === '/developer') {
+      const id = qs.get('id');
+      if (!/^\d{1,9}$/.test(id || '')) return rel === '/developer.html' ? `/developer${tail()}` : null;
+      qs.delete('id');
+      return `/developer/${id}${tail()}`;
     }
     if (rel === '/' || rel === '/index.html') {
       const c = qs.get('category');
@@ -1372,7 +1418,7 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || admin.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || admin.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);
@@ -1406,7 +1452,7 @@ export function createApp({
       const status = url.searchParams.get('status') || 'pending';
       if (!['pending', 'approved', 'rejected'].includes(status)) throw new HttpError(400, 'Неизвестный статус');
       return send(res, 200, {
-        applications: q.applicationsByStatus.all(status).map((a) => ({ user_id: a.user_id, name: a.name, email: a.email, ...appView(a) })),
+        applications: q.applicationsByStatus.all(status).map((a) => ({ user_id: a.user_id, name: a.name, email: a.email, referrer: a.referrer, ...appView(a) })),
       });
     }
     if ((mm = p.match(/^\/api\/admin\/developers\/(\d+)$/)) && m === 'POST') return reviewDeveloper(req, res, Number(mm[1]));
