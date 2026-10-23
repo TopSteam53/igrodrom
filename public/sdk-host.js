@@ -75,6 +75,36 @@
     };
   }
 
+  // Тестовый запуск из кабинета: сохранение и рекорды живут в памяти страницы и пропадают при её закрытии.
+  // Для игры это выглядит как сервер площадки — она ведёт себя так же, как у игроков.
+  function memoryStore() {
+    let saved = null;
+    return {
+      kind: 'server',
+      get: async () => saved,
+      set: async (json) => { saved = json; },
+      clear: async () => { saved = null; },
+      get size() { return saved == null ? 0 : new TextEncoder().encode(saved).length; },
+    };
+  }
+  function memoryBoards(name = 'Вы') {
+    const all = {};
+    const entry = (board) => {
+      const row = all[board];
+      return row ? { rank: 1, name, score: row.score, extra: row.extra, player: 'test', me: true } : null;
+    };
+    return {
+      set: async ({ board, score, extra }) => {
+        if (!all[board] || score > all[board].score) all[board] = { score, extra };
+        return entry(board);
+      },
+      get: async ({ board, around }) => {
+        const me = entry(board);
+        return { board, total: me ? 1 : 0, entries: me ? [me] : [], around: me && around ? [me] : [], me };
+      },
+    };
+  }
+
   // Без рекламной сети: полноэкранная не показывается, награда выдаётся сразу.
   const NO_ADS = {
     fullscreen: async () => ({ shown: false }),
@@ -89,13 +119,15 @@
    * coins — монетки игрока: { balance(), confirm({ amount, title, balance }) → true/false, spend(amount, title) };
    * без него монетки недоступны. feedback — { can() → { value, reason }, request() → true, если отзыв написан }.
    * onScore(entry) — игра записала результат в таблицу рекордов.
+   * Тестовый запуск: store и boards заменяют хранилища (memoryStore, memoryBoards), onCall({ type, payload, ok,
+   * result, error, ms }) получает каждый запрос игры с ответом, onPush(event) — события площадки для игры.
    */
   function attach(frame, {
     gameId, live, player = async () => null, onEvent = () => {}, ads = NO_ADS, onAd = () => {}, coins = null, feedback = null,
-    onScore = () => {},
+    onScore = () => {}, store: storeOverride = null, boards: boardsOverride = null, onCall = null, onPush = null,
   }) {
-    const store = live ? serverStore(gameId) : browserStore(gameId);
-    const boards = live ? serverBoards(gameId) : browserBoards(gameId);
+    const store = storeOverride || (live ? serverStore(gameId) : browserStore(gameId));
+    const boards = boardsOverride || (live ? serverBoards(gameId) : browserBoards(gameId));
     const BOARD_RE = /^[\w.-]{1,40}$/;
     function boardArgs(p) {
       const board = String(p?.board ?? 'main');
@@ -122,7 +154,7 @@
       }
     }
     // События площадки для игры: пауза на время рекламы и продолжение.
-    const push = (event) => frame.contentWindow?.postMessage({ protocol: PROTOCOL, event }, '*');
+    const push = (event) => { onPush?.(event); frame.contentWindow?.postMessage({ protocol: PROTOCOL, event }, '*'); };
 
     async function advert(kind) {
       let opened = false;
@@ -182,7 +214,10 @@
       if (!m || m.protocol !== PROTOCOL || typeof m.id !== 'number') return;
       // Песочница даёт игре «пустой» origin, поэтому адресат ответа — '*', но окно-получатель — только наш iframe.
       const reply = (msg) => e.source.postMessage({ protocol: PROTOCOL, id: m.id, ...msg }, '*');
-      handle(m).then((result) => reply({ ok: true, result }), (err) => reply({ ok: false, error: err.message }));
+      const t0 = Date.now();
+      const log = (msg) => onCall?.({ type: m.type, payload: m.payload, ms: Date.now() - t0, ...msg });
+      handle(m).then((result) => { log({ ok: true, result }); reply({ ok: true, result }); },
+        (err) => { log({ ok: false, error: err.message }); reply({ ok: false, error: err.message }); });
     }
 
     addEventListener('message', onMessage);
@@ -196,5 +231,5 @@
     return [...hash.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
-  window.IgrodromHost = { attach, playerIdFor };
+  window.IgrodromHost = { attach, playerIdFor, memoryStore, memoryBoards };
 })();

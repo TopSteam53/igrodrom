@@ -261,6 +261,7 @@ function openGame(id) {
       <span class="spacer"></span>
       ${g.status === 'approved' ? `<a class="btn sm" href="game.html?id=${g.id}" target="_blank" rel="noopener">Страница в каталоге</a>` : ''}
       <a class="btn sm" href="${g.status === 'approved' ? `/play/${g.id}/` : g.preview_url}" target="_blank" rel="noopener">Запустить</a>
+      <a class="btn sm primary" href="/cabinet-test?id=${g.id}" target="_blank" rel="noopener">Тестовый запуск</a>
     </div>
     ${g.status === 'rejected' ? `<p class="reject-reason">Модератор отклонил игру: ${esc(g.reject_reason || '')}. Исправьте и загрузите новую сборку внизу — игра снова уйдёт на проверку.</p>` : ''}
     <form id="edForm" class="ed-grid">
@@ -308,18 +309,24 @@ function openGame(id) {
         <div class="shot-acts">${i ? `<button class="btn sm" data-left="${i}" aria-label="Левее">←</button>` : ''}<button class="btn sm bad" data-del="${i}" aria-label="Удалить">✕</button></div></figure>`).join('')}
         ${g.screenshots.length < 8 ? `<label class="shot add"><input type="file" accept="image/png,image/jpeg,image/webp" data-media="shot" multiple hidden><span>+ Добавить</span></label>` : ''}</div>
       <p class="mut">PNG, JPEG или WebP до 3 МБ. Без мелкого текста на обложке и иконке — их показывают маленькими.</p>
+      ${g.cover_url || g.icon_url || g.screenshots.length ? `<div class="form-acts"><a class="btn sm" href="/api/games/${g.id}/download?part=media" download>Скачать картинки</a></div>` : ''}
     </div>
 
     <div class="panel">
       <h3>Сборка</h3>
       <p>Сейчас: ${files(g.file_count)}, ${kb(g.size)}.
-        ${g.next?.status === 'pending' ? `<b>Новая версия на проверке</b> (${files(g.next.file_count)}, ${kb(g.next.size)}). <a href="${esc(g.next.preview_url)}" target="_blank" rel="noopener">Открыть её</a>` : ''}
+        ${g.next?.status === 'pending' ? `<b>Новая версия на проверке</b> (${files(g.next.file_count)}, ${kb(g.next.size)}). <a href="${esc(g.next.preview_url)}" target="_blank" rel="noopener">Открыть её</a>
+          или <a href="/cabinet-test?id=${g.id}&amp;build=next" target="_blank" rel="noopener">запустить с журналом</a>` : ''}
         ${g.next?.status === 'rejected' ? `<span class="reject-reason">Новую версию не приняли: ${esc(g.next.reason || '')}</span>` : ''}</p>
       <p class="mut">${g.status === 'approved' ? 'Новая версия уйдёт на проверку, а до одобрения игроки будут играть в текущую. Сохранения игроков не пропадут.'
         : 'Игра ещё не опубликована — сборка просто заменится.'}</p>
       <div class="form-acts"><label class="btn"><input type="file" id="buildFile" accept=".zip,.html,.htm,application/zip,text/html" hidden>Загрузить новую версию</label>
         ${g.next?.status === 'pending' ? '<button class="btn" id="buildCancel">Отозвать новую версию</button>' : ''}
+        <a class="btn" href="/api/games/${g.id}/download?part=build" download>Скачать сборку</a>
+        ${g.next?.status === 'pending' ? `<a class="btn" href="/api/games/${g.id}/download?part=next" download>Скачать новую версию</a>` : ''}
         <span class="spacer"></span><button class="btn bad" id="edDelete">Удалить игру</button></div>
+      <p class="mut" style="margin-top:14px">Сборка скачивается такой, какой лежит на сайте: ссылки на Яндекс SDK в ней уже заменены
+        на <code>/sdk.js</code>. Обложка, иконка и скриншоты из кабинета скачиваются отдельно, в разделе «Картинки».</p>
     </div>`;
 
   $('edBack').onclick = () => { history.replaceState(null, '', location.pathname); closeEditor(); loadMine(); };

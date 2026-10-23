@@ -2,8 +2,11 @@
 // поддержка, версия), обложка, иконка и скриншоты, обновление сборки через модерацию, страница студии.
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { sniffImage, IMAGE_EXT } from './images.js';
+import { ZipWriter } from './zip.js';
 
 export const PLATFORMS = ['desktop', 'mobile', 'tv'];
 export const CONTROLS = ['keyboard', 'mouse', 'touch', 'gamepad'];
@@ -13,6 +16,9 @@ const MAX_TAGS = 5;
 const MAX_SHOTS = 8;
 const MAX_MEDIA_BYTES = 3 * 1024 * 1024;
 const MEDIA_DIR = '_media';
+const TEST_RUN_TTL_SEC = 6 * 3600;
+// Первым в <head> игры при тестовом запуске. Без перевода строки: номера строк в ошибках игры не сдвигаются.
+export const TEST_CONSOLE_TAG = '<script src="/test-run-console.js"></script>';
 // Требования к картинкам — как у Яндекс Игр, чуть мягче по минимальным размерам.
 const MEDIA = {
   cover: { min: [640, 360], ratio: [1.6, 1.95], text: 'Обложка: горизонтальная 16:9, от 640×360' },
@@ -55,6 +61,25 @@ export function contactLink(s) {
   return null;
 }
 
+// Вставка разметки первой в <head>: сразу после открывающего тега, без перевода строки. Нет <head> —
+// после <html>, нет и его — после <!doctype> (иначе браузер включит режим совместимости), иначе в начало.
+// Байты читаются как latin1, чтобы не испортить страницу не в UTF-8.
+export function injectHead(buf, markup) {
+  const html = buf.toString('latin1');
+  const at = [/<head\b[^>]*>/i, /<html\b[^>]*>/i, /<!doctype[^>]*>/i].map((re) => html.match(re)).find(Boolean);
+  const pos = at ? at.index + at[0].length : 0;
+  return Buffer.from(html.slice(0, pos) + markup + html.slice(pos), 'latin1');
+}
+
+// HTML игры при тестовом запуске: журнал первым в <head>, а у скриптов игры (src с относительным путём) —
+// crossorigin. Игра в песочнице, и без CORS браузер прячет текст ошибок её скриптов («Script error.»).
+// Файлы игры сервер отдаёт с Access-Control-Allow-Origin: *, так что загрузка от этого не ломается.
+const LOCAL_SCRIPT = /<script\b(?![^>]*\bcrossorigin\b)([^>]*\ssrc\s*=\s*)(["']?)(?![a-z][\w+.-]*:|\/|["'\s])/gi;
+export function testRunHtml(buf) {
+  const withCors = Buffer.from(buf.toString('latin1').replace(LOCAL_SCRIPT, '<script crossorigin$1$2'), 'latin1');
+  return injectHead(withCors, TEST_CONSOLE_TAG);
+}
+
 const json = (s, fallback) => { try { const v = JSON.parse(s); return Array.isArray(v) ? v : fallback; } catch { return fallback; } };
 const mediaUrl = (id, file) => `/play/${id}/${file.split('/').map(encodeURIComponent).join('/')}`;
 
@@ -70,7 +95,7 @@ export function metaView(g) {
 }
 
 export function createGameDev({
-  db, now, send, readJson, readBody, HttpError, requireUser, requireDeveloper, requireModerator, isAdmin,
+  db, now, send, readJson, readBody, HttpError, requireUser, requireDeveloper, requireModerator, isAdmin, isModerator,
   logAction, gameDir, previewSign, CATEGORIES, AGES, unpackBuild, writeBuild, detectArt, avatarUrl,
 }) {
   const q = {
@@ -261,6 +286,101 @@ export function createGameDev({
     serveDir(req, res, `${gameDir(id)}.next`, rest);
   }
 
+  // ---------- тестовый запуск и скачивание ----------
+  // Автор открывает свою игру с журналом (public/cabinet-test.html) и скачивает сборку и картинки.
+  // Модераторам и владельцу это тоже доступно: им проверять игры.
+  function inspectGame(req, id) {
+    const user = requireUser(req);
+    const game = q.game.get(id);
+    if (!game || (game.author_id !== user.id && !isModerator(user))) throw new HttpError(404, 'Игра не найдена');
+    return { user, game };
+  }
+  const hasNext = (game) => game.next_status === 'pending' && fs.existsSync(`${gameDir(game.id)}.next`);
+  const sameSig = (a, b) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+
+  // Ссылка подписана, как у проверки, но своей подписью: по ней сервер вставляет в игру журнал.
+  function testRunUrl(id, build) {
+    const exp = Math.floor(Date.now() / 1000) + TEST_RUN_TTL_SEC;
+    return `/test-run/${id}.${build}.${exp}.${previewSign(`${id}.test.${build}`, exp)}/`;
+  }
+
+  function testRun(req, res, id) {
+    const { user, game } = inspectGame(req, id);
+    const builds = [{
+      build: 'cur', title: game.status === 'approved' ? 'Опубликованная версия' : 'Черновик',
+      size: game.size, file_count: game.file_count, url: testRunUrl(id, 'cur'),
+    }];
+    if (hasNext(game)) {
+      builds.push({ build: 'next', title: 'Новая версия на проверке', size: game.next_size, file_count: game.next_file_count, url: testRunUrl(id, 'next') });
+    }
+    send(res, 200, { game: { id, title: game.title, status: game.status, version: game.version || '' }, mine: game.author_id === user.id, builds });
+  }
+
+  // Файлы игры по ссылке тестового запуска: в каждую HTML-страницу вставляется журнал.
+  function testRunFile(req, res, id, build, exp, sig, rest, serveDir) {
+    if (Number(exp) < Date.now() / 1000 || !sameSig(sig, previewSign(`${id}.test.${build}`, exp)) || !q.game.get(id)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end('Ссылка устарела: откройте тестовый запуск из кабинета ещё раз');
+    }
+    serveDir(req, res, build === 'next' ? `${gameDir(id)}.next` : gameDir(id), rest, testRunHtml);
+  }
+
+  // Все файлы папки, пути через «/», по алфавиту.
+  function listFiles(root) {
+    if (!fs.existsSync(root)) return [];
+    return fs.readdirSync(root, { recursive: true }).map((f) => f.split(path.sep).join('/'))
+      .filter((f) => fs.statSync(path.join(root, f)).isFile()).sort();
+  }
+
+  // Картинки карточки под понятными именами: cover.webp, icon.png, screenshot-1.png…
+  function mediaFiles(game) {
+    const out = [];
+    const add = (file, name) => {
+      const full = file && path.join(gameDir(game.id), file);
+      if (full && fs.existsSync(full)) out.push({ name: `${name}${path.extname(file).toLowerCase()}`, file: full });
+    };
+    add(game.cover, 'cover');
+    add(game.icon, 'icon');
+    json(game.screenshots, []).forEach((f, i) => add(f, `screenshot-${i + 1}`));
+    return out;
+  }
+
+  // Сборка (без картинок кабинета — они в своём архиве), новая версия на проверке или картинки — ZIP-архивом.
+  // Архив собирается по ходу отдачи: в памяти только один файл, а не вся сборка.
+  async function download(req, res, id, url) {
+    const { game } = inspectGame(req, id);
+    const part = url.searchParams.get('part') || 'build';
+    let files;
+    if (part === 'build') {
+      files = listFiles(gameDir(id)).filter((f) => !f.startsWith(`${MEDIA_DIR}/`)).map((f) => ({ name: f, file: path.join(gameDir(id), f) }));
+    } else if (part === 'next') {
+      if (!hasNext(game)) throw new HttpError(404, 'Новой версии на проверке нет');
+      const root = `${gameDir(id)}.next`;
+      files = listFiles(root).map((f) => ({ name: f, file: path.join(root, f) }));
+    } else if (part === 'media') {
+      files = mediaFiles(game);
+    } else throw new HttpError(400, 'part: build, next или media');
+    if (!files.length) throw new HttpError(404, part === 'media' ? 'Картинок пока нет' : 'Файлов сборки нет');
+
+    const zip = new ZipWriter();
+    async function* chunks() {
+      for (const f of files) {
+        const [data, st] = await Promise.all([fs.promises.readFile(f.file), fs.promises.stat(f.file)]);
+        yield* await zip.addAsync(f.name, data, { mtime: st.mtime });
+      }
+      yield zip.finish();
+    }
+    // Имя файла — из адреса игры или её номера: только латиница, цифры и дефис.
+    const filename = `${game.slug || id}-${{ build: 'build', next: 'build-next', media: 'images' }[part]}.zip`;
+    res.writeHead(200, {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    await pipeline(Readable.from(chunks()), res);
+  }
+
   // ---------- студия ----------
   async function updateProfile(req, res) {
     const user = requireDeveloper(req);
@@ -311,10 +431,12 @@ export function createGameDev({
       if (m === 'DELETE') return (req, res) => cancelBuild(req, res, mm[1]);
     }
     if ((mm = p.match(/^\/api\/admin\/games\/([0-9a-f]{16})\/build$/)) && m === 'POST') return (req, res) => moderateBuild(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/test-run$/)) && m === 'GET') return (req, res) => testRun(req, res, mm[1]);
+    if ((mm = p.match(/^\/api\/games\/([0-9a-f]{16})\/download$/)) && m === 'GET') return (req, res, url) => download(req, res, mm[1], url);
     if (p === '/api/developer/profile' && m === 'PATCH') return updateProfile;
     if ((mm = p.match(/^\/api\/developers\/(\d+)$/)) && m === 'GET') return (req, res) => studioPage(req, res, Number(mm[1]));
     return null;
   }
 
-  return { route, previewNext, studio };
+  return { route, previewNext, studio, testRunFile };
 }

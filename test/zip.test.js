@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { extractZip, isZip, ZipError } from '../server/zip.js';
+import { extractZip, isZip, ZipError, ZipWriter, createZip } from '../server/zip.js';
 import { makeZip } from './make-zip.js';
 
 const paths = (files) => files.map((f) => f.path).sort();
@@ -87,6 +87,60 @@ test('архив, собранный настоящей утилитой zip', (
     execFileSync('zip', ['-qr', 'out.zip', 'game'], { cwd: dir });
     const files = extractZip(fs.readFileSync(path.join(dir, 'out.zip')));
     assert.deepEqual(paths(files), ['assets/main.js', 'index.html']);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// ---------- запись (скачивание сборки из кабинета) ----------
+
+test('записанный архив читается обратно: сжатие, без сжатия, русские имена, пустой файл', async () => {
+  const src = [
+    { path: 'index.html', data: '<html>игра</html>' },
+    { path: 'js/game.js', data: 'console.log("ok");\n'.repeat(2000) },
+    { path: 'звуки/прыжок.ogg', data: Buffer.from([1, 2, 3, 4, 5]) },
+    { path: 'img/hero.png', data: Buffer.alloc(5000, 7) }, // png кладётся без сжатия, даже если сжимается
+    { path: 'empty.txt', data: '' },
+  ];
+  const zip = createZip(src);
+  assert.ok(isZip(zip));
+  const files = extractZip(zip);
+  assert.deepEqual(paths(files), src.map((f) => f.path).sort());
+  for (const f of src) assert.deepEqual(files.find((x) => x.path === f.path).data, Buffer.from(f.data), f.path);
+  assert.ok(zip.length < 20000, 'текст сжат');
+  // Метод сжатия — в локальном заголовке за 30 байт до имени: 8 у js, 0 у png. Флаг UTF-8 — у каждого имени.
+  const header = (name) => zip.indexOf(Buffer.from(name)) - 30;
+  assert.equal(zip.readUInt16LE(header('js/game.js') + 8), 8);
+  assert.equal(zip.readUInt16LE(header('img/hero.png') + 8), 0);
+  assert.equal(zip.readUInt16LE(header('звуки/прыжок.ogg') + 6) & 0x800, 0x800);
+
+  // Потоковая запись даёт те же файлы.
+  const w = new ZipWriter();
+  const parts = [];
+  for (const f of src) parts.push(...await w.addAsync(f.path, Buffer.from(f.data)));
+  parts.push(w.finish());
+  const again = extractZip(Buffer.concat(parts));
+  for (const f of src) assert.deepEqual(again.find((x) => x.path === f.path).data, Buffer.from(f.data), f.path);
+});
+
+test('запись: недопустимые имена и повторы — отказ', () => {
+  const w = new ZipWriter();
+  for (const bad of ['../x.js', '/abs.js', 'a//b.js', 'a\\b.js', '', './a.js']) {
+    assert.throws(() => w.add(bad, Buffer.from('x')), ZipError, bad);
+  }
+  w.add('a.js', Buffer.from('x'));
+  assert.throws(() => w.add('a.js', Buffer.from('y')), /дважды/);
+});
+
+test('записанный архив проверяет настоящая утилита unzip', (t) => {
+  let hasUnzip = true;
+  try { execFileSync('unzip', ['-v'], { stdio: 'ignore' }); } catch { hasUnzip = false; }
+  if (!hasUnzip) return t.skip('утилита unzip не установлена');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-unzip-'));
+  try {
+    const file = path.join(dir, 'out.zip');
+    fs.writeFileSync(file, createZip([{ path: 'index.html', data: '<html></html>' }, { path: 'js/main.js', data: 'let a = 1;\n'.repeat(300) }]));
+    assert.match(execFileSync('unzip', ['-t', file], { encoding: 'utf8' }), /No errors detected/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
