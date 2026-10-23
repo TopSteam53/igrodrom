@@ -11,6 +11,7 @@ import { createEconomy, migrateLedger, packsFromEnv, yookassaFromEnv } from './e
 import { createAvatars, migrateAvatars, avatarUrl } from './avatars.js';
 import { createGameDev, migrateGameMeta, metaView } from './gamedev.js';
 import { createAdmin, migrateAdmin } from './admin.js';
+import { createRewards, migrateRewards } from './rewards.js';
 import { slugify } from './slug.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
@@ -111,6 +112,7 @@ export function createApp({
   migrateAvatars(db);
   migrateGameMeta(db);
   migrateAdmin(db);
+  migrateRewards(db);
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
@@ -250,9 +252,13 @@ export function createApp({
   const logAction = (actor, action, targetId, title, reason = null) =>
     q.logInsert.run(actor.id, actor.name, action, String(targetId), title, reason, Date.now());
   const gameDir = (id) => path.join(gamesDir, id);
+  const rewards = createRewards({
+    db, now, dayOf: (t) => stats.dayOf(t), tz: statsTz, secret: previewSecret, send, readJson, HttpError, requireUser, requireOwner,
+    currentUser, cookies, clientIp, logAction, siteUrl,
+  });
   const economy = createEconomy({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, HttpError, requireUser, requireOwner, logAction, createLimiter,
-    siteUrl, packs: coinPacks, yookassa, fetchImpl,
+    siteUrl, packs: coinPacks, yookassa, fetchImpl, daily: rewards.daily,
   });
   const avatars = createAvatars({
     db, dataDir, now, send, readBody, readJson, HttpError, requireUser, requireModerator, isModerator, logAction, createLimiter,
@@ -560,6 +566,7 @@ export function createApp({
     const { lastInsertRowid } = q.insertUser.run(email, name, await hashPassword(password), Date.now());
     const id = Number(lastInsertRowid);
     economy.welcome(id);
+    rewards.onRegister(req, id);
     const user = q.userById.get(id);
     adoptGuestSaves(req, user.id);
     sendVerification(user);
@@ -629,6 +636,7 @@ export function createApp({
     q.setPassword.run(await hashPassword(password), row.user_id);
     q.deleteUserSessions.run(row.user_id); // выходим на всех устройствах
     q.verifyEmail.run(Date.now(), row.user_id); // письмо дошло — значит, почта настоящая
+    rewards.onVerified(row.user_id);
     const user = q.userById.get(row.user_id);
     loginLimiter.reset(`${clientIp(req)}|${user.email}`);
     send(res, 200, { user: publicUser(user) }, { 'Set-Cookie': startSession(user.id) });
@@ -638,6 +646,7 @@ export function createApp({
     const row = takeToken((await readJson(req)).token, 'verify');
     if (!row) throw new HttpError(400, 'Ссылка устарела или уже использована. Отправьте письмо ещё раз из профиля');
     q.verifyEmail.run(Date.now(), row.user_id);
+    rewards.onVerified(row.user_id); // награда за приглашение и достижение «Настоящая почта»
     send(res, 200, { ok: true });
   }
 
@@ -971,6 +980,7 @@ export function createApp({
     if (scoreLimiter.blocked(key)) throw new HttpError(429, 'Слишком часто');
     scoreLimiter.fail(key);
     const { changes } = q.lbUpsert.run(id, board, user.id, score, extra, now());
+    rewards.onScore(id, board, user.id, score); // турнир недели и достижения за рекорды
     send(res, 200, { improved: changes > 0, entry: lbEntry(id, board, q.lbMine.get(id, board, user.id), user) });
   }
 
@@ -1093,7 +1103,7 @@ export function createApp({
       { loc: `${siteUrl}/`, lastmod: newest ? day(newest) : null },
       ...cats.map((c) => ({ loc: `${siteUrl}${catPath(c)}` })),
       ...games.map((g) => ({ loc: `${siteUrl}${gamePath(g)}`, lastmod: day(g.created_at) })),
-      ...['developers', 'terms', 'privacy', 'contacts'].map((f) => ({ loc: `${siteUrl}/${f}` })),
+      ...['developers', 'tournament', 'terms', 'privacy', 'contacts'].map((f) => ({ loc: `${siteUrl}/${f}` })),
     ];
     const body = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
       urls.map((u) => `  <url><loc>${escHtml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ''}</url>`).join('\n') +
@@ -1372,7 +1382,7 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || admin.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || admin.route(p, m) || rewards.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);

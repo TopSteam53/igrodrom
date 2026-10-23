@@ -87,7 +87,7 @@ export function createAdmin({
         today: sum(t - DAY), month: sum(t - 30 * DAY), all: sum(0),
         circulation: count('SELECT COALESCE(SUM(coins), 0) AS n FROM users'),
         spent_month: -count("SELECT COALESCE(SUM(delta), 0) AS n FROM coin_ledger WHERE kind = 'spend' AND created_at >= ?", t - 30 * DAY),
-        given_month: count("SELECT COALESCE(SUM(delta), 0) AS n FROM coin_ledger WHERE kind IN ('welcome', 'daily', 'grant') AND delta > 0 AND created_at >= ?", t - 30 * DAY),
+        given_month: count("SELECT COALESCE(SUM(delta), 0) AS n FROM coin_ledger WHERE kind IN ('welcome', 'daily', 'grant', 'achievement', 'tournament', 'referral') AND delta > 0 AND created_at >= ?", t - 30 * DAY),
       };
     }
     send(res, 200, out);

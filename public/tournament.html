@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Турнир недели — Gamely</title>
+<meta name="description" content="Еженедельный турнир по рекордам на Gamely: одна игра на неделю, таблица лучших и призы в монетках.">
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html" aria-label="Gamely, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#FFC531"/><path d="M22.6 9.4A9 9 0 1 0 25 16" fill="none" stroke="#1C2140" stroke-width="4.2" stroke-linecap="round"/><path d="M14.6 12.2 21.2 16l-6.6 3.8z" fill="#1C2140" stroke="#1C2140" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Gamely</span></a>
+  <form class="search" id="searchForm" action="index.html" role="search">
+    <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
+  </form>
+  <a class="btn" id="login" href="login.html">Войти</a>
+</div></header>
+
+<main class="w tour-page">
+  <h1 class="profile-name" style="margin:28px 0 6px">Турнир недели</h1>
+  <p class="mut" style="margin:0;max-width:62ch">Каждую неделю — одна игра. В зачёт идёт ваш лучший результат с понедельника по воскресенье,
+    призы трём лучшим приходят монетками в ночь на понедельник.</p>
+  <div id="current"><div class="empty"><p>Загружаем турнир…</p></div></div>
+  <section class="sec hidden" id="pastSec">
+    <div class="sec-head"><h2 id="pastTitle">Итоги прошлой недели</h2></div>
+    <div class="panel" id="past"></div>
+  </section>
+</main>
+
+<footer><div class="w">
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="cabinet.html">Кабинет разработчика</a><a href="terms.html">Правила</a><a href="privacy.html">Конфиденциальность</a><a href="contacts.html">Контакты</a></nav>
+  <div>© Gamely</div>
+</div></footer>
+
+<script src="app.js"></script>
+<script>
+const { $, esc, fmt, avatarHTML, COIN_SVG } = Igr;
+const PLACE = ['Первое место', 'Второе место', 'Третье место'];
+const when = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+const rowHTML = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span>
+  <span class="n">${avatarHTML(e, 24)}<span>${esc(e.name)}</span></span><span class="s">${fmt(e.score)}</span></li>`;
+
+function renderCurrent(t, user) {
+  if (!t) {
+    $('current').innerHTML = `<div class="empty"><p class="empty-title">Турнир этой недели ещё не объявлен</p>
+      <p>Загляните позже — а пока можно выбрать игру в каталоге.</p><a class="btn" href="index.html">Открыть каталог</a></div>`;
+    return;
+  }
+  const g = Igr.fromApi(t.game);
+  const url = g.slug ? Igr.gameUrl(g) : null;
+  let mine;
+  if (!user) mine = `<a href="login.html?next=${encodeURIComponent('/tournament')}" style="color:var(--link)">Войдите</a>, чтобы участвовать: в зачёт идут только результаты игроков с аккаунтом.`;
+  else if (!t.me) mine = 'Вашего результата пока нет. Сыграйте — лучший результат недели попадёт в таблицу сам.';
+  else if (t.me.rank > t.top.length) mine = `Вы на ${fmt(t.me.rank)}-м месте из ${fmt(t.total)}: ${fmt(t.me.score)}.`;
+  else mine = `Вы на ${fmt(t.me.rank)}-м месте${t.me.rank <= 3 ? ' — пока в призах' : ''}.`;
+  $('current').innerHTML = `
+    <div class="tour-head">${Igr.iconHTML(g)}
+      <div><h2>${esc(g.title)}</h2>
+      <p class="mut">До конца: ${Igr.timeLeft(t.ends_at - Date.now())}. Итоги — ${when(t.ends_at)}.${t.board !== 'main' ? ` Таблица «${esc(t.board)}».` : ''}</p></div>
+      ${url ? `<a class="btn primary" href="${Igr.withParam(url, 'play=1')}">Играть</a>` : ''}
+    </div>
+    <div class="tour-cols">
+      <div class="panel">
+        <h3>Лучшие за неделю</h3>
+        ${t.top.length ? `<ol class="lb">${t.top.map(rowHTML).join('')}</ol>` : '<p class="tour-empty">Результатов пока нет — первый рекорд недели может быть вашим.</p>'}
+        <p class="mut tour-me">${mine}</p>
+      </div>
+      <div class="panel">
+        <h3>Призы</h3>
+        <ul class="prizes">${t.prizes.map((p, i) => `<li><span>${PLACE[i]}</span><b>${COIN_SVG}${fmt(p)}</b></li>`).join('')}</ul>
+        <p class="mut">Участников: ${fmt(t.total)}. При равных результатах выше тот, кто показал его раньше. Монетки тратятся в играх на бонусы и предметы, обменять их на деньги нельзя.</p>
+      </div>
+    </div>`;
+}
+
+function renderPast(last) {
+  if (!last || !last.winners.length) return;
+  $('pastTitle').textContent = `Итоги недели с ${new Date(`${last.week}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`;
+  $('past').innerHTML = `<p class="mut" style="margin:0 0 8px">${esc(last.game_title)}, участников: ${fmt(last.total)}</p>
+    <ol class="lb">${last.winners.map((w) => `<li><span class="r">${w.place}</span>
+      <span class="n">${avatarHTML(w, 24)}<span>${esc(w.name)}</span></span><span class="s">${fmt(w.score)}</span></li>`).join('')}</ol>`;
+  $('pastSec').classList.remove('hidden');
+}
+
+Promise.all([fetch('/api/tournament').then((r) => r.json()), Igr.me()]).then(([data, user]) => {
+  renderCurrent(data.tournament, user);
+  renderPast(data.last);
+}).catch(() => {
+  $('current').innerHTML = '<div class="empty"><p>Турнир доступен в полной версии сайта.</p><a class="btn" href="index.html">Открыть каталог</a></div>';
+});
+Igr.initHeader();
+</script>
+</body>
+</html>
