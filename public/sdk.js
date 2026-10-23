@@ -28,6 +28,16 @@
   var AD_MS = 5 * 60 * 1000; // реклама может идти долго
   var MIN_WRITE_GAP_MS = 1000; // не чаще одной записи в секунду; лишние склеиваются
 
+  // В песочнице площадки (без allow-same-origin) чтение window.caches бросает SecurityError. Загрузчик Unity 6
+  // читает его перед скачиванием данных игры, падает на ошибке и запускает игру пустой («Could not open
+  // global-metadata.dat»). Свойство, которое бросает ошибку, заменяем на undefined: загрузчик видит,
+  // что кэша нет, и скачивает файлы напрямую, как на Яндекс Играх без кэша.
+  ['caches', 'indexedDB'].forEach(function (name) {
+    try { void global[name]; } catch (e) {
+      try { Object.defineProperty(global, name, { value: undefined, configurable: true }); } catch (e2) { /* оставляем как есть */ }
+    }
+  });
+
   function inFrame() {
     try { return global.parent && global.parent !== global; } catch (e) { return true; }
   }
