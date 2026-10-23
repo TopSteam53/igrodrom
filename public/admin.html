@@ -27,6 +27,7 @@
     <button data-pane="devs">🧑‍💻 Заявки <span class="count" id="cntDevs"></span></button>
     <button data-pane="avatars">🖼️ Аватарки <span class="count" id="cntAvatars"></span></button>
     <button data-pane="payments" class="owner-only">💳 Платежи</button>
+    <button data-pane="tournament" class="owner-only">Турнир недели</button>
     <button data-pane="log">📜 Журнал</button>
     <button data-pane="team" class="owner-only">🛡️ Команда</button>
   </nav>
@@ -89,6 +90,29 @@
       <div class="panel table-panel"><table class="tbl" id="payTable"></table></div>
     </section>
 
+    <section class="pane hidden" id="pane-tournament">
+      <h1 class="adm-title">Турнир недели</h1>
+      <p class="mut">Одна игра и одна её таблица рекордов на неделю, с понедельника 00:00 до воскресенья 23:59 по времени статистики.
+        Лучший результат игрока за неделю идёт в зачёт, призы — <span id="tPrizes"></span> монеток — выдаются сами после конца недели.
+        Если турнир не выбран, на сайте его не видно.</p>
+      <div class="rows" id="tPlan"></div>
+      <form class="panel t-form" id="tForm">
+        <h3>Выбрать игру</h3>
+        <label for="tWhen">Неделя</label>
+        <select id="tWhen"><option value="current">Текущая</option><option value="next">Следующая</option></select>
+        <label for="tGame">Игра</label>
+        <select id="tGame" required></select>
+        <label for="tBoard">Таблица рекордов</label>
+        <input id="tBoard" list="tBoards" value="main" maxlength="40" required>
+        <datalist id="tBoards"></datalist>
+        <p class="mut" id="tBoardHint" style="margin:6px 0 0"></p>
+        <button class="btn primary" style="margin-top:14px">Назначить</button>
+        <div class="err-text" id="tErr"></div>
+      </form>
+      <h2 class="adm-sub">Прошлые недели</h2>
+      <div class="rows" id="tPast"></div>
+    </section>
+
     <section class="pane hidden" id="pane-log">
       <h1 class="adm-title">Журнал решений</h1>
       <p class="mut">Последние 200 действий команды: кто, что и почему.</p>
@@ -144,7 +168,7 @@ async function ask(title, text, placeholder = 'Причина') {
 }
 
 // ---------- разделы ----------
-const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, log: loadLog, team: loadTeam };
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, log: loadLog, team: loadTeam };
 function openPane(name) {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
@@ -227,7 +251,8 @@ $('uFilters').onclick = (e) => {
 $('uPager').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b && !b.disabled) { uState.page = Number(b.dataset.p); loadUsers(); } };
 $('uTable').onclick = (e) => { const tr = e.target.closest('[data-user]'); if (tr) openUser(Number(tr.dataset.user)); };
 
-const KIND = { purchase: '🛒 Покупка', welcome: '🎁 Подарок', daily: '📅 Бонус', grant: '⭐ Выдача', spend: '🎮 Трата', play: '⏱️ За игру' };
+const KIND = { purchase: '🛒 Покупка', welcome: '🎁 Подарок', daily: '📅 Бонус', grant: '⭐ Выдача', spend: '🎮 Трата', play: '⏱️ За игру',
+  achievement: 'Достижение', tournament: 'Турнир', referral: 'Приглашение' };
 async function openUser(id) {
   const d = await api('GET', `/api/admin/users/${id}`);
   const u = d.user;
@@ -421,6 +446,59 @@ $('pTabs').onclick = (e) => {
 };
 $('payTable').onclick = (e) => { const tr = e.target.closest('[data-user]'); if (tr) openUser(Number(tr.dataset.user)); };
 
+// ---------- турнир недели ----------
+let tGames = [];
+const weekLabel = (w) => new Date(`${w}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' });
+const winnersLine = (list) => list.map((w) => `${w.place}. ${esc(w.name)}, ${fmt(w.score)}`).join('; ');
+async function loadTournament() {
+  const d = await api('GET', '/api/admin/tournaments');
+  tGames = d.games;
+  $('tPrizes').textContent = d.prizes.join(', ');
+  const plan = (label, p) => {
+    const t = p.tournament;
+    return `<div class="row"><div class="t"><b>${label}: с ${weekLabel(p.week)}</b>
+      <span class="facts-line">${t ? `<span>${esc(t.game.title)}, таблица ${esc(t.board)}</span><span>участников: ${fmt(t.total)}</span>
+        ${t.top.length ? `<span>сейчас: ${t.top.map((e) => `${e.rank}. ${esc(e.name)}, ${fmt(e.score)}`).join('; ')}</span>` : ''}`
+        : '<span>турнира нет</span>'}</span></div>
+      ${t ? `<div class="acts"><button class="btn bad sm" data-tclear="${p.week}">Отменить</button></div>` : ''}</div>`;
+  };
+  $('tPlan').innerHTML = plan('Текущая неделя', d.current) + plan('Следующая неделя', d.next);
+  const sel = $('tGame').value;
+  $('tGame').innerHTML = d.games.map((g) => `<option value="${g.id}">${esc(g.title)}</option>`).join('');
+  if (sel && d.games.some((g) => g.id === sel)) $('tGame').value = sel;
+  fillBoards();
+  $('tPast').innerHTML = d.past.length ? d.past.map((p) => `<div class="row"><div class="t"><b>Неделя с ${weekLabel(p.week)}: ${esc(p.game_title)}</b>
+    <span class="facts-line"><span>таблица ${esc(p.board)}</span><span>участников: ${fmt(p.total)}</span>
+    <span>${p.winners.length ? winnersLine(p.winners) : 'без участников'}</span></span></div></div>`).join('')
+    : '<p class="mut">Турниров ещё не было.</p>';
+}
+// Таблицы рекордов выбранной игры: подсказка в поле и число игроков в каждой.
+function fillBoards() {
+  const g = tGames.find((x) => x.id === $('tGame').value);
+  const boards = g ? g.boards : [];
+  $('tBoards').innerHTML = boards.map((b) => `<option value="${esc(b.board)}">`).join('');
+  if (boards.length && !boards.some((b) => b.board === $('tBoard').value)) $('tBoard').value = boards[0].board;
+  $('tBoardHint').textContent = boards.length
+    ? `Таблицы игры: ${boards.map((b) => `${b.board} (${fmt(b.players)} ${Igr.plural(b.players, ['игрок', 'игрока', 'игроков'])})`).join(', ')}`
+    : 'У игры ещё нет рекордов: таблица появится, когда игра пришлёт первый результат. Обычно она называется main.';
+}
+$('tGame').onchange = fillBoards;
+$('tForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('tErr').textContent = '';
+  try {
+    await api('POST', '/api/admin/tournaments', { when: $('tWhen').value, game_id: $('tGame').value, board: $('tBoard').value.trim() });
+    toast('Турнир назначен');
+    loadTournament();
+  } catch (err) { $('tErr').textContent = err.message; }
+};
+$('tPlan').onclick = async (e) => {
+  const week = e.target.dataset.tclear;
+  if (!week || !confirm('Отменить турнир этой недели? Результаты турнира пропадут, рекорды в игре останутся.')) return;
+  try { await api('DELETE', `/api/admin/tournaments/${week}`); toast('Турнир отменён'); loadTournament(); }
+  catch (err) { toast(err.message, true); }
+};
+
 // ---------- журнал ----------
 const ACTIONS = {
   // Без глаголов прошедшего времени: пол модератора мы не знаем.
@@ -431,6 +509,7 @@ const ACTIONS = {
   'team.add': 'назначение модератором', 'team.remove': 'снятие с модераторов',
   'review.delete': 'удаление отзыва', 'avatar.approve': 'одобрение аватарки', 'avatar.reject': 'отказ в аватарке', 'avatar.reset': 'сброс аватарки',
   'user.block': 'блокировка', 'user.unblock': 'разблокировка', 'coins.grant': 'начисление монеток', 'coins.take': 'списание монеток',
+  'tournament.set': 'турнир недели', 'tournament.clear': 'отмена турнира недели',
 };
 async function loadLog() {
   const { entries } = await api('GET', '/api/admin/log?limit=200');
@@ -479,7 +558,7 @@ Igr.me().then((user) => {
   document.querySelectorAll('.owner-only').forEach((el) => el.classList.toggle('hidden', !user.isAdmin));
   $('adm').hidden = false;
   const start = location.hash.slice(1);
-  openPane(loaders[start] && (user.isAdmin || !['payments', 'team'].includes(start)) ? start : 'overview');
+  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team'].includes(start)) ? start : 'overview');
   if (start && start !== 'overview') api('GET', '/api/admin/overview').then((o) => {
     $('cntGames').textContent = o.queues.games || ''; $('cntDevs').textContent = o.queues.developers || ''; $('cntAvatars').textContent = o.queues.avatars || '';
   }).catch(() => {});

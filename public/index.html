@@ -34,6 +34,7 @@
         <button class="hero-arrow" id="heroNext" type="button" aria-label="Следующая игра"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg></button>
       </div>
     </section>
+    <section class="sec hidden" id="tourSec" aria-label="Турнир недели"></section>
     <section class="sec hidden" id="recentSec"><div class="sec-head"><h2>Продолжить играть</h2></div><div class="row-scroll" id="recent"></div></section>
     <section class="sec hidden" id="popularSec"><div class="sec-head"><h2>Популярные</h2></div><div class="row-scroll" id="popular"></div></section>
     <section class="sec hidden" id="freshSec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
@@ -177,6 +178,24 @@ function renderRecent() {
   $('recent').innerHTML = list.map(cardHTML).join('');
 }
 
+// ---------- турнир недели: игра, сколько осталось и тройка лучших ----------
+async function loadTournament() {
+  let t;
+  try { ({ tournament: t } = await (await fetch('/api/tournament')).json()); } catch { return; }
+  if (!t || !t.game.slug) return;
+  const g = Igr.fromApi(t.game);
+  const top = t.top.slice(0, 3);
+  $('tourSec').innerHTML = `<div class="tour">
+    <a class="tour-game" href="${Igr.gameUrl(g)}">${Igr.iconHTML(g)}
+      <span><span class="tour-kicker">Турнир недели</span><b class="tour-title">${esc(g.title)}</b>
+      <span class="tour-left">До конца: ${Igr.timeLeft(t.ends_at - Date.now())}. Призы: ${t.prizes.join(', ')} монеток</span></span></a>
+    ${top.length ? `<ol class="lb">${top.map((e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span>
+      <span class="n">${Igr.avatarHTML(e, 24)}<span>${esc(e.name)}</span></span><span class="s">${Igr.fmt(e.score)}</span></li>`).join('')}</ol>`
+      : '<p class="tour-empty">Результатов пока нет — первый рекорд недели может быть вашим.</p>'}
+    <div class="tour-acts"><a class="btn" href="/tournament">Таблица турнира</a></div></div>`;
+  $('tourSec').classList.remove('hidden');
+}
+
 // ---------- плашка входа для гостя ----------
 const BAR_KEY = 'igrodrom-login-bar';
 function initLoginBar() {
@@ -219,6 +238,7 @@ loadCatalog().then(async ({ live, games: list }) => {
   render();
   if (!live) return;
   initLoginBar();
+  loadTournament();
   try {
     recent = (await (await fetch('/api/recent')).json()).games || [];
     if (!state.q && !state.cat) renderRecent();

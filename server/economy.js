@@ -1,9 +1,9 @@
 // Монетки — валюта сайта. Откуда берутся: покупка через ЮKassa, подарок при регистрации,
-// бонус за вход раз в день, выдача владельцем. Куда уходят: покупки в играх через SDK.
+// бонус за вход раз в день (серия дней подряд — в server/rewards.js), награды за достижения, турнир недели
+// и приглашения, выдача владельцем. Куда уходят: покупки в играх через SDK.
 // Каждое движение пишется в журнал coin_ledger, баланс — в users.coins.
 import { randomBytes, randomUUID } from 'node:crypto';
 
-export const DAILY_COINS = 5;
 export const WELCOME_COINS = 50;
 const MAX_GRANT = 100000;
 const ORDER_TTL_MS = 2 * 3600 * 1000;  // неоплаченный заказ живёт 2 часа
@@ -42,7 +42,8 @@ export function migrateLedger(db) {
       id         INTEGER PRIMARY KEY,
       user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       delta      INTEGER NOT NULL,
-      kind       TEXT NOT NULL,      -- purchase | welcome | daily | grant | spend | play (старое начисление за время)
+      kind       TEXT NOT NULL,      -- purchase | welcome | daily | grant | spend | achievement | tournament | referral
+                                     -- | play (старое начисление за время)
       title      TEXT NOT NULL,      -- что увидит игрок в истории
       game_id    TEXT REFERENCES games(id) ON DELETE SET NULL,
       ref        TEXT,               -- id заказа или платежа
@@ -83,7 +84,7 @@ export function migrateLedger(db) {
 
 export function createEconomy({
   db, now, dayOf, send, readJson, HttpError, requireUser, requireOwner, logAction, createLimiter,
-  siteUrl, packs, yookassa, fetchImpl = fetch,
+  siteUrl, packs, yookassa, fetchImpl = fetch, daily,
 }) {
   const orderLimiter = createLimiter({ max: 10, windowMs: 3600 * 1000 });
   const q = {
@@ -94,8 +95,6 @@ export function createEconomy({
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
     history: db.prepare(`SELECT delta, kind, title, game_id, created_at FROM coin_ledger WHERE user_id = ?
                          ORDER BY created_at DESC, id DESC LIMIT ?`),
-    claimDaily: db.prepare('UPDATE users SET daily_bonus_day = ? WHERE id = ? AND (daily_bonus_day IS NULL OR daily_bonus_day <> ?)'),
-    dailyDay: db.prepare('SELECT daily_bonus_day FROM users WHERE id = ?'),
     insertOrder: db.prepare('INSERT INTO coin_orders (id, user_id, coins, amount, status, created_at) VALUES (?, ?, ?, ?, \'new\', ?)'),
     setPayment: db.prepare('UPDATE coin_orders SET status = \'pending\', payment_id = ?, confirmation_url = ? WHERE id = ?'),
     order: db.prepare('SELECT * FROM coin_orders WHERE id = ?'),
@@ -122,37 +121,24 @@ export function createEconomy({
   }
 
   const balance = (userId) => q.coinsOf.get(userId).coins;
-  const dailyAvailable = (userId) => q.dailyDay.get(userId)?.daily_bonus_day !== dayOf(now());
+  const dailyAvailable = (userId) => daily.available(userId);
 
   function welcome(userId) {
     if (WELCOME_COINS > 0) move(userId, WELCOME_COINS, 'welcome', 'Подарок за регистрацию');
   }
 
-  // Бонус за вход: раз в календарный день (по Москве). Повторный запрос в тот же день ничего не даёт.
+  // Бонус за вход: раз в календарный день (по Москве), сумма растёт с серией дней подряд — server/rewards.js.
+  // Повторный запрос в тот же день ничего не даёт. Ответ: claimed, coins, streak и только что полученные achievements.
   function claimDaily(req, res) {
     const user = requireUser(req);
-    const day = dayOf(now());
-    let claimed = 0;
-    db.exec('BEGIN');
-    try {
-      if (q.claimDaily.run(day, user.id, day).changes) {
-        q.add.run(DAILY_COINS, user.id);
-        q.ledger.run(user.id, DAILY_COINS, 'daily', 'Бонус за вход', null, null, null, now());
-        claimed = DAILY_COINS;
-      }
-      db.exec('COMMIT');
-    } catch (err) {
-      db.exec('ROLLBACK');
-      throw err;
-    }
-    send(res, 200, { claimed, coins: balance(user.id) });
+    send(res, 200, { ...daily.claim(user.id), coins: balance(user.id) });
   }
 
   function myCoins(req, res) {
     const user = requireUser(req);
     send(res, 200, {
       coins: balance(user.id),
-      daily: { available: dailyAvailable(user.id), amount: DAILY_COINS },
+      daily: daily.info(user.id),
       history: q.history.all(user.id, 50),
       shop: { enabled: yookassa.enabled, test: yookassa.test, packs },
     });

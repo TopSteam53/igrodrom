@@ -195,8 +195,10 @@ test('монетки: подарок новичку, бонус за вход р
   clock += 120 * 1000;
   assert.deepEqual((await p('POST', `/api/games/${gameId}/coins/tick`)).data, { earned: 0, coins: 50 });
 
-  assert.deepEqual((await p('POST', '/api/me/coins/daily')).data, { claimed: 5, coins: 55 });
-  assert.deepEqual((await p('POST', '/api/me/coins/daily')).data, { claimed: 0, coins: 55 }, 'второй раз за день — ничего');
+  let d = (await p('POST', '/api/me/coins/daily')).data;
+  assert.deepEqual([d.claimed, d.coins, d.streak.streak, d.streak.available], [5, 55, 1, false]);
+  d = (await p('POST', '/api/me/coins/daily')).data;
+  assert.deepEqual([d.claimed, d.coins], [0, 55], 'второй раз за день — ничего');
   assert.equal((await p('GET', '/api/me')).data.user.dailyBonus, false);
 
   let r = await p('POST', `/api/games/${gameId}/coins/spend`, { amount: 25, title: 'Щит' });
@@ -207,16 +209,16 @@ test('монетки: подарок новичку, бонус за вход р
 
   r = await p('GET', '/api/me/coins');
   assert.equal(r.data.coins, 30);
-  assert.deepEqual(r.data.daily, { available: false, amount: 5 });
+  assert.deepEqual([r.data.daily.available, r.data.daily.amount, r.data.daily.tomorrow], [false, 5, 6]);
   assert.deepEqual(r.data.history.map((h) => [h.kind, h.delta]), [['spend', -25], ['daily', 5], ['welcome', 50]]);
   assert.equal(r.data.history[0].game_id, gameId);
   assert.match(r.data.history[0].title, /^Щит — /, 'в истории — что купили и в какой игре');
   assert.equal(r.data.shop.enabled, false, 'без ключей ЮKassa магазин выключен');
   assert.equal((await p('POST', '/api/coins/orders', { pack: 'p1' })).status, 503);
 
-  // Новый день — бонус снова доступен.
+  // Новый день — бонус снова доступен, второй день серии.
   clock += 24 * 3600 * 1000;
-  assert.equal((await p('POST', '/api/me/coins/daily')).data.claimed, 5);
+  assert.equal((await p('POST', '/api/me/coins/daily')).data.claimed, 6);
 });
 
 test('монетки: владелец начисляет и списывает с причиной, остальным нельзя', async () => {

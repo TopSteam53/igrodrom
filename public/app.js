@@ -133,14 +133,44 @@
   }
 
   // Бонус за вход: раз в день забираем сами, при первом заходе на любую страницу.
+  // Сумма растёт с серией дней подряд; страница профиля узнаёт о бонусе по событию igr:daily.
   async function claimDaily() {
     try {
       const r = await fetch('/api/me/coins/daily', { method: 'POST' });
-      const { claimed, coins } = await r.json();
+      const data = await r.json();
       if (!r.ok) return;
-      setCoins(coins);
-      if (claimed) toast(`+${coinsText(claimed)} — бонус за вход. Заходите завтра за новым`);
+      setCoins(data.coins);
+      document.dispatchEvent(new CustomEvent('igr:daily', { detail: data }));
+      if (!data.claimed) return;
+      const n = data.streak?.streak || 1;
+      toast(n > 1 ? `+${coinsText(data.claimed)} за вход, ${n} ${plural(n, ['день', 'дня', 'дней'])} подряд`
+        : `+${coinsText(data.claimed)} — бонус за вход. Завтра будет больше`);
+      // Новые достижения — следующей подсказкой, когда первая скроется.
+      (data.achievements || []).forEach((a, i) => setTimeout(() => toast(`Достижение «${a.title}»: +${coinsText(a.coins)}`), 2700 * (i + 1)));
     } catch {}
+  }
+
+  // Ссылка-приглашение от друга (?invite=<код>): запоминаем на 30 дней, награды сервер выдаст после регистрации
+  // и подтверждения почты. Первая ссылка не перезаписывается. Параметр убираем из адреса, чтобы он не расходился дальше.
+  (function rememberInvite() {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('invite');
+    if (code === null) return;
+    if (/^[A-Za-z0-9_-]{8}$/.test(code) && !/(?:^|;\s*)invite=/.test(document.cookie)) {
+      document.cookie = `invite=${code}; Path=/; Max-Age=${30 * 86400}; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+    }
+    params.delete('invite');
+    history.replaceState(history.state, '', location.pathname + (params.toString() ? `?${params}` : '') + location.hash);
+  })();
+  const invited = () => /(?:^|;\s*)invite=[A-Za-z0-9_-]{8}(?:;|$)/.test(document.cookie);
+
+  // Сколько осталось: «2 дня 5 часов», «3 часа 10 минут», «15 минут».
+  function timeLeft(ms) {
+    const min = Math.max(1, Math.ceil(ms / 6e4));
+    const d = Math.floor(min / 1440), h = Math.floor((min % 1440) / 60), m = min % 60;
+    const w = (n, forms) => (n ? `${n} ${plural(n, forms)}` : '');
+    const H = ['час', 'часа', 'часов'], M = ['минута', 'минуты', 'минут'];
+    return (d ? [w(d, ['день', 'дня', 'дней']), w(h, H)] : h ? [w(h, H), w(m, M)] : [w(m, M)]).filter(Boolean).join(' ');
   }
 
   // Аватарка: картинка или первая буква имени на цветном круге.
@@ -273,6 +303,6 @@
 
   window.Igr = {
     $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, timeLeft, invited,
   };
 })();
