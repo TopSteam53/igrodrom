@@ -67,6 +67,8 @@
       <h2 style="margin-top:0">Страница студии</h2>
       <p class="mut">Так вас видят игроки: на странице игры и на странице со всеми вашими играми.
         Аватарка студии — аватарка вашего профиля.</p>
+      <p class="mut hidden" id="studioNone">У этого аккаунта нет своей студии: страница студии и ссылка-приглашение
+        появляются после одобрения заявки разработчика.</p>
       <form id="studioForm">
         <label for="sStudio">Название студии или имя</label><input id="sStudio" maxlength="60" required>
         <label for="sAbout">О студии</label><textarea id="sAbout" maxlength="1500" placeholder="Какие игры делаете, чем они особенные"></textarea>
@@ -77,9 +79,11 @@
         <div class="form-acts"><button class="btn primary">Сохранить</button><a class="btn" id="studioLink" target="_blank" rel="noopener">Открыть страницу студии</a></div>
       </form>
     </div>
-    <div class="panel narrow-left">
-      <h2 style="margin-top:0">Пригласить автора</h2>
-      <p class="mut">Отправьте ссылку знакомым разработчикам. Если по ней подадут заявку, она засчитается вам.</p>
+    <div class="panel narrow-left hidden" id="refPanel">
+      <h2 style="margin-top:0">Позовите знакомых разработчиков</h2>
+      <p class="mut">Чем больше хороших игр в каталоге, тем больше игроков приходит на сайт — и к вашим играм тоже.
+        Отправьте эту ссылку автору, который делает браузерные игры. Если он подаст заявку по ней, мы будем знать,
+        что его привели вы: ниже видно, сколько заявок пришло и сколько из них одобрено.</p>
       <div class="copy-row"><input id="refLink" readonly aria-label="Ваша ссылка-приглашение"><button class="btn" id="refCopy" type="button">Скопировать</button></div>
       <dl class="facts"><dt>Подали заявку</dt><dd id="refInvited">0</dd><dt>Одобрено</dt><dd id="refApproved">0</dd></dl>
     </div>
@@ -415,7 +419,12 @@ async function reload(id) {
 // ---------- студия ----------
 async function loadStudio() {
   const { application: a } = await api('GET', '/api/developer/application');
-  if (!a) return;
+  // Своя студия — только у разработчика с одобренной заявкой. У владельца сайта её может не быть.
+  if (!a || a.status !== 'approved') {
+    $('studioForm').classList.add('hidden');
+    $('studioNone').classList.remove('hidden');
+    return;
+  }
   $('sStudio').value = a.studio; $('sAbout').value = a.about; $('sSite').value = a.website || '';
   $('sContact').value = a.public_contact || '';
   $('studioLink').href = Igr.devUrl(me.id);
@@ -423,6 +432,7 @@ async function loadStudio() {
   $('refLink').value = ref.link;
   $('refInvited').textContent = fmt(ref.invited);
   $('refApproved').textContent = fmt(ref.approved);
+  $('refPanel').classList.remove('hidden');
 }
 $('refCopy').onclick = async () => {
   try { await navigator.clipboard.writeText($('refLink').value); toast('Ссылка скопирована'); }

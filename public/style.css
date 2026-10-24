@@ -177,7 +177,7 @@ textarea{resize:vertical;min-height:84px}
 .row .edit{flex-basis:100%;border-top:1px solid var(--line);padding-top:8px}
 .badge{font-size:13px;font-weight:600;border-radius:999px;padding:4px 10px;white-space:nowrap}
 .badge.pending{background:#FFF1C7;color:#6B4A00}.badge.approved{background:#DDF5E8;color:#0B6B3F}.badge.rejected{background:#FDE2E4;color:#A3172A}
-.err-text{color:var(--err);font-size:15px;min-height:22px;margin-top:8px}
+.err-text{color:var(--err);font-size:15px;min-height:22px;margin-top:8px}.err-text:empty{min-height:0;margin:0}
 
 /* ---------- статистика ---------- */
 .stats-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
