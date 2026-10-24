@@ -1528,7 +1528,9 @@ export function createApp({
       const user = requireDeveloper(req);
       const days = Number(url.searchParams.get('days') || 30);
       if (!Number.isInteger(days) || days < 1 || days > 365) throw new HttpError(400, 'days: от 1 до 365');
-      return send(res, 200, stats.authorStats(user.id, days));
+      const game = url.searchParams.get('game');
+      if (game && !/^[0-9a-f]{16}$/.test(game)) throw new HttpError(400, 'game: id игры');
+      return send(res, 200, stats.authorStats(user.id, days, game || null));
     }
     if ((mm = p.match(/^\/api\/admin\/games\/([0-9a-f]{16})$/)) && m === 'POST') return moderate(req, res, mm[1]);
     if (p === '/api/admin/games' && m === 'GET') {

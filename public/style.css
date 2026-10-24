@@ -183,7 +183,9 @@ textarea{resize:vertical;min-height:84px}
 .stats-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .stats-head h2{margin-bottom:12px}.stats-head .tabs{margin:36px 0 12px}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
-@media(max-width:640px){.kpis{grid-template-columns:1fr 1fr}.stats-head .tabs{margin:0 0 12px}}
+.stats-head h2{flex:1}.stats-head #statGame{margin:36px 0 12px;max-width:260px}
+.row-stats{margin-top:4px;font-size:14px}.row-stats a{font-weight:600}
+@media(max-width:640px){.kpis{grid-template-columns:1fr 1fr}.stats-head .tabs,.stats-head #statGame{margin:0 0 12px}}
 .kpi{background:var(--panel);border-radius:16px;padding:16px 18px}
 .kpi span{display:block;color:var(--ink-2);font-size:14px}.kpi b{display:block;font:700 28px/1.2 var(--text);font-variant-numeric:tabular-nums;margin-top:4px}
 .chart-panel{margin-bottom:14px}.chart-title{font-weight:600;margin-bottom:8px}

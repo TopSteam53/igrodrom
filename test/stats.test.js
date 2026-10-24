@@ -165,6 +165,35 @@ test('дни, итоги и каталог', async () => {
   assert.equal(catalog.find((g) => g.id === gameA).plays, 4);
 });
 
+test('игроки за период: разные, новые и вернувшиеся; одна игра на выбор', async () => {
+  clock = Date.parse('2026-10-15T10:00:00+03:00');
+  const x = browser();
+  const y = browser();
+  await x('POST', `/api/games/${gameA}/play`);
+  await y('POST', `/api/games/${gameB}/play`);
+  clock = Date.parse('2026-10-16T10:00:00+03:00');
+  await x('POST', `/api/games/${gameA}/play`);
+  await x('POST', `/api/games/${gameA}/play-end`, { json: { seconds: 5 } });
+
+  const two = (await author('GET', '/api/my/stats?days=2')).data;
+  const a = two.games.find((g) => g.id === gameA);
+  assert.deepEqual([a.players, a.fresh, a.returning], [1, 1, 1], 'x — один человек, новый, и вернулся на следующий день');
+  const b = two.games.find((g) => g.id === gameB);
+  assert.deepEqual([b.players, b.fresh, b.returning], [1, 1, 0]);
+  assert.equal(two.totals.players, 2);
+
+  const one = (await author('GET', `/api/my/stats?days=1&game=${gameA}`)).data;
+  assert.equal(one.game, gameA);
+  assert.equal(one.totals.players, 1);
+  assert.equal(one.totals.fresh, 0, 'сегодня x уже не новый');
+  assert.equal(one.totals.plays, 1, 'по дням — только выбранная игра');
+  assert.equal((await author('GET', '/api/my/stats?days=1&game=zzz')).status, 400);
+  // Чужую игру через фильтр не увидеть: по ней просто пусто.
+  const other = browser();
+  await other('POST', '/api/register', { json: { email: 'other-stat@test.ru', password: 'secret123', name: 'Другой' } });
+  assert.equal((await other('GET', `/api/my/stats?days=7&game=${gameA}`)).status, 403);
+});
+
 test('удаление игры удаляет её статистику', async () => {
   await author('DELETE', `/api/games/${gameB}`);
   const s = (await author('GET', '/api/my/stats?days=7')).data;

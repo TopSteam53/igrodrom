@@ -38,14 +38,19 @@
   <section class="cab-pane hidden" id="tab-stats">
     <div class="stats-head">
       <h2>Статистика</h2>
+      <select id="statGame" aria-label="Игра"><option value="">Все игры</option></select>
       <div class="tabs" id="periods" role="tablist" aria-label="Период">
         <span class="tab" data-days="7">7 дней</span><span class="tab on" data-days="30">30 дней</span><span class="tab" data-days="90">90 дней</span>
       </div>
     </div>
     <div class="kpis">
+      <div class="kpi"><span>Игроки</span><b id="kPlayers">—</b><small class="mut" id="kPlayersNote"></small></div>
       <div class="kpi"><span>Запуски</span><b id="kPlays">—</b></div>
-      <div class="kpi"><span>Игроки</span><b id="kUniques">—</b></div>
-      <div class="kpi"><span>Среднее время</span><b id="kAvg">—</b></div>
+      <div class="kpi"><span>Вернулись</span><b id="kBack">—</b><small class="mut">играли в разные дни</small></div>
+      <div class="kpi"><span>Среднее время</span><b id="kAvg">—</b><small class="mut">за один запуск</small></div>
+      <div class="kpi"><span>Всего в игре</span><b id="kTime">—</b></div>
+      <div class="kpi"><span>С сохранением</span><b id="kSaves">—</b><small class="mut">за всё время</small></div>
+      <div class="kpi"><span>Оценки</span><b id="kRating">—</b><small class="mut" id="kRatingNote"></small></div>
       <div class="kpi"><span>Показы рекламы</span><b id="kAds">—</b></div>
     </div>
     <div class="panel chart-panel">
@@ -221,13 +226,15 @@ async function loadMine() {
         <span class="facts-line"><span>${esc(g.genre)}</span><span>${g.version ? `версия ${esc(g.version)}` : files(g.file_count)}</span><span>${date(g.created_at)}</span></span>
         ${g.status === 'rejected' ? `<div class="reject-reason">Причина: ${esc(g.reject_reason || '')}</div>` : ''}
         ${g.next ? `<div class="mut">${g.next.status === 'pending' ? 'Новая версия на проверке' : `Новую версию не приняли: ${esc(g.next.reason || '')}`}</div>` : ''}
-        ${todo(g).length ? `<div class="mut">Заполните: ${todo(g).join(', ')}</div>` : ''}</div>
+        ${todo(g).length ? `<div class="mut">Заполните: ${todo(g).join(', ')}</div>` : ''}
+        ${g.status === 'approved' ? `<div class="mut row-stats" data-stats="${g.id}"></div>` : ''}</div>
       <span class="badge ${g.status}">${STATUS[g.status]}</span>
       <div class="acts"><a class="btn sm" href="/api/games/${g.id}/download?part=build" download title="ZIP-архив сборки, как она хранится на сайте">Скачать сборку</a><button class="btn sm primary" data-open="${g.id}">Карточка</button></div>
     </div>`).join('')
     : '<div class="empty"><p>Пока нет игр.</p><button class="btn primary" onclick="openTab(\'new\')">Добавить первую</button></div>';
   const m = location.hash.match(/^#game=([0-9a-f]{16})$/);
   if (m) openGame(m[1]);
+  rowStats();
 }
 // Чего не хватает карточке до публикации — как подсказки в консоли Яндекса.
 const todo = (g) => [
@@ -235,7 +242,29 @@ const todo = (g) => [
   !g.how_to_play && '«как играть»', g.screenshots.length < 2 && 'скриншоты', !g.controls.length && 'управление',
 ].filter(Boolean);
 
+// Цифры за неделю прямо в строке игры; «Подробнее» — вкладка «Статистика» по этой игре.
+async function rowStats() {
+  const cells = document.querySelectorAll('[data-stats]');
+  if (!cells.length) return;
+  const { games: rows } = await api('GET', '/api/my/stats?days=7').catch(() => ({ games: [] }));
+  for (const el of cells) {
+    const g = rows.find((r) => r.id === el.dataset.stats);
+    if (!g) continue;
+    const people = (n) => `${num(n)} ${Igr.plural(n, ['игрок', 'игрока', 'игроков'])}`;
+    const plays = (n) => `${num(n)} ${Igr.plural(n, ['запуск', 'запуска', 'запусков'])}`;
+    el.innerHTML = g.plays ? `За 7 дней: ${people(g.players)}, ${plays(g.plays)}, в среднем ${avg(g.seconds, g.plays)}. <a href="#" data-stat-game="${g.id}">Подробнее</a>`
+      : 'За 7 дней запусков не было.';
+  }
+}
+
 $('mine').onclick = (e) => {
+  const sg = e.target.closest('[data-stat-game]');
+  if (sg) {
+    e.preventDefault();
+    statGame = sg.dataset.statGame;
+    openTab('stats');
+    return;
+  }
   if (e.target.closest('a')) return; // «Скачать сборку» — ссылка, карточку не открываем
   const el = e.target.closest('[data-open]');
   if (el) openGame(el.dataset.open);
@@ -417,27 +446,54 @@ const dur = (sec) => {
   return s < 60 ? `${s} с` : `${Math.floor(s / 60)} мин ${s % 60} с`;
 };
 const avg = (seconds, plays) => plays ? dur(seconds / plays) : '—';
+// Всего в игре: часы и минуты.
+const hours = (sec) => {
+  if (sec < 60) return `${Math.round(sec)} с`;
+  const m = Math.round(sec / 60);
+  return m < 60 ? `${m} мин` : `${Math.floor(m / 60)} ч ${m % 60} мин`;
+};
+const ratingText = (g) => (g.likes + g.dislikes ? `${Math.round(100 * g.likes / (g.likes + g.dislikes))}%` : '—');
+let statGame = '';
 const dayLabel = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 let statDays = 30, lastStats = null;
 
 async function loadStats() {
-  lastStats = await api('GET', `/api/my/stats?days=${statDays}`);
-  const { totals, games: rows, daily } = lastStats;
+  lastStats = await api('GET', `/api/my/stats?days=${statDays}${statGame ? `&game=${statGame}` : ''}`);
+  const { totals, games: all, daily } = lastStats;
+  // Список игр в выборе — из той же статистики.
+  const sel = $('statGame');
+  if (sel.options.length !== all.length + 1) {
+    sel.innerHTML = '<option value="">Все игры</option>' + all.map((g) => `<option value="${g.id}">${esc(g.title)}</option>`).join('');
+  }
+  sel.value = statGame;
+  const rows = statGame ? all.filter((g) => g.id === statGame) : all;
+  $('kPlayers').textContent = num(totals.players);
+  $('kPlayersNote').textContent = totals.players ? `новых: ${num(totals.fresh)}` : '';
   $('kPlays').textContent = num(totals.plays);
-  $('kUniques').textContent = num(totals.uniques);
+  $('kBack').textContent = num(totals.returning);
   $('kAvg').textContent = avg(totals.seconds, totals.plays);
+  $('kTime').textContent = hours(totals.seconds);
+  $('kSaves').textContent = num(totals.saves);
+  $('kRating').textContent = ratingText(totals);
+  $('kRatingNote').textContent = totals.likes + totals.dislikes ? `${num(totals.likes + totals.dislikes)} оценок, отзывов: ${num(totals.reviews)}` : 'пока нет';
   $('kAds').textContent = num(totals.ads || 0);
-  $('gameTable').innerHTML = `<thead><tr><th>Игра</th><th class="n">Запуски</th><th class="n">Игроки</th>
-    <th class="n">Ср. время</th><th class="n">Реклама</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
+  $('gameTable').innerHTML = `<thead><tr><th>Игра</th><th class="n">Игроки</th><th class="n">Новые</th><th class="n">Вернулись</th>
+    <th class="n">Запуски</th><th class="n">Ср. время</th><th class="n">Сохранения</th><th class="n">Оценки</th><th class="n">Отзывы</th>
+    <th class="n">В рекордах</th><th class="n">Реклама</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
     (rows.length ? rows.map((g) => `<tr><td>${esc(g.title)} <span class="badge ${g.status}">${STATUS[g.status]}</span></td>
-      <td class="n">${num(g.plays)}</td><td class="n">${num(g.uniques)}</td><td class="n">${avg(g.seconds, g.plays)}</td>
+      <td class="n">${num(g.players)}</td><td class="n">${num(g.fresh)}</td><td class="n">${num(g.returning)}</td>
+      <td class="n">${num(g.plays)}</td><td class="n">${avg(g.seconds, g.plays)}</td><td class="n">${num(g.saves)}</td>
+      <td class="n">${ratingText(g)}${g.likes + g.dislikes ? ` <span class="mut">из ${num(g.likes + g.dislikes)}</span>` : ''}</td>
+      <td class="n">${num(g.reviews)}</td><td class="n">${num(g.ranked)}</td>
       <td class="n">${num(g.ads || 0)}</td><td class="n">${num(g.plays_all_time)}</td></tr>`).join('')
-      : '<tr><td colspan="6" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
+      : '<tr><td colspan="12" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
   $('dayTable').innerHTML = `<table class="tbl"><thead><tr><th>День</th><th class="n">Запуски</th><th class="n">Игроки</th><th class="n">Ср. время</th><th class="n">Реклама</th></tr></thead><tbody>` +
     daily.slice().reverse().map((d) => `<tr><td>${dayLabel(d.day)}</td><td class="n">${num(d.plays)}</td>
       <td class="n">${num(d.uniques)}</td><td class="n">${avg(d.seconds, d.plays)}</td><td class="n">${num(d.ads || 0)}</td></tr>`).join('') + '</tbody></table>';
-  $('estimateNote').textContent = 'Игроки — сумма уникальных игроков по дням. Запуск — открытие игры в каталоге; ' +
-    'повторное открытие тем же игроком в течение 30 минут не считается. Реклама — показанные полноэкранные и досмотренные за награду.';
+  $('estimateNote').textContent = 'Игроки — разные игроки за период (по браузеру: один человек на телефоне и компьютере — двое). ' +
+    'Новые — впервые открыли игру в этот период, вернулись — играли хотя бы в двух разных днях. Запуск — открытие игры в каталоге; ' +
+    'повторное открытие тем же игроком в течение 30 минут не считается. Сохранения, оценки, отзывы и рекорды — за всё время. ' +
+    'Реклама — показанные полноэкранные и досмотренные за награду. Подсчёт игроков по дням начался 24 октября 2026 года.';
   drawChart();
 }
 
@@ -497,6 +553,7 @@ function drawChart() {
   box.onpointerleave = () => { tip.style.display = 'none'; };
 }
 addEventListener('resize', () => { clearTimeout(drawChart.t); drawChart.t = setTimeout(drawChart, 150); });
+$('statGame').onchange = (e) => { statGame = e.target.value; loadStats(); };
 $('periods').onclick = (e) => {
   if (!e.target.dataset.days) return;
   statDays = Number(e.target.dataset.days);

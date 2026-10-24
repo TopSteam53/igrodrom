@@ -57,6 +57,18 @@ export function openDb(file) {
       PRIMARY KEY (game_id, day, visitor)
     );
     CREATE INDEX IF NOT EXISTS play_visitors_by_day ON play_visitors(day);
+
+    -- Игроки игры за всё время (тот же хэш cookie посетителя): первый и последний день и в скольких днях играл.
+    -- Отсюда уникальные игроки за период, новые и вернувшиеся.
+    CREATE TABLE IF NOT EXISTS game_players (
+      game_id   TEXT NOT NULL REFERENCES games(id) ON DELETE CASCADE,
+      visitor   TEXT NOT NULL,
+      first_day TEXT NOT NULL,
+      last_day  TEXT NOT NULL,
+      days      INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (game_id, visitor)
+    );
+    CREATE INDEX IF NOT EXISTS game_players_by_last ON game_players(game_id, last_day);
   `);
 
   db.exec(`
