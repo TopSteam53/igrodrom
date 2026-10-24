@@ -61,6 +61,11 @@ button{font:inherit;cursor:pointer;border:0;color:#fff;-webkit-tap-highlight-col
 .btn.gold:active{box-shadow:0 1px 0 #9c5a00}
 .btn.gold small{font-size:12px;font-weight:900;background:rgba(74,36,0,.16);border-radius:6px;padding:2px 6px}
 .btn.alt{background:rgba(255,255,255,.12);box-shadow:0 4px 0 rgba(0,0,0,.35)}
+.btn:disabled{opacity:.55;cursor:default}
+.price{display:inline-flex;align-items:center;gap:.25em}
+.gcoin{width:1.15em;height:1.15em;flex:none}
+#ovM:empty{display:none}
+#ovM{font-size:14px;font-weight:700;color:#ffb4c8}
 #toast{position:fixed;left:50%;top:14px;transform:translate(-50%,-10px);z-index:30;background:rgba(30,6,30,.94);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:700;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(255,170,210,.3);max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #comboChip{position:absolute;z-index:6;padding:4px 10px;border-radius:999px;font-weight:900;font-size:13px;background:linear-gradient(135deg,#ffe37a,#ff9a3d);color:#4a1a00;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
@@ -79,7 +84,7 @@ button{font:inherit;cursor:pointer;border:0;color:#fff;-webkit-tap-highlight-col
 <div id="tray"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
 <div id="fxl"></div>
 <div id="drag"></div>
-<div id="ov"><div class="card"><div id="ovT">Ходов нет</div><div id="ovS"></div><div id="ovR"></div><div class="btns"><button class="btn gold" id="chanceBtn">Второй шанс <small>▶ реклама</small></button><button class="btn" id="againBtn">Новая игра</button></div></div></div>
+<div id="ov"><div class="card"><div id="ovT">Ходов нет</div><div id="ovS"></div><div id="ovR"></div><div class="btns"><button class="btn gold" id="coinChance"></button><button class="btn gold" id="chanceBtn">Второй шанс <small>▶ реклама</small></button><div id="ovM"></div><button class="btn" id="againBtn">Новая игра</button></div></div></div>
 <div id="toast"></div>
 <script src="../../sdk/v1.js"></script>
 <script>
@@ -263,6 +268,9 @@ function showOver(){
   document.getElementById('ovS').textContent='Счёт: '+score;
   document.getElementById('ovR').textContent=score>0&&score>=best?'Новый рекорд!':'Рекорд: '+best;
   chanceBtn.style.display=chance?'none':'';
+  coinChance.style.display=chance||!onGamely()?'none':'';
+  coinChance.innerHTML='Второй шанс <span class="price">'+GCOIN+CHANCE_COST+'</span>';
+  document.getElementById('ovM').textContent='';
   ov.classList.add('show');beep(200,.3,'sawtooth',.06);
 }
 function newGame(){
@@ -278,6 +286,7 @@ function userNewGame(){
   if(wasOver&&sdk){busy=true;sdk.ads.fullscreen().catch(function(){}).then(function(){busy=false;go()})}
   else go();
 }
+// Второй шанс — один за партию: за рекламу или, на площадке, за монетки.
 function secondChance(){
   if(busy||chance||!over)return;
   busy=true;ensureAudio();
@@ -285,22 +294,52 @@ function secondChance(){
   p.catch(function(){return {rewarded:false}}).then(function(r){
     busy=false;
     if(!(r&&r.rewarded===true)){toast('Реклама не досмотрена — второй шанс не получен');return}
-    chance=true;over=false;ov.classList.remove('show');
-    // Выбираем квадрат 3×3, после очистки которого встанет хотя бы одна фигура; среди них — самый заполненный.
-    var bestA=null;
-    for(var r0=0;r0<=N-3;r0++)for(var c0=0;c0<=N-3;c0++){
-      var g=grid.slice(),cnt=0;
-      for(var a=0;a<3;a++)for(var b=0;b<3;b++){var k=(r0+a)*N+c0+b;if(g[k]>=0)cnt++;g[k]=-1}
-      var sc=(anyFits(g,tray)?100:0)+cnt;
-      if(!bestA||sc>bestA.sc)bestA={sc:sc,r:r0,c:c0};
-    }
-    var list=[];for(var a2=0;a2<3;a2++)for(var b2=0;b2<3;b2++){var k2=(bestA.r+a2)*N+bestA.c+b2;if(grid[k2]>=0)list.push(k2)}
-    clearCells(list,bestA.r+1,bestA.c+1);
-    popText('Второй шанс!',bestA.c+1.5,bestA.r+1.5,C*.7);
-    chord(3,1);touched=true;
-    render();renderTray(false);save();
-    checkOver();
+    useChance();
   });
+}
+function coinSecondChance(){
+  if(busy||chance||!over)return;
+  busy=true;ensureAudio();
+  spendCoins(coinChance,CHANCE_COST,'Второй шанс в «Блок-пазле»',null,function(t){document.getElementById('ovM').textContent=t}).then(function(ok){
+    busy=false;
+    if(ok&&!chance&&over)useChance();
+  });
+}
+function useChance(){
+  chance=true;over=false;ov.classList.remove('show');
+  // Выбираем квадрат 3×3, после очистки которого встанет хотя бы одна фигура; среди них — самый заполненный.
+  var bestA=null;
+  for(var r0=0;r0<=N-3;r0++)for(var c0=0;c0<=N-3;c0++){
+    var g=grid.slice(),cnt=0;
+    for(var a=0;a<3;a++)for(var b=0;b<3;b++){var k=(r0+a)*N+c0+b;if(g[k]>=0)cnt++;g[k]=-1}
+    var sc=(anyFits(g,tray)?100:0)+cnt;
+    if(!bestA||sc>bestA.sc)bestA={sc:sc,r:r0,c:c0};
+  }
+  var list=[];for(var a2=0;a2<3;a2++)for(var b2=0;b2<3;b2++){var k2=(bestA.r+a2)*N+bestA.c+b2;if(grid[k2]>=0)list.push(k2)}
+  clearCells(list,bestA.r+1,bestA.c+1);
+  popText('Второй шанс!',bestA.c+1.5,bestA.r+1.5,C*.7);
+  chord(3,1);touched=true;
+  render();renderTray(false);save();
+  checkOver();
+}
+
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает.
+var CHANCE_COST=10,coinChance=document.getElementById('coinChance');
+var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+function spendCoins(btn,amount,title,fallback,say){
+  if(btn.disabled)return Promise.resolve(false);
+  btn.disabled=true;
+  var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;
+    var why=r&&r.reason;
+    if(why==='unavailable'&&fallback)return fallback();
+    if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
+    return false;
+  }):(fallback?fallback():Promise.resolve(false));
+  return p.catch(function(){return false}).then(function(ok){btn.disabled=false;return !!ok});
 }
 
 // ---------- перетаскивание ----------
@@ -438,6 +477,7 @@ muteBtn.addEventListener('click',function(){mute=!mute;drawMute();if(!mute)ensur
 document.getElementById('newBtn').addEventListener('click',function(){userNewGame();this.blur()});
 document.getElementById('againBtn').addEventListener('click',userNewGame);
 chanceBtn.addEventListener('click',secondChance);
+coinChance.addEventListener('click',coinSecondChance);
 
 var tt=null;
 function toast(s){var t=document.getElementById('toast');t.textContent=s;t.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('show')},2300)}

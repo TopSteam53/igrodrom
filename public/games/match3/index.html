@@ -52,6 +52,10 @@ h2{font-size:26px;margin:0 0 6px}
 .goals{display:flex;justify-content:center;gap:16px;margin:10px 0 14px;font-weight:800;font-size:20px}
 .goals .goal{font-size:20px}
 .note{color:#9886c9;font-size:13px;margin:8px 0 0}
+.note.msg{color:#ffb4d0;font-weight:700}
+.note.msg:empty{display:none}
+.price{display:inline-flex;align-items:center;gap:.25em;vertical-align:-.15em}
+.gcoin{width:1.1em;height:1.1em;flex:none}
 #hint{margin-top:6px;font-size:12px;color:#9886c9;height:16px;white-space:nowrap}
 </style>
 </head>
@@ -72,7 +76,8 @@ h2{font-size:26px;margin:0 0 6px}
   <button class="btn" id="playBtn">Играть</button>
   <div class="map" id="map"></div>
   <button class="btn alt" id="classicBtn">Классика: 30 ходов на очки</button>
-  <div class="row"><button class="btn alt" id="muteBtn"></button><button class="btn gold hidden" id="buyHammers">3 молотка за 10 монеток</button></div>
+  <div class="row"><button class="btn alt" id="muteBtn"></button><button class="btn gold hidden" id="buyHammers"></button></div>
+  <p class="note msg" id="mMsg"></p>
   <p class="note">4 в ряд — полоса, угол или «Т» — бомба, 5 в ряд — радужная бомба.</p>
 </div></div>
 
@@ -88,8 +93,9 @@ h2{font-size:26px;margin:0 0 6px}
 <div class="ov hidden" id="out"><div class="card">
   <h2>Ходы закончились</h2>
   <div class="goals" id="oGoals"></div>
-  <button class="btn gold hidden" id="coinMoves">+5 ходов за 10 монеток</button>
+  <button class="btn gold hidden" id="coinMoves"></button>
   <button class="btn alt hidden" id="adMoves">+5 ходов за рекламу</button>
+  <p class="note msg" id="oMsg"></p>
   <button class="btn alt" id="giveUp">Сдаться</button>
 </div></div>
 
@@ -433,8 +439,8 @@ function outOfMoves(){
   if(mode==='classic')return endClassic();
   over=true;state='over';if(sdk)sdk.game.stop();
   $('oGoals').innerHTML=goalsHTML(true);paintGemIcons($('oGoals'));
-  var hosted=sdk&&sdk.environment.host==='gamely';
-  $('coinMoves').classList.toggle('hidden',extraUsed||!hosted);
+  $('coinMoves').classList.toggle('hidden',extraUsed||!onGamely());
+  $('coinMoves').innerHTML='+5 ходов '+priceHTML(MOVES_COST);$('oMsg').textContent='';
   $('adMoves').classList.toggle('hidden',extraUsed||!sdk);
   show('out');
 }
@@ -465,16 +471,37 @@ function renderBoard(r){
   if(sdk.player.anonymous)el.innerHTML+='<p class="note">Войдите на сайте, чтобы попасть в таблицу рекордов.</p>';
 }
 
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+function priceHTML(n){return '<span class="price">'+GCOIN+n+'</span>'}
+function spendCoins(btn,amount,title,fallback,say){
+  if(btn.disabled)return Promise.resolve(false);
+  btn.disabled=true;
+  var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;
+    var why=r&&r.reason;
+    if(why==='unavailable'&&fallback)return fallback();
+    if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
+    return false;
+  }):(fallback?fallback():Promise.resolve(false));
+  return p.catch(function(){return false}).then(function(ok){btn.disabled=false;return !!ok});
+}
+
 // ---------- экраны ----------
 var SCREENS=['menu','intro','out','result'];
 function show(id){SCREENS.forEach(function(s){$(s).classList.toggle('hidden',s!==id)})}
 function hide(){show(null)}
 function openMenu(){
+  $('mMsg').textContent='';
   over=true;state='over';if(sdk)sdk.game.stop();
   var total=save.stars.reduce(function(a,b){return a+(b||0)},0);
   $('mStars').textContent=total;$('mHammers').textContent=save.hammers;
   $('muteBtn').textContent=save.mute?'Включить звук':'Выключить звук';
-  $('buyHammers').classList.toggle('hidden',!(sdk&&sdk.environment.host==='gamely'));
+  $('buyHammers').classList.toggle('hidden',!onGamely());
+  $('buyHammers').innerHTML='3 молотка '+priceHTML(HAMMERS_COST);
   var html='';
   for(var n=1;n<=LEVELS;n++){var st=save.stars[n-1]||0,locked=n>save.open;
     html+='<button class="lv '+(locked?'locked':'')+(n===save.open&&!st?' next':'')+'" data-lv="'+n+'" '+(locked?'disabled':'')+'>'+(locked?'🔒':n)+'<small>'+(locked?'':'★'.repeat(st))+'</small></button>'}
@@ -494,10 +521,12 @@ $('rAgain').onclick=function(){
   if(sdk&&runs%3===0)sdk.ads.fullscreen().catch(function(){}).then(go);else go();
 };
 $('giveUp').onclick=fail;
-$('coinMoves').onclick=function(){var b=this;b.disabled=true;sdk.coins.spend(10,'+5 ходов в «Три в ряд»').then(function(r){if(r.ok)extraMoves()}).finally(function(){b.disabled=false})};
-$('adMoves').onclick=function(){var b=this;b.disabled=true;sdk.ads.rewarded().then(function(r){if(r.rewarded)extraMoves()}).finally(function(){b.disabled=false})};
+// Монетки Gamely: +5 ходов один раз за уровень, молотки — в меню. Трату подтверждает игрок в окне сайта.
+var MOVES_COST=10,HAMMERS_COST=10;
+$('coinMoves').onclick=function(){if(extraUsed||state!=='over')return;spendCoins(this,MOVES_COST,'+5 ходов в «Три в ряд»',null,function(t){$('oMsg').textContent=t}).then(function(ok){if(ok&&!extraUsed)extraMoves()})};
+$('adMoves').onclick=function(){var b=this;b.disabled=true;sdk.ads.rewarded().then(function(r){if(r.rewarded&&!extraUsed)extraMoves()}).finally(function(){b.disabled=false})};
 $('hammerBtn').onclick=function(){if(over||state!=='idle')return;if(save.hammers<=0){texts.push({x:N/2,y:N/2,s:'Молотков нет',k:0,big:true});return}hammerMode=!hammerMode;sel=-1;upd()};
-$('buyHammers').onclick=function(){var b=this;b.disabled=true;sdk.coins.spend(10,'3 молотка в «Три в ряд»').then(function(r){if(r.ok){save.hammers+=3;persist();openMenu()}}).finally(function(){b.disabled=false})};
+$('buyHammers').onclick=function(){spendCoins(this,HAMMERS_COST,'3 молотка в «Три в ряд»',null,function(t){$('mMsg').textContent=t}).then(function(ok){if(ok){save.hammers+=3;persist();openMenu();$('mMsg').textContent='Молотков: '+save.hammers}})};
 
 // ---------- звук ----------
 var ac=null;
@@ -671,7 +700,7 @@ if(window.Gamely)Gamely.init().then(function(s){
     if(mode==='menu')openMenu();
   });
 }).catch(function(){});
-window.__game={get score(){return score},get moves(){return moves},get state(){return state},get over(){return over},begin:begin,levelDef:levelDef,swap:trySwap,findMove:findMove,debug:function(){var mv=[];for(var r=0;r<N;r++)for(var c=0;c<N;c++){var g=grid[r][c];if(!g)mv.push('null@'+r+','+c);else if(g.x!==c||g.y!==r)mv.push(r+','+c+':'+g.x.toFixed(2)+','+g.y.toFixed(2)+(g.lin?'L':''))}return {mv:mv.slice(0,8),fx:fx.length,w:waiters.length}},specials:function(){var n=0;grid.forEach(function(r){r.forEach(function(g){if(g&&g.sp)n++})});return n}};
+window.__game={outOfMoves:function(){outOfMoves()},get hammers(){return save.hammers},get score(){return score},get moves(){return moves},get state(){return state},get over(){return over},begin:begin,levelDef:levelDef,swap:trySwap,findMove:findMove,debug:function(){var mv=[];for(var r=0;r<N;r++)for(var c=0;c<N;c++){var g=grid[r][c];if(!g)mv.push('null@'+r+','+c);else if(g.x!==c||g.y!==r)mv.push(r+','+c+':'+g.x.toFixed(2)+','+g.y.toFixed(2)+(g.lin?'L':''))}return {mv:mv.slice(0,8),fx:fx.length,w:waiters.length}},specials:function(){var n=0;grid.forEach(function(r){r.forEach(function(g){if(g&&g.sp)n++})});return n}};
 })();
 </script>
 </body>

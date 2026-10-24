@@ -43,6 +43,10 @@ h2{font-size:26px;margin:0 0 8px}
 .stars .off{opacity:.2}
 .big{font-size:44px;font-weight:800;margin:4px 0}
 .note{color:#a3abe0;font-size:13px;margin:8px 0 0}
+.note.msg{color:#ffb4c4;font-weight:700}
+.note.msg:empty{display:none}
+.price{display:inline-flex;align-items:center;gap:.25em;vertical-align:-.15em}
+.gcoin{width:1.1em;height:1.1em;flex:none}
 .lb{list-style:none;padding:0;margin:10px 0;text-align:left;font-size:14px}
 .lb li{display:grid;grid-template-columns:28px 1fr auto;gap:8px;padding:5px 8px;border-radius:8px}
 .lb li.me{background:#2a3070;font-weight:700}
@@ -100,8 +104,9 @@ h2{font-size:26px;margin:0 0 8px}
   <div class="big" id="oScore">0</div>
   <p class="sub" id="oSub"></p>
   <div id="oRevive">
-    <button class="btn gold hidden" id="coinRevive">Продолжить за 10 монеток</button>
+    <button class="btn gold hidden" id="coinRevive"></button>
     <button class="btn alt hidden" id="adRevive">Продолжить за рекламу</button>
+    <p class="note msg" id="oMsg"></p>
   </div>
   <button class="btn" id="oNext">Следующий уровень</button>
   <button class="btn" id="oAgain">Ещё раз</button>
@@ -137,6 +142,27 @@ const BONUS = {
 // ---------- сохранение ----------
 let save = { v: 2, best: 0, open: 1, stars: [], apples: 0, skins: ['classic'], skin: 'classic', mute: false };
 let sdk = null;
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+const GCOIN = '<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+const COIN_MSG = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' };
+const onGamely = () => !!(sdk && sdk.environment.host === 'gamely');
+const priceHTML = (n) => `<span class="price">${GCOIN}${n}</span>`;
+async function spendCoins(btn, amount, title, fallback, say) {
+  if (btn.disabled) return false;
+  btn.disabled = true;
+  let ok = false;
+  try {
+    if (onGamely()) {
+      const r = await sdk.coins.spend(amount, title).catch(() => ({ ok: false, reason: 'unavailable' }));
+      if (r && r.ok) ok = true;
+      else if (r?.reason === 'unavailable' && fallback) ok = await fallback();
+      else if (r?.reason !== 'cancelled') say(COIN_MSG[r?.reason] || COIN_MSG.unavailable);
+    } else if (fallback) ok = await fallback();
+  } catch (e) { ok = false; }
+  btn.disabled = false;
+  return !!ok;
+}
 function applySave(d) {
   if (!d || typeof d !== 'object') return;
   if (typeof d.best === 'number' && isFinite(d.best)) save.best = Math.max(save.best, Math.floor(d.best));
@@ -299,12 +325,12 @@ function die() {
   if (navigator.vibrate) navigator.vibrate(120);
   burst(snake[0], '#ffffff', 26);
   persist();
-  const hosted = sdk && sdk.environment.host === 'gamely';
   $('oTitle').textContent = kind === 'level' ? `Уровень ${level} не пройден` : score >= save.best && score > 0 ? 'Новый рекорд!' : 'Конец игры';
   $('oStars').classList.add('hidden');
   $('oScore').textContent = kind === 'level' ? `${eaten} / ${levelGoal(level)}` : score;
   $('oSub').textContent = kind === 'level' ? (eaten >= levelGoal(level) * 0.6 ? 'Почти! Осталось совсем немного.' : 'Попробуйте ещё раз — уровень запоминает звёзды.') : `Рекорд ${save.best}, яблок в копилке ${save.apples}`;
-  $('coinRevive').classList.toggle('hidden', revived || !hosted);
+  $('coinRevive').classList.toggle('hidden', revived || !onGamely());
+  $('oMsg').textContent = '';
   $('adRevive').classList.toggle('hidden', revived || !sdk);
   $('oNext').classList.add('hidden');
   setTimeout(() => show('over'), 450);
@@ -517,15 +543,16 @@ $('oAgain').onclick = async () => {
 };
 $('oNext').onclick = () => start('level', Math.min(LEVELS, level + 1));
 $('oMenu').onclick = openMenu;
-$('coinRevive').textContent = `Продолжить за ${REVIVE_COST} монеток`;
+$('coinRevive').innerHTML = `Продолжить ${priceHTML(REVIVE_COST)}`;
+// Продолжить можно один раз за попытку: за монетки Gamely или за рекламу.
 $('coinRevive').onclick = async () => {
-  $('coinRevive').disabled = true;
-  try { const r = await sdk.coins.spend(REVIVE_COST, 'Продолжить змейку'); if (r.ok) revive(); }
-  finally { $('coinRevive').disabled = false; }
+  if (revived || mode !== 'over') return;
+  const ok = await spendCoins($('coinRevive'), REVIVE_COST, 'Продолжить змейку', null, (t) => { $('oMsg').textContent = t; });
+  if (ok && !revived && mode === 'over') revive();
 };
 $('adRevive').onclick = async () => {
   $('adRevive').disabled = true;
-  try { const r = await sdk.ads.rewarded(); if (r.rewarded) revive(); }
+  try { const r = await sdk.ads.rewarded(); if (r.rewarded && !revived && mode === 'over') revive(); }
   finally { $('adRevive').disabled = false; }
 };
 
@@ -555,6 +582,7 @@ $('ctrlNote').textContent = matchMedia('(pointer:coarse)').matches ? 'Свайп
 resize();
 openMenu();
 requestAnimationFrame(frame);
+window.__game = { start: (k, n) => start(k, n), die: () => die(), get mode() { return mode; }, get revived() { return revived; } };
 if (window.Gamely) Gamely.init().then(async (s) => {
   const d = await s.data.get().catch(() => null);
   applySave(d);

@@ -29,6 +29,8 @@ h1 .y{color:#ffc928}
 .btn.ghost{color:#fff;background:rgba(255,255,255,.1);box-shadow:0 4px 0 rgba(0,0,0,.4)}
 .btn.ghost:active{box-shadow:0 1px 0 rgba(0,0,0,.4)}
 .btn:disabled{opacity:.55;cursor:default}
+.price{display:inline-flex;align-items:center;gap:.25em}
+.gcoin{width:1.1em;height:1.1em;flex:none}
 .btns2{display:flex;gap:10px}.btns2 .btn{flex:1}
 .hint{font-size:12px;color:#8f98b8;margin-top:12px;line-height:1.45}
 .msg:empty{display:none}
@@ -86,6 +88,7 @@ h1 .y{color:#ffc928}
   <div class="big" id="oDist">0 м</div>
   <p class="sub" id="oBest"></p>
   <div class="row"><span class="pill"><span class="coin"></span><span id="oCoins">+0</span></span></div>
+  <button class="btn green hidden" id="coinCont"></button>
   <button class="btn green" id="contBtn"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Продолжить за рекламу</button>
   <div class="msg" id="oMsg"></div>
   <button class="btn" id="againBtn">Ещё раз</button>
@@ -458,6 +461,27 @@ function burstCoin(x, y) {
   floats.push({ x, y: y - 10, t: 0, s: '+1' });
 }
 
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+const GCOIN = '<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+const COIN_MSG = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' };
+const onGamely = () => !!(sdk && sdk.environment.host === 'gamely');
+const priceHTML = (n) => `<span class="price">${GCOIN}${n}</span>`;
+async function spendCoins(btn, amount, title, fallback, say) {
+  if (btn.disabled) return false;
+  btn.disabled = true;
+  let ok = false;
+  try {
+    if (onGamely()) {
+      const r = await sdk.coins.spend(amount, title).catch(() => ({ ok: false, reason: 'unavailable' }));
+      if (r && r.ok) ok = true;
+      else if (r?.reason === 'unavailable' && fallback) ok = await fallback();
+      else if (r?.reason !== 'cancelled') say(COIN_MSG[r?.reason] || COIN_MSG.unavailable);
+    } else if (fallback) ok = await fallback();
+  } catch (e) { ok = false; }
+  btn.disabled = false;
+  return !!ok;
+}
 // ---------- ход игры ----------
 function show(id) {
   for (const o of ['menu', 'garage', 'pause', 'over']) $(o).classList.toggle('hidden', o !== id);
@@ -499,10 +523,13 @@ function finishRun() {
   $('oMsg').textContent = '';
   $('contBtn').classList.toggle('hidden', usedContinue || !sdk);
   $('contBtn').disabled = false;
+  $('coinCont').classList.toggle('hidden', usedContinue || !onGamely());
+  $('coinCont').innerHTML = `Продолжить ${priceHTML(CONT_COST)}`;
+  $('coinCont').disabled = false;
   renderMenu();
   show('over');
 }
-// Продолжение после аварии — один раз за заезд, только за просмотренную рекламу.
+// Продолжение после аварии — один раз за заезд: за рекламу или, на площадке, за монетки Gamely.
 async function continueRun() {
   if (usedContinue || !sdk || adBusy) return;
   adBusy = true; setOverBtns(true);
@@ -510,6 +537,18 @@ async function continueRun() {
   try { const r = await sdk.ads.rewarded(); ok = !!(r && r.rewarded); } catch (e) { ok = false; }
   adBusy = false; setOverBtns(false);
   if (!ok) { $('oMsg').textContent = 'Реклама сейчас недоступна'; return; }
+  resumeRun();
+}
+const CONT_COST = 10;
+async function coinContinue() {
+  if (usedContinue || adBusy || state !== 'over') return;
+  adBusy = true; setOverBtns(true);
+  $('coinCont').disabled = false; // spendCoins сам держит кнопку выключенной, пока ждём ответа
+  const ok = await spendCoins($('coinCont'), CONT_COST, 'Продолжить заезд в «Шоссе»', null, (t) => { $('oMsg').textContent = t; });
+  adBusy = false; setOverBtns(false);
+  if (ok && !usedContinue && state === 'over') resumeRun();
+}
+function resumeRun() {
   usedContinue = true;
   bank -= runCoins; runs--; // монеты заезда зачислятся снова в конце, вместе с новыми
   vehicles = vehicles.filter(v => v.y < -140);
@@ -522,7 +561,7 @@ async function continueRun() {
   if (sdk) sdk.game.start();
   cv.focus({ preventScroll: true });
 }
-function setOverBtns(dis) { for (const id of ['contBtn', 'againBtn', 'oGarage', 'oMenu']) $(id).disabled = dis; }
+function setOverBtns(dis) { for (const id of ['contBtn', 'coinCont', 'againBtn', 'oGarage', 'oMenu']) $(id).disabled = dis; }
 // Полноэкранная реклама — только в паузе между заездами.
 async function breakAd() {
   if (!sdk || adBusy) return;
@@ -644,6 +683,7 @@ $('pauseBtn').onclick = () => { audio(); doPause(); };
 $('resumeBtn').onclick = () => doResume();
 $('pMenuBtn').onclick = () => { if (sdk) sdk.game.stop(); finishQuiet(); toMenu(); };
 $('contBtn').onclick = () => { audio(); continueRun(); };
+$('coinCont').onclick = () => { audio(); coinContinue(); };
 $('againBtn').onclick = async () => { if (adBusy) return; audio(); await breakAd(); startRun(); };
 $('oGarage').onclick = async () => { if (adBusy) return; await breakAd(); toGarage(); };
 $('oMenu').onclick = async () => { if (adBusy) return; await breakAd(); toMenu(); };
@@ -918,7 +958,7 @@ function frame(t) {
 }
 
 // для автоматических проверок
-window.__game = { get state() { return { state, lane: player.lane, x: player.x, dist: Math.floor(dist), speed, runCoins, bank, best, owned: owned.slice(), carId, muted, usedContinue, vehicles: vehicles.length, coins: coins.length, invuln }; } };
+window.__game = { start() { startRun(); }, finish() { finishRun(); }, get state() { return { state, lane: player.lane, x: player.x, dist: Math.floor(dist), speed, runCoins, bank, best, owned: owned.slice(), carId, muted, usedContinue, vehicles: vehicles.length, coins: coins.length, invuln }; } };
 
 makeNoise();
 resize();

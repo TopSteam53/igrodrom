@@ -109,6 +109,8 @@ button{font:inherit;cursor:pointer;border:0;color:inherit;padding:0;background:n
 .btn.ghost:active{box-shadow:0 1px 0 #b3c3ea}
 .btn[disabled]{opacity:.6;pointer-events:none}
 .note{font-size:calc(var(--m)*13px);color:#c45f00;font-weight:700;min-height:1em}
+.price{display:inline-flex;align-items:center;gap:.25em}
+.btn.gold svg.gcoin,.gcoin{width:1.15em;height:1.15em;flex:none}
 .row2{display:flex;gap:10px}.row2 .btn{flex:1}
 .spark{position:fixed;width:10px;height:10px;border-radius:50%;pointer-events:none;z-index:20;animation:spark .6s ease-out forwards}
 @keyframes spark{to{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}
@@ -378,16 +380,37 @@ function timeUp(){
   if(sdk)sdk.game.stop();
   showResults(info);
 }
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+function priceHTML(n){return '<span class="price">'+GCOIN+n+'</span>'}
+function spendCoins(btn,amount,title,fallback,say){
+  if(btn.disabled)return Promise.resolve(false);
+  btn.disabled=true;
+  var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;
+    var why=r&&r.reason;
+    if(why==='unavailable'&&fallback)return fallback();
+    if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
+    return false;
+  }):(fallback?fallback():Promise.resolve(false));
+  return p.catch(function(){return false}).then(function(ok){btn.disabled=false;return !!ok});
+}
+
 var PLAY_SVG='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
 function showResults(info){
   var total=R.correct+R.wrong,acc=total?Math.round(R.correct/total*100):0;
   var html='<h2>Время вышло!</h2><div class="sc">'+R.score+'</div>'+
     (info.rec?'<div class="rec">Новый рекорд!</div>':'<div class="sub">Рекорд в этом режиме: '+(stats.best[modeKey(R.ops,R.diff)]||0)+'</div>')+
     '<div class="grid4"><div><b>'+R.correct+'</b><small>верно</small></div><div><b>'+R.wrong+'</b><small>ошибок</small></div><div><b>'+acc+'%</b><small>точность</small></div><div><b>'+R.maxCombo+'</b><small>серия</small></div></div><div class="col">';
+  if(!R.cont&&onGamely())html+='<button class="btn gold" id="coinCont">Продолжить +15 сек '+priceHTML(CONT_COST)+'</button>';
   if(!R.cont&&sdk)html+='<button class="btn gold" id="contBtn">'+PLAY_SVG+'Продолжить раунд +15 сек</button><div class="note" id="contNote"></div>';
   html+='<div class="row2"><button class="btn ghost" id="menuBtn">Меню</button><button class="btn" id="againBtn" data-enter>Ещё раунд</button></div></div>';
   openOv(html);
   var cb=$('contBtn');if(cb)cb.addEventListener('click',continueRound);
+  var kb=$('coinCont');if(kb)kb.addEventListener('click',coinContinue);
   $('againBtn').addEventListener('click',function(){startRound()});
   $('menuBtn').addEventListener('click',toMenu);
 }
@@ -396,14 +419,27 @@ function continueRound(){
   cb.disabled=true;cb.lastChild.textContent='Загрузка…';
   sdk.ads.rewarded().catch(function(){return {rewarded:false}}).then(function(r){
     if(r&&r.rewarded===true&&R&&!R.cont){
-      R.cont=true;R.over=false;R.left=BONUS;closeOv();
-      if(R.p)setProblem(true);
-      renderHud();save();
-      if(sdk)sdk.game.start();
+      resumeRound();
     }else{
       cb.style.display='none';
       var nt=$('contNote');if(nt)nt.textContent='Реклама сейчас недоступна';
     }
+  });
+}
+function resumeRound(){
+  R.cont=true;R.over=false;R.left=BONUS;closeOv();
+  if(R.p)setProblem(true);
+  renderHud();save();
+  if(sdk)sdk.game.start();
+}
+// +15 секунд за монетки Gamely — тот же один раз за раунд, что и за рекламу.
+var CONT_COST=5;
+function coinContinue(){
+  var kb=$('coinCont');if(!kb||!R||R.cont||!R.over)return;
+  var cb=$('contBtn');if(cb)cb.disabled=true;
+  spendCoins(kb,CONT_COST,'+15 секунд в «Устном счёте»',null,function(t){var nt=$('contNote');if(nt)nt.textContent=t}).then(function(ok){
+    if(cb)cb.disabled=false;
+    if(ok&&R&&!R.cont&&R.over)resumeRound();
   });
 }
 function toMenu(){
@@ -524,7 +560,7 @@ if(window.Gamely)Gamely.init().then(function(s){
   });
 }).catch(function(){});
 try{window.focus()}catch(e){}
-window.__game={get screen(){return screen},get round(){return R?{score:R.score,left:R.left,p:R.p,streak:R.streak,cont:R.cont,over:R.over,paused:R.paused,correct:R.correct,wrong:R.wrong}:null},get stats(){return JSON.parse(JSON.stringify(stats))},get cfg(){return JSON.parse(JSON.stringify(cfg))},setLeft:function(v){if(R)R.left=v}};
+window.__game={timeUp:function(){timeUp()},get screen(){return screen},get round(){return R?{score:R.score,left:R.left,p:R.p,streak:R.streak,cont:R.cont,over:R.over,paused:R.paused,correct:R.correct,wrong:R.wrong}:null},get stats(){return JSON.parse(JSON.stringify(stats))},get cfg(){return JSON.parse(JSON.stringify(cfg))},setLeft:function(v){if(R)R.left=v}};
 })();
 </script>
 </body>
