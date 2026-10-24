@@ -47,6 +47,7 @@
         <button class="btn sm" id="like" aria-pressed="false" title="Нравится">👍 <span id="likes">0</span></button>
         <button class="btn sm" id="dislike" aria-pressed="false" title="Не нравится">👎 <span id="dislikes">0</span></button>
       </span>
+      <button class="btn sm hidden" id="thank" title="Отдать автору свои монетки — он увидит это в статистике">Поблагодарить автора</button>
       <span class="spacer"></span>
       <button class="btn sm" id="share">Поделиться</button>
       <button class="btn sm" id="full">Во весь экран</button>
@@ -165,8 +166,15 @@ function render(all) {
   const similar = [...others.filter((g) => g.genre === game.genre), ...others.filter((g) => g.genre !== game.genre)].slice(0, 10);
   $('similar').innerHTML = similar.map(cardHTML).join('');
   $('votes').classList.toggle('hidden', !live);
-  // Баннер под игрой — только если сеть настроена на сервере.
-  IgrAds.banner($('adBanner')).then((placed) => {
+  // «Поблагодарить автора» — у игр сторонних авторов; свою игру благодарить нельзя.
+  if (live && !game.demo && game.author_id) {
+    Igr.me().then((u) => $('thank').classList.toggle('hidden', !!u && u.id === game.author_id));
+  }
+  // Баннер под игрой — только если сеть настроена на сервере и у игрока нет дня без рекламы.
+  (live ? Igr.me() : Promise.resolve(null)).then((u) => {
+    if (u) IgrAds.setNoAds(u.noAdsUntil);
+    return IgrAds.banner($('adBanner'));
+  }).then((placed) => {
     $('adBanner').classList.toggle('hidden', !placed);
     if (placed) countAd('banner');
   });
@@ -484,6 +492,34 @@ $('like').onclick = () => vote(1);
 $('dislike').onclick = () => vote(-1);
 
 load();
+
+// ---------- благодарность автору ----------
+$('thank').onclick = async () => {
+  const user = await Igr.me();
+  if (!user) {
+    await Igr.dialog({
+      title: 'Поблагодарить автора',
+      html: '<p>Войдите, чтобы отдать автору свои монетки. Новичкам дарим 50 монеток.</p>',
+      buttons: [{ text: 'Не сейчас', value: null }, { text: 'Войти', href: 'login.html?mode=register', cls: 'primary' }],
+    });
+    return;
+  }
+  const amount = await Igr.dialog({
+    title: 'Поблагодарить автора',
+    html: `<p>Сколько монеток отдать автору «${esc(game.title)}»? Он увидит благодарность в статистике игры.
+      У вас ${Igr.coinsText(user.coins)}.</p>`,
+    buttons: [{ text: 'Отмена', value: null }, ...[5, 10, 25].map((n, i) => ({ text: Igr.coinsText(n), value: n, cls: i === 1 ? 'primary' : '' }))],
+  });
+  if (!amount) return;
+  const r = await fetch(`/api/games/${game.id}/thanks`, {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return toast(r.status === 409 ? 'Не хватает монеток' : data.error || 'Не получилось');
+  user.coins = data.coins;
+  Igr.setCoins(data.coins);
+  toast(`Спасибо! Автор получил ${Igr.coinsText(amount)}`);
+};
 </script>
 </body>
 </html>

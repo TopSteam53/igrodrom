@@ -576,6 +576,9 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .ava-card img{width:160px;height:160px;border-radius:50%;object-fit:cover;background:var(--paper)}
 .ava-card .acts{display:flex;gap:8px;margin-top:6px}
 .cover-box{max-width:520px}
+.no-ads{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:16px}
+.no-ads h3{margin:0 0 4px}.no-ads p{margin:0;max-width:52ch}
+.no-ads .btn{display:inline-flex;align-items:center;gap:6px}.no-ads .coin-ico{width:18px;height:18px}
 /* ---------- профиль: вкладки ---------- */
 .acc-tabs{display:flex;gap:4px;margin:24px 0 4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:14px;width:max-content;max-width:100%}
 .acc-tab{border:0;background:none;color:var(--ink-2);font:600 15px var(--text);padding:9px 18px;border-radius:10px;cursor:pointer}

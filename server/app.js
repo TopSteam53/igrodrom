@@ -14,6 +14,7 @@ import { createGameDev, migrateGameMeta, metaView } from './gamedev.js';
 import { createDevRef } from './devref.js';
 import { createAdmin, migrateAdmin } from './admin.js';
 import { createRewards, migrateRewards } from './rewards.js';
+import { createSupport, migrateSupport } from './support.js';
 import { slugify } from './slug.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
@@ -117,6 +118,7 @@ export function createApp({
   migrateGameMeta(db);
   migrateAdmin(db);
   migrateRewards(db);
+  migrateSupport(db);
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
@@ -272,6 +274,7 @@ export function createApp({
     db, now, send, readJson, readBody, HttpError, requireUser, requireDeveloper, requireModerator, isAdmin, isModerator, logAction, gameDir,
     previewSign: (id, exp) => sign(id, exp), CATEGORIES, AGES, unpackBuild, writeBuild, detectArt, avatarUrl,
   });
+  const support = createSupport({ db, now, send, readJson, HttpError, requireUser, economy });
   const devref = createDevRef({ db, secret: previewSecret, secureCookies, cookies, send, requireDeveloper, siteUrl });
   const admin = createAdmin({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, HttpError, requireModerator, isAdmin, isModerator, admins, logAction,
@@ -499,6 +502,7 @@ export function createApp({
     id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
     developer: developerStatus(u), canPublish: canPublish(u),
     emailVerified: !!u.email_verified_at, coins: u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), ...avatars.info(u),
+    noAdsUntil: support.noAdsUntil(u),
   });
 
   function requireDeveloper(req) {
@@ -1459,7 +1463,7 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || admin.route(p, m) || rewards.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);

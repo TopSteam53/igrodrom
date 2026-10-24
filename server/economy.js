@@ -285,5 +285,5 @@ export function createEconomy({
     return null;
   }
 
-  return { route, welcome, spend, balance, dailyAvailable, history: (userId, n = 50) => q.history.all(userId, n) };
+  return { route, welcome, spend, move, balance, dailyAvailable, history: (userId, n = 50) => q.history.all(userId, n) };
 }

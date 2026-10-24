@@ -98,6 +98,10 @@
         <p class="mut shop-note" id="shopNote"></p>
       </div>
     </div>
+    <div class="panel no-ads hidden" id="noAdsBox">
+      <div><h3>День без рекламы</h3><p class="mut" id="noAdsText"></p></div>
+      <button class="btn" id="noAdsBuy" type="button"></button>
+    </div>
     <details class="panel history" id="historyBox">
       <summary><h3>История</h3></summary>
       <div id="history"></div>
@@ -179,6 +183,7 @@ me().then(async (u) => {
   const cfg = await Igr.config();
   $('verify').classList.toggle('hidden', user.emailVerified || !cfg.mail);
   await loadCoins();
+  renderNoAds();
   checkOrder();
   loadRewards();
   const { games } = await (await fetch('/api/me/recent')).json();
@@ -408,6 +413,31 @@ $('logout').onclick = async () => {
   location.href = 'index.html';
 };
 Igr.initHeader();
+
+// ---------- день без рекламы ----------
+const NO_ADS_PRICE = 30;
+async function renderNoAds() {
+  const cfg = await Igr.config();
+  // Пока рекламы на сайте нет, продавать день без неё нечестно — блок не показываем.
+  if (!user || !cfg.ads || cfg.ads.provider === 'none') return;
+  const until = user.noAdsUntil || 0;
+  const when = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  $('noAdsText').textContent = until > Date.now()
+    ? `Без рекламы до ${when(until)}. Можно продлить ещё на сутки. Реклама за награду остаётся — её смотрят по желанию.`
+    : 'Сутки без полноэкранной рекламы и баннеров во всех играх. Реклама за награду остаётся — её смотрят по желанию.';
+  $('noAdsBuy').innerHTML = `${until > Date.now() ? 'Продлить' : 'Купить'} за ${COIN_SVG}${NO_ADS_PRICE}`;
+  $('noAdsBox').classList.remove('hidden');
+}
+$('noAdsBuy').onclick = async () => {
+  const r = await fetch('/api/me/no-ads', { method: 'POST' });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return toast(r.status === 409 ? 'Не хватает монеток' : data.error || 'Не получилось');
+  user.noAdsUntil = data.noAdsUntil;
+  Igr.setCoins(data.coins);
+  loadCoins();
+  renderNoAds();
+  toast('Сутки без рекламы начались');
+};
 </script>
 </body>
 </html>

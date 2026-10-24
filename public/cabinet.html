@@ -479,20 +479,22 @@ async function loadStats() {
   $('kAds').textContent = num(totals.ads || 0);
   $('gameTable').innerHTML = `<thead><tr><th>Игра</th><th class="n">Игроки</th><th class="n">Новые</th><th class="n">Вернулись</th>
     <th class="n">Запуски</th><th class="n">Ср. время</th><th class="n">Сохранения</th><th class="n">Оценки</th><th class="n">Отзывы</th>
-    <th class="n">В рекордах</th><th class="n">Реклама</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
+    <th class="n">В рекордах</th><th class="n">Благодарности</th><th class="n">Реклама</th><th class="n">Всего запусков</th></tr></thead><tbody>` +
     (rows.length ? rows.map((g) => `<tr><td>${esc(g.title)} <span class="badge ${g.status}">${STATUS[g.status]}</span></td>
       <td class="n">${num(g.players)}</td><td class="n">${num(g.fresh)}</td><td class="n">${num(g.returning)}</td>
       <td class="n">${num(g.plays)}</td><td class="n">${avg(g.seconds, g.plays)}</td><td class="n">${num(g.saves)}</td>
       <td class="n">${ratingText(g)}${g.likes + g.dislikes ? ` <span class="mut">из ${num(g.likes + g.dislikes)}</span>` : ''}</td>
       <td class="n">${num(g.reviews)}</td><td class="n">${num(g.ranked)}</td>
+      <td class="n">${num(g.thanks)}${g.thanks ? ` <span class="mut">на ${num(g.thanks_coins)}</span>` : ''}</td>
       <td class="n">${num(g.ads || 0)}</td><td class="n">${num(g.plays_all_time)}</td></tr>`).join('')
-      : '<tr><td colspan="12" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
+      : '<tr><td colspan="13" class="mut">Загрузите игру — здесь появится её статистика.</td></tr>') + '</tbody>';
   $('dayTable').innerHTML = `<table class="tbl"><thead><tr><th>День</th><th class="n">Запуски</th><th class="n">Игроки</th><th class="n">Ср. время</th><th class="n">Реклама</th></tr></thead><tbody>` +
     daily.slice().reverse().map((d) => `<tr><td>${dayLabel(d.day)}</td><td class="n">${num(d.plays)}</td>
       <td class="n">${num(d.uniques)}</td><td class="n">${avg(d.seconds, d.plays)}</td><td class="n">${num(d.ads || 0)}</td></tr>`).join('') + '</tbody></table>';
   $('estimateNote').textContent = 'Игроки — разные игроки за период (по браузеру: один человек на телефоне и компьютере — двое). ' +
     'Новые — впервые открыли игру в этот период, вернулись — играли хотя бы в двух разных днях. Запуск — открытие игры в каталоге; ' +
     'повторное открытие тем же игроком в течение 30 минут не считается. Сохранения, оценки, отзывы и рекорды — за всё время. ' +
+    'Благодарности — игроки отдали за игру свои монетки (знак внимания, в рубли не переводятся). ' +
     'Реклама — показанные полноэкранные и досмотренные за награду. Подсчёт игроков по дням начался 24 октября 2026 года.';
   drawChart();
 }

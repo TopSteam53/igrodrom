@@ -46,7 +46,9 @@ export function createStats({ db, now = Date.now, tz = 'Europe/Moscow' }) {
         (SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = 1) AS likes,
         (SELECT COUNT(*) FROM game_votes v WHERE v.game_id = g.id AND v.value = -1) AS dislikes,
         (SELECT COUNT(*) FROM game_reviews r WHERE r.game_id = g.id) AS reviews,
-        (SELECT COUNT(DISTINCT l.user_id) FROM leaderboard_scores l WHERE l.game_id = g.id) AS ranked
+        (SELECT COUNT(DISTINCT l.user_id) FROM leaderboard_scores l WHERE l.game_id = g.id) AS ranked,
+        (SELECT COUNT(*) FROM game_thanks t WHERE t.game_id = g.id) AS thanks,
+        (SELECT COALESCE(SUM(t.amount), 0) FROM game_thanks t WHERE t.game_id = g.id) AS thanks_coins
       FROM games g WHERE g.author_id = ?`),
     gameDaily: db.prepare(`SELECT d.day, d.plays, d.uniques, d.seconds FROM play_daily d JOIN games g ON g.id = d.game_id
                            WHERE g.author_id = ? AND d.game_id = ? AND d.day BETWEEN ? AND ?`),
@@ -184,13 +186,14 @@ export function createStats({ db, now = Date.now, tz = 'Europe/Moscow' }) {
           ...g, ads: adsByGame.get(g.id) ?? 0,
           players: p?.players ?? 0, fresh: p?.fresh ?? 0, returning: p?.came_back ?? 0,
           saves: e.saves ?? 0, likes: e.likes ?? 0, dislikes: e.dislikes ?? 0, reviews: e.reviews ?? 0, ranked: e.ranked ?? 0,
+          thanks: e.thanks ?? 0, thanks_coins: e.thanks_coins ?? 0,
         };
       });
       const totals = daily.reduce((s, d) => ({
         plays: s.plays + d.plays, uniques: s.uniques + d.uniques, seconds: s.seconds + d.seconds, ads: s.ads + d.ads,
       }), { plays: 0, uniques: 0, seconds: 0, ads: 0 });
       // Уникальные, новые и вернувшиеся — по выбранной игре или сумма по играм (один человек в двух играх — двое).
-      for (const k of ['players', 'fresh', 'returning', 'saves', 'likes', 'dislikes', 'reviews', 'ranked']) {
+      for (const k of ['players', 'fresh', 'returning', 'saves', 'likes', 'dislikes', 'reviews', 'ranked', 'thanks', 'thanks_coins']) {
         totals[k] = games.filter((g) => !gameId || g.id === gameId).reduce((n, g) => n + g[k], 0);
       }
       return {

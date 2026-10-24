@@ -178,8 +178,13 @@
     yandex, vk, google,
   };
 
+  let noAdsUntil = 0;
+
   window.IgrAds = {
     ready,
+    /** Игрок купил день без рекламы: до этого времени (мс) — без полноэкранной и баннеров. */
+    setNoAds(until) { noAdsUntil = Number(until) || 0; },
+    get noAds() { return Date.now() < noAdsUntil; },
     get config() { return config; },
     /** Игрок нажал «Играть»: отсюда считаются первые секунды без рекламы. */
     start() { startedAt = Date.now(); },
@@ -192,7 +197,7 @@
       await ready;
       const p = PROVIDERS[config.provider];
       const now = Date.now();
-      if (!p || !p.fullscreen || busy) return { shown: false };
+      if (!p || !p.fullscreen || busy || Date.now() < noAdsUntil) return { shown: false };
       if (now - startedAt < config.firstDelay * 1000) return { shown: false };
       if (lastFullscreen && now - lastFullscreen < config.fullscreenInterval * 1000) return { shown: false };
       busy = true;
@@ -234,6 +239,7 @@
     async banner(el) {
       await ready;
       const p = PROVIDERS[config.banner];
+      if (Date.now() < noAdsUntil) return false;
       return !!(p && p.banner && p.banner(el));
     },
   };
