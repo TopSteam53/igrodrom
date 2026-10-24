@@ -25,11 +25,13 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
 .b.teal{background:#2fd3b4;box-shadow:0 4px 0 #13806b}
 .b:disabled{opacity:.45;cursor:default;transform:none}
 .b:focus-visible{outline:3px solid #8fb4ff;outline-offset:3px}
-.row2{display:flex;gap:10px}.row2 .b{flex:1}
+.row2{display:flex;flex-wrap:wrap;gap:10px}.row2 .b{flex:1 1 140px}
 .cr{display:inline-flex;align-items:center;gap:5px;font-weight:800;font-variant-numeric:tabular-nums}
 .cr img{width:18px;height:18px}
 .coin{width:18px;height:18px;flex:none}
 .note{color:#aab3e0;font-size:13px;margin:12px 0 0;line-height:1.4}
+.note.msg{color:#ffb4c4;font-weight:700}
+.note.msg:empty{display:none}
 .up{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;text-align:left;background:rgba(255,255,255,.05);border-radius:12px;padding:10px 12px;margin-bottom:8px}
 .up b{font-size:15px}.up small{color:#9aa3d6;font-size:12px;grid-column:1}
 .pips{display:flex;gap:4px;grid-column:1}.pips i{width:16px;height:6px;border-radius:3px;background:rgba(255,255,255,.15)}.pips i.on{background:#2fd3b4}
@@ -88,6 +90,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:
       <button class="b teal" id="coinRevive" type="button"></button>
       <button class="b teal" id="adRevive" type="button">За рекламу</button>
     </div>
+    <p class="note msg" id="oMsg"></p>
   </div>
   <div class="btns" style="margin-top:10px">
     <button class="b" id="againBtn" type="button">Ещё раз</button>
@@ -785,6 +788,7 @@ async function gameOver() {
   const hosted = sdk && sdk.environment.host === 'gamely';
   $('revive').classList.toggle('hidden', revived || !sdk);
   $('coinRevive').classList.toggle('hidden', !hosted);
+  $('oMsg').textContent = '';
   $('coinRevive').innerHTML = `Продолжить ${COIN_SVG} ${REVIVE_COST}`;
   show('over');
   runCrystals = 0; // кристаллы уже в копилке; при продолжении считаем заново
@@ -820,17 +824,21 @@ function revive() {
 }
 
 $('coinRevive').onclick = async () => {
-  $('coinRevive').disabled = true;
-  try {
-    const r = await sdk.coins.spend(REVIVE_COST, 'Продолжить полёт');
-    if (r.ok) revive();
-  } finally { $('coinRevive').disabled = false; }
+  if (revived || state !== 'over') return;
+  const b = $('coinRevive');
+  if (b.disabled) return;
+  b.disabled = true;
+  const r = await sdk.coins.spend(REVIVE_COST, 'Продолжить полёт').catch(() => ({ ok: false, reason: 'unavailable' }));
+  b.disabled = false;
+  if (r && r.ok) { if (!revived && state === 'over') revive(); return; }
+  const msg = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' }[r && r.reason];
+  if (msg) $('oMsg').textContent = msg;
 };
 $('adRevive').onclick = async () => {
   $('adRevive').disabled = true;
   try {
     const r = await sdk.ads.rewarded();
-    if (r.rewarded) revive();
+    if (r.rewarded && !revived && state === 'over') revive();
   } finally { $('adRevive').disabled = false; }
 };
 $('againBtn').onclick = async () => {
@@ -868,6 +876,7 @@ Promise.all([loadImages(), sdkReady]).then(() => {
   openMenu();
   sdk?.game.ready();
 });
+window.__game = { start: () => startRun(), over: () => gameOver(), get state() { return state; }, get revived() { return revived; }, get hp() { return player.hp; } };
 })();
 </script>
 </body>

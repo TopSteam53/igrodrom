@@ -144,6 +144,8 @@
       // Окно подтверждения — на странице площадки, вне песочницы: игра не может нажать «Потратить» сама.
       const yes = await coins.confirm({ amount, title, balance });
       if (balance == null) return { ok: false, reason: 'guest' };
+      // Окно площадки уже сказало «Не хватает монеток» — игре сообщаем причину, а не отказ игрока.
+      if (balance < amount) return { ok: false, reason: 'not_enough' };
       if (!yes) return { ok: false, reason: 'cancelled' };
       try {
         return { ok: true, balance: await coins.spend(amount, title) };

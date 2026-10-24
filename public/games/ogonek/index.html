@@ -73,6 +73,10 @@ h2{font-size:26px;margin:0 0 8px}
 .kit canvas{width:30px;height:30px}
 .kit b{font-size:14px}.kit small{display:block;color:#8f8299;font-size:12px}
 .note{color:#8f8299;font-size:13px;margin:10px 0 0;line-height:1.4}
+.note.msg{color:#ffb39a;font-weight:700}
+.note.msg:empty{display:none}
+.price{display:inline-flex;align-items:center;gap:.25em;vertical-align:-.15em}
+.gcoin{width:1.1em;height:1.1em;flex:none}
 .lb{list-style:none;padding:0;margin:8px 0;text-align:left;font-size:14px}
 .lb li{display:grid;grid-template-columns:28px 1fr auto;gap:8px;padding:5px 8px;border-radius:8px}
 .lb li.me{background:#2a2238;font-weight:700}
@@ -102,6 +106,8 @@ h2{font-size:26px;margin:0 0 8px}
   <p class="sub">Ночь в лесу, тени идут волнами. Огонёк сражается сам — уводите его от толпы, делайте рывки, зажигайте фонари, ловите светлячков и дотяните до рассвета.</p>
   <div class="heroes" id="heroes"></div>
   <p class="note" id="heroText"></p>
+  <button class="btn hidden" id="heroBuy"></button>
+  <p class="note msg" id="heroMsg"></p>
   <button class="btn" id="playBtn">Зажечься</button>
   <button class="btn alt" id="shopBtn">Улучшения</button>
   <button class="btn alt" id="muteBtn"></button>
@@ -146,8 +152,9 @@ h2{font-size:26px;margin:0 0 8px}
 <div class="scr hidden" id="over"><div class="card">
   <h2 id="oTitle">Огонёк погас</h2>
   <div class="stats" id="oStats"></div>
-  <button class="btn hidden" id="coinRevive">Разгореться снова за 10 монеток</button>
+  <button class="btn hidden" id="coinRevive"></button>
   <button class="btn alt hidden" id="adRevive">Разгореться снова за рекламу</button>
+  <p class="note msg" id="oMsg"></p>
   <button class="btn" id="againBtn">Ещё ночь</button>
   <button class="btn alt" id="menuBtn">В меню</button>
   <div id="board"></div>
@@ -263,6 +270,27 @@ const MAXE = coarse ? 130 : 200, MAXG = 80, MAXFX = coarse ? 220 : 380;
 // ---------- сохранение ----------
 let save = { v: 1, embers: 0, meta: {}, best: 0, bestKills: 0, bestWave: 0, mute: false, hero: 'ogonek', heroes: ['ogonek'], dawns: 0 };
 let sdk = null;
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+const GCOIN = '<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+const COIN_MSG = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' };
+const onGamely = () => !!(sdk && sdk.environment.host === 'gamely');
+const priceHTML = (n) => `<span class="price">${GCOIN}${n}</span>`;
+async function spendCoins(btn, amount, title, fallback, say) {
+  if (btn.disabled) return false;
+  btn.disabled = true;
+  let ok = false;
+  try {
+    if (onGamely()) {
+      const r = await sdk.coins.spend(amount, title).catch(() => ({ ok: false, reason: 'unavailable' }));
+      if (r && r.ok) ok = true;
+      else if (r?.reason === 'unavailable' && fallback) ok = await fallback();
+      else if (r?.reason !== 'cancelled') say(COIN_MSG[r?.reason] || COIN_MSG.unavailable);
+    } else if (fallback) ok = await fallback();
+  } catch (e) { ok = false; }
+  btn.disabled = false;
+  return !!ok;
+}
 const persist = () => { if (sdk) sdk.data.set(save).catch(() => {}); };
 function applySave(d) {
   if (!d || typeof d !== 'object' || d.v !== 1) return;
@@ -889,8 +917,9 @@ function die() {
   persist();
   $('oTitle').textContent = dawned ? 'Ночь пережита' : rec && sec > 30 ? 'Новый рекорд!' : 'Огонёк погас';
   $('oStats').innerHTML = statsHTML();
-  const hosted = sdk && sdk.environment.host === 'gamely';
-  $('coinRevive').classList.toggle('hidden', revived || !hosted);
+  $('coinRevive').classList.toggle('hidden', revived || !onGamely());
+  $('coinRevive').innerHTML = `Разгореться снова ${priceHTML(REVIVE_COST)}`;
+  $('oMsg').textContent = '';
   $('adRevive').classList.toggle('hidden', revived || !sdk);
   for (const id of ['inv', 'dashBtn', 'evt']) $(id).classList.add('hidden');
   renderBoard(null); show('over');
@@ -1289,12 +1318,28 @@ function renderHeroes() {
   $('heroes').querySelectorAll('[data-hero]').forEach((b) => { const c = b.querySelector('canvas').getContext('2d'); c.clearRect(0, 0, 96, 112); drawFlame(c, 48, 104, 2, HEROES[b.dataset.hero].pal, 0.3, 0); });
   const h = H_();
   $('heroText').textContent = `${h.name}: ${h.text}`;
+  heroOffer(null);
 }
+// Закрытого героя можно открыть сразу за монетки Gamely, не копя угольки.
+const HERO_COINS = { zarnitsa: 15, bolotny: 25 }, HERO_ACC = { zarnitsa: 'Зарницу', bolotny: 'Болотного' };
+let heroAsk = null;
+function heroOffer(id) {
+  heroAsk = id && onGamely() && HERO_COINS[id] && !save.heroes.includes(id) ? id : null;
+  $('heroBuy').classList.toggle('hidden', !heroAsk);
+  if (heroAsk) $('heroBuy').innerHTML = `Открыть ${HERO_ACC[heroAsk]} сразу ${priceHTML(HERO_COINS[heroAsk])}`;
+  $('heroMsg').textContent = '';
+}
+$('heroBuy').onclick = async () => {
+  const id = heroAsk; if (!id || save.heroes.includes(id)) return;
+  const ok = await spendCoins($('heroBuy'), HERO_COINS[id], `Герой «${HEROES[id].name}» в «Огоньке»`, null, (t) => { $('heroMsg').textContent = t; });
+  if (!ok || save.heroes.includes(id)) return;
+  save.heroes.push(id); save.hero = id; tone(880, 0.12); tone(1320, 0.2); persist(); openMenu();
+};
 $('heroes').onclick = (e) => {
   const b = e.target.closest('[data-hero]'); if (!b) return;
   const id = b.dataset.hero, h = HEROES[id];
   if (!save.heroes.includes(id)) {
-    if (save.embers < h.cost) { $('heroText').textContent = `${h.name}: ${h.text} Откроется за ${h.cost} угольков, сейчас ${save.embers}.`; return; }
+    if (save.embers < h.cost) { $('heroText').textContent = `${h.name}: ${h.text} Откроется за ${h.cost} угольков, сейчас ${save.embers}.`; heroOffer(id); return; }
     save.embers -= h.cost; save.heroes.push(id); tone(880, 0.12); tone(1320, 0.2);
   }
   save.hero = id; persist(); openMenu();
@@ -1327,8 +1372,14 @@ $('resumeBtn').onclick = () => togglePause(false);
 $('quitBtn').onclick = () => { state = 'play'; die(); };
 $('againBtn').onclick = async () => { if (sdk && runs % 2 === 0) await sdk.ads.fullscreen().catch(() => {}); newRun(); };
 $('menuBtn').onclick = openMenu;
-$('coinRevive').onclick = async () => { $('coinRevive').disabled = true; try { const r = await sdk.coins.spend(10, 'Разгореться снова в «Огоньке»'); if (r.ok) revive(); } finally { $('coinRevive').disabled = false; } };
-$('adRevive').onclick = async () => { $('adRevive').disabled = true; try { const r = await sdk.ads.rewarded(); if (r.rewarded) revive(); } finally { $('adRevive').disabled = false; } };
+// Разгореться снова — один раз за ночь: за монетки Gamely или за рекламу.
+const REVIVE_COST = 10;
+$('coinRevive').onclick = async () => {
+  if (revived || state !== 'over') return;
+  const ok = await spendCoins($('coinRevive'), REVIVE_COST, 'Разгореться снова в «Огоньке»', null, (t) => { $('oMsg').textContent = t; });
+  if (ok && !revived && state === 'over') revive();
+};
+$('adRevive').onclick = async () => { $('adRevive').disabled = true; try { const r = await sdk.ads.rewarded(); if (r.rewarded && !revived && state === 'over') revive(); } finally { $('adRevive').disabled = false; } };
 $('dashBtn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); audio(); dash(); });
 
 addEventListener('keydown', (e) => {
@@ -1360,6 +1411,7 @@ if (window.Gamely) Gamely.init().then(async (s) => {
 window.__game = {
   get state() { return state; }, get time() { return time; }, get kills() { return kills; }, get lvl() { return lvl; }, get enemies() { return enemies.length; }, get gems() { return gems.length; }, get hero() { return hero; }, get weapons() { return weapons; }, get evolved() { return evolved; },
   get ready() { return assetsReady; }, get wave() { return wave; }, get phase() { return phase; }, get evType() { return ev && ev.type; }, get ev() { return ev; }, skipWave() { waveT = WAVE_LEN; }, get boss() { return boss && boss.kind; }, get lit() { return lit.size; },
+  die() { die(); }, get revived() { return revived; }, get heroes() { return save.heroes.slice(); }, get heroSel() { return save.hero; },
   newRun, give(k) { if (WEAPONS[k]) weapons[k] = (weapons[k] || 0) + 1; else passives[k] = (passives[k] || 0) + 1; renderInv(); }, setTime(t) { time = t; }, xp(n) { gainXp(n); },
   chest() { pendingChest = true; }, setZoom(z) { zoom = z; }, dash, gem(n) { for (let i = 0; i < n; i++) addGem(hero.x + (Math.random() - 0.5) * 900, hero.y + (Math.random() - 0.5) * 900, 1); },
   setWave(n) { for (const e of enemies) e.dead = true; enemies = []; boss = null; $('boss').classList.add('hidden'); wave = n - 1; startWave(); },

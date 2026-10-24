@@ -58,6 +58,8 @@ button{font:inherit;cursor:pointer;border:0;color:inherit;padding:0;background:n
 .row-shake{animation:shake .45s}
 @keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
 #toast{position:fixed;left:50%;top:calc(var(--hh) + var(--pad)*3 + var(--tile)*.3);z-index:30;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;width:max-content;max-width:90vw}
+.price{display:inline-flex;align-items:center;gap:.25em;vertical-align:-.2em}
+.gcoin{width:1.15em;height:1.15em;flex:none}
 .msg{background:#f4fffb;color:#0b2a26;font-weight:800;font-size:15px;padding:10px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:tin .2s ease-out;text-align:center}
 .msg.out{opacity:0;transition:opacity .3s}
 @keyframes tin{from{transform:translateY(-8px);opacity:0}}
@@ -350,8 +352,8 @@ setInterval(function(){
   var nx=document.getElementById('nextT');if(nx)nx.textContent=untilMidnight();
 },1000);
 
-function toast(text,ms){
-  var m=document.createElement('div');m.className='msg';m.textContent=text;
+function toast(text,ms,html){
+  var m=document.createElement('div');m.className='msg';if(html)m.innerHTML=text;else m.textContent=text;
   while(toastEl.children.length>2)toastEl.firstChild.remove();
   toastEl.appendChild(m);
   setTimeout(function(){m.classList.add('out');setTimeout(function(){m.remove()},300)},ms||1400);
@@ -470,6 +472,25 @@ document.getElementById('lenBtn').addEventListener('click',function(){
 });
 
 // Подсказка: открывает букву на её месте. Первая в слове бесплатно, дальше — за монетки площадки или рекламу.
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+function priceHTML(n){return '<span class="price">'+GCOIN+n+'</span>'}
+function spendCoins(btn,amount,title,fallback,say){
+  if(btn.disabled)return Promise.resolve(false);
+  btn.disabled=true;
+  var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;
+    var why=r&&r.reason;
+    if(why==='unavailable'&&fallback)return fallback();
+    if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
+    return false;
+  }):(fallback?fallback():Promise.resolve(false));
+  return p.catch(function(){return false}).then(function(ok){btn.disabled=false;return !!ok});
+}
+
 var HINT_COST=3,hintBusy=false;
 function giveHint(){
   var g=game(),known={};
@@ -489,12 +510,12 @@ document.getElementById('hintBtn').addEventListener('click',function(){
   if(!g.clue){g.clue=true;renderSeg();save();return}
   if(!g.hints||!g.hints.length){giveHint();return}
   if(!sdk){toast('Бесплатные подсказки закончились');return}
-  if(g.hints.length===1&&!g.paidAsked){g.paidAsked=true;toast('Следующая буква — за '+HINT_COST+' монетки. Нажмите ещё раз',2400);return}
+  // Перед первой платной буквой предупреждаем о цене; окно подтверждения потом покажет сайт.
+  if(g.hints.length===1&&!g.paidAsked){g.paidAsked=true;save();if(onGamely())toast('Следующая буква — за '+priceHTML(HINT_COST)+'. Нажмите ещё раз',2400,true);else toast('Следующая буква — за рекламу. Нажмите ещё раз',2400);return}
   hintBusy=true;
-  var hosted=sdk.environment.host==='gamely';
-  var p=hosted?sdk.coins.spend(HINT_COST,'Подсказка в «Слове дня»').then(function(r){if(r.ok)return true;if(r.reason==='cancelled')return false;return sdk.ads.rewarded().then(function(a){return a.rewarded})})
-    :sdk.ads.rewarded().then(function(a){return a.rewarded});
-  p.then(function(ok){if(ok)giveHint()},function(){}).then(function(){hintBusy=false});
+  var byAd=function(){return sdk.ads.rewarded().then(function(a){return a.rewarded},function(){return false})};
+  spendCoins(document.getElementById('hintBtn'),HINT_COST,'Подсказка в «Слове дня»',byAd,function(t){toast(t,2200)})
+    .then(function(ok){if(ok&&!game().done)giveHint()}).then(function(){hintBusy=false});
 });
 document.getElementById('top').addEventListener('mousedown',function(e){e.preventDefault()});
 
@@ -603,7 +624,7 @@ if(window.Gamely){
   }).catch(function(){ready(null,false)});
 }else ready(null,false);
 try{window.focus()}catch(e){}
-window.__game={get answer(){return game().answer},get mode(){return st.mode},get guesses(){return game().guesses.slice()},get stats(){return JSON.parse(JSON.stringify(st.stats))},get cur(){return cur},get flags(){return {busy:busy,paused:paused,adBusy:adBusy,modal:modal.classList.contains('show'),done:game().done}},allowed:function(w){return ALLOWED.has(w)}};
+window.__game={get hints(){return (game().hints||[]).length},get clue(){return !!game().clue},get answer(){return game().answer},get mode(){return st.mode},get guesses(){return game().guesses.slice()},get stats(){return JSON.parse(JSON.stringify(st.stats))},get cur(){return cur},get flags(){return {busy:busy,paused:paused,adBusy:adBusy,modal:modal.classList.contains('show'),done:game().done}},allowed:function(w){return ALLOWED.has(w)}};
 })();
 </script>
 </body>

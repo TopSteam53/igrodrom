@@ -20,7 +20,15 @@ canvas{display:block;touch-action:none;outline:none;border-radius:10px;cursor:po
 #nb{color:#ffd166;font-weight:700;font-size:14px;min-height:18px;margin-bottom:8px}
 #again{font:800 17px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#fff;border:0;border-radius:12px;padding:11px 26px;cursor:pointer;background:linear-gradient(180deg,#ff8c42,#f15b2a);box-shadow:0 4px 0 #a33a12}
 #again:active{transform:translateY(2px);box-shadow:0 2px 0 #a33a12}
-#again:focus-visible{outline:3px solid #ffd166;outline-offset:3px}
+#again:focus-visible,#cont:focus-visible{outline:3px solid #ffd166;outline-offset:3px}
+#cont{display:flex;align-items:center;justify-content:center;gap:.4em;margin:0 auto 10px;font:800 17px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#1b1030;border:0;border-radius:12px;padding:11px 22px;cursor:pointer;background:#ffd166;box-shadow:0 4px 0 #a37d0a}
+#cont:active{transform:translateY(2px);box-shadow:0 2px 0 #a37d0a}
+#cont:disabled{opacity:.55;cursor:default}
+#cont.hidden{display:none}
+.price{display:inline-flex;align-items:center;gap:.25em}
+.gcoin{width:1.1em;height:1.1em;flex:none}
+#cm{color:#ffb4c4;font-weight:700;font-size:13px;margin:-4px 0 8px}
+#cm:empty{display:none}
 </style>
 </head>
 <body>
@@ -31,6 +39,8 @@ canvas{display:block;touch-action:none;outline:none;border-radius:10px;cursor:po
       <h2>Игра окончена</h2>
       <div class="row"><div>Счёт<b id="sc">0</b></div><div>Рекорд<b id="bs">0</b></div></div>
       <div id="nb"></div>
+      <button id="cont" class="hidden" type="button"></button>
+      <div id="cm"></div>
       <button id="again" type="button">Ещё раз</button>
     </div>
   </div>
@@ -55,6 +65,27 @@ if (window.Gamely) Gamely.init().then(async (s) => {
   else if (best > 0) save();
 }).catch(() => {});
 
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+const GCOIN = '<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+const COIN_MSG = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' };
+const onGamely = () => !!(sdk && sdk.environment.host === 'gamely');
+const priceHTML = (n) => `<span class="price">${GCOIN}${n}</span>`;
+async function spendCoins(btn, amount, title, fallback, say) {
+  if (btn.disabled) return false;
+  btn.disabled = true;
+  let ok = false;
+  try {
+    if (onGamely()) {
+      const r = await sdk.coins.spend(amount, title).catch(() => ({ ok: false, reason: 'unavailable' }));
+      if (r && r.ok) ok = true;
+      else if (r?.reason === 'unavailable' && fallback) ok = await fallback();
+      else if (r?.reason !== 'cancelled') say(COIN_MSG[r?.reason] || COIN_MSG.unavailable);
+    } else if (fallback) ok = await fallback();
+  } catch (e) { ok = false; }
+  btn.disabled = false;
+  return !!ok;
+}
 // ---------- мир ----------
 const H = 512, GROUND = 64, GY = H - GROUND;
 const G = 1500, FLAP = -430, MAXV = 640, PW = 62;
@@ -74,7 +105,7 @@ function speed() { return 160 + Math.min(score, 40) * 1.5; }
 function gap() { return 150 - Math.min(score, 30); }
 
 function reset() {
-  pipes = []; score = 0; newBest = false; time = 0;
+  pipes = []; score = 0; newBest = false; time = 0; revived = false;
   bird.y = H * 0.45; bird.vy = 0; bird.rot = 0;
   state = 'ready'; overEl.classList.remove('show');
   cv.focus({ preventScroll: true });
@@ -107,11 +138,27 @@ function showOver() {
   state = 'over'; overAt = performance.now();
   $('sc').textContent = score; $('bs').textContent = best;
   $('nb').textContent = newBest && score > 0 ? 'Новый рекорд!' : '';
+  // Продолжить с тем же счётом — один раз за попытку и только на площадке, за монетки.
+  $('cont').classList.toggle('hidden', revived || score < 1 || !onGamely());
+  $('cont').innerHTML = `Продолжить ${priceHTML(CONT_COST)}`;
+  $('cm').textContent = '';
   overEl.classList.add('show');
   $('again').focus({ preventScroll: true });
 }
 
 function again() { if (state === 'over' && performance.now() - overAt > 350) reset(); }
+
+const CONT_COST = 5;
+let revived = false;
+async function contRun() {
+  if (state !== 'over' || revived) return;
+  const ok = await spendCoins($('cont'), CONT_COST, 'Продолжить полёт в «Летучей птичке»', null, (t) => { $('cm').textContent = t; });
+  if (!ok || state !== 'over' || revived) return;
+  revived = true;
+  pipes = []; bird.y = H * 0.45; bird.vy = 0; bird.rot = 0;
+  state = 'ready'; overEl.classList.remove('show');
+  cv.focus({ preventScroll: true });
+}
 
 // ---------- размеры ----------
 function resize() {
@@ -136,6 +183,7 @@ cv.addEventListener('pointerdown', e => {
 cv.addEventListener('contextmenu', e => e.preventDefault());
 overEl.addEventListener('pointerdown', e => { if (e.target === overEl) e.preventDefault(); });
 $('again').addEventListener('click', again);
+$('cont').addEventListener('click', contRun);
 window.addEventListener('keydown', e => {
   const k = e.key;
   if (k === ' ' || k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ц' || k === 'Ц' || k === 'Enter') {
@@ -310,7 +358,10 @@ function draw() {
   drawBird();
 
   if (state === 'play' || state === 'dead' || state === 'pause') text(String(score), W / 2, 56, 46, '#fff', 900, 7);
-  if (state === 'ready') {
+  if (state === 'ready' && revived) {
+    text(String(score), W / 2, 56, 46, '#fff', 900, 7);
+    text('Тап или «Пробел» — продолжить', W / 2, H * 0.62, 17, '#fff', 700, 4);
+  } else if (state === 'ready') {
     text('Летучая птичка', W / 2, H * 0.22, 32, '#ffd166', 900, 6);
     text('Тап, клик или «Пробел» — взмах', W / 2, H * 0.62, 17, '#fff', 700, 4);
     text('Пролетайте между трубами', W / 2, H * 0.62 + 26, 15, '#c9c6ff', 600, 4);
@@ -333,7 +384,7 @@ function frame(t) {
   requestAnimationFrame(frame);
 }
 
-window.__game = { get state() { return { state, score, best, birdY: bird.y, vy: bird.vy, birdX: bird.x, pipes: pipes.map(p => ({ x: p.x, cy: p.cy, g: p.g })), W }; } };
+window.__game = { crash(n) { if (state === 'ready') flap(); score = n; die(); }, get revived() { return revived; }, get state() { return { state, score, best, birdY: bird.y, vy: bird.vy, birdX: bird.x, pipes: pipes.map(p => ({ x: p.x, cy: p.cy, g: p.g })), W }; } };
 
 reset();
 resize();

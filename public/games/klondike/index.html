@@ -81,6 +81,10 @@ button{font:inherit;cursor:pointer;border:0;color:inherit;padding:0}
 .big-btn{display:block;width:100%;margin-top:10px;padding:12px;border-radius:12px;font-size:17px;font-weight:900;background:linear-gradient(#ffe27a,#f2a81d);color:#6b3d00;box-shadow:0 4px 0 #9a6300;transition:transform .08s,box-shadow .08s}
 .big-btn:active{transform:translateY(4px);box-shadow:none}
 .big-btn.alt{background:rgba(255,255,255,.13);color:#e6fff0;box-shadow:0 4px 0 rgba(0,0,0,.3)}
+.big-btn:disabled{opacity:.55;cursor:default}
+.big-btn .price{display:inline-flex;align-items:center;gap:.25em;vertical-align:-.15em}
+.gcoin{width:1.1em;height:1.1em;flex:none}
+#adMsg{color:#ffd0c4!important;font-weight:700}
 .big-btn.ad{background:linear-gradient(135deg,#a259ff,#ff4f9a);color:#fff;box-shadow:0 4px 0 #6b2a9e}
 .keys{font-size:12px!important;color:#8cc4a3!important;margin-top:12px!important}
 #winOv .panel h2{font-size:38px}
@@ -126,8 +130,10 @@ button{font:inherit;cursor:pointer;border:0;color:inherit;padding:0}
 </div></div>
 <div class="modal" id="adAsk"><div class="panel">
   <h2>Отмены закончились</h2>
-  <p>В каждой партии есть 3 бесплатные отмены. Посмотрите рекламу — и получите ещё 3.</p>
+  <p id="adText">В каждой партии есть 3 бесплатные отмены. Посмотрите рекламу — и получите ещё 3.</p>
+  <button class="big-btn" id="coinUndo"></button>
   <button class="big-btn ad" id="adYes">Смотреть рекламу</button>
+  <p class="note" id="adMsg"></p>
   <button class="big-btn alt" id="adNo">Не нужно</button>
 </div></div>
 <div class="modal" id="winOv"><div class="panel">
@@ -416,10 +422,48 @@ function updUndo(){
 }
 function undo(){
   if(busy||won||!hist.length)return;
-  if(undoLeft<=0){openModal('adAsk');return}
+  if(undoLeft<=0){openUndoAsk();return}
   undoLeft--;
   dec(hist.pop());
   render(true);updHud(false);save();
+}
+// Отмены кончились: на площадке — 5 отмен за монетки или 3 за рекламу, вне её — только реклама.
+var UNDO_COST=5,UNDO_PACK=5;
+function openUndoAsk(){
+  var host=onGamely();
+  $('coinUndo').style.display=host?'':'none';
+  $('coinUndo').innerHTML='+'+UNDO_PACK+' отмен <span class="price">'+GCOIN+UNDO_COST+'</span>';
+  $('adText').textContent=host?'В каждой партии есть 3 бесплатные отмены. Ещё '+UNDO_PACK+' — за монетки, 3 — за рекламу.':'В каждой партии есть 3 бесплатные отмены. Посмотрите рекламу — и получите ещё 3.';
+  $('adYes').textContent=host?'+3 отмены за рекламу':'Смотреть рекламу';
+  $('adMsg').textContent='';
+  openModal('adAsk');
+}
+function coinUndo(){
+  if(busy||won||undoLeft>0)return;
+  busy=true;paused=true;
+  spendCoins($('coinUndo'),UNDO_COST,'Отмены ходов в «Косынке»',null,function(t){$('adMsg').textContent=t}).then(function(ok){
+    busy=false;paused=false;lastTick=performance.now();
+    if(!ok)return;
+    closeModal('adAsk');undoLeft+=UNDO_PACK;toast('+'+UNDO_PACK+' отмен');undo();updUndo();save();
+  });
+}
+
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает.
+var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+function spendCoins(btn,amount,title,fallback,say){
+  if(btn.disabled)return Promise.resolve(false);
+  btn.disabled=true;
+  var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;
+    var why=r&&r.reason;
+    if(why==='unavailable'&&fallback)return fallback();
+    if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
+    return false;
+  }):(fallback?fallback():Promise.resolve(false));
+  return p.catch(function(){return false}).then(function(ok){btn.disabled=false;return !!ok});
 }
 async function adUndo(){
   closeModal('adAsk');
@@ -578,6 +622,7 @@ $('mClose').addEventListener('click',function(){closeModal('menu')});
 $('mNew').addEventListener('click',newGame);
 $('wNew').addEventListener('click',newGame);
 $('adYes').addEventListener('click',adUndo);
+$('coinUndo').addEventListener('click',coinUndo);
 $('adNo').addEventListener('click',function(){closeModal('adAsk')});
 undoBtn.addEventListener('click',function(e){e.currentTarget.blur();undo()});
 document.querySelectorAll('.modal').forEach(function(m){m.addEventListener('pointerdown',function(e){if(e.target===m&&m.id!=='winOv')closeModal(m.id)})});
@@ -722,6 +767,7 @@ try{window.focus()}catch(e){}
 window.__game={
   get state(){return {stock:st.length,waste:wa.length,found:fo.map(function(p){return p.length}),tab:ta.map(function(p){return p.length}),score:score,moves:moves,time:Math.floor(elapsed),won:won,undoLeft:undoLeft,draw:drawN,hist:hist.length,busy:busy}},
   snapshot:function(){return enc()},
+  drawStock:function(){drawStock()},undo:function(){undo()},setUndoLeft:function(n){undoLeft=n;updUndo()},
   load:function(g){if(validSnap(g)){touched=true;g.dr=g.dr||drawN;loadGame(g);started=true;after();return true}return false},
   pos:function(id){return {x:P[id].x,y:P[id].y,w:L.w,h:L.h,loc:LOC[id]}},
   top:function(c){return topOf(ta[c])}

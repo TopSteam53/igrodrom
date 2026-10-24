@@ -20,6 +20,10 @@ h2{font-size:26px;margin:0 0 8px}
 .btn.alt{background:#2c3270;color:#fff;box-shadow:0 4px 0 #13163a}
 .btn.gold{background:#ffd166;box-shadow:0 4px 0 #a37d0a}
 .btn:disabled{opacity:.45}
+.price{display:inline-flex;align-items:center;gap:.25em;vertical-align:-.15em}
+.gcoin{width:1.1em;height:1.1em;flex:none}
+.note.msg{color:#ffb4c4;font-weight:700}
+.note.msg:empty{display:none}
 .levels{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}
 .lv{aspect-ratio:1;border:0;border-radius:12px;background:#2c3270;color:#fff;font:800 18px system-ui;cursor:pointer}
 .lv.locked{background:#14173a;color:#4b5287;cursor:default}
@@ -56,8 +60,9 @@ h2{font-size:26px;margin:0 0 8px}
   <h2 id="oTitle"></h2>
   <div class="big" id="oScore"></div>
   <p class="sub" id="oSub"></p>
-  <button class="btn gold hidden" id="coinCont">+3 жизни за 10 монеток</button>
+  <button class="btn gold hidden" id="coinCont"></button>
   <button class="btn alt hidden" id="adCont">+1 жизнь за рекламу</button>
+  <p class="note msg" id="oMsg"></p>
   <button class="btn" id="oAgain">Заново с уровня</button>
   <button class="btn alt" id="oMenu">В меню</button>
   <div id="board"></div>
@@ -189,8 +194,9 @@ function gameOver(won) {
   $('oTitle').textContent = won ? 'Все уровни пройдены!' : rec ? 'Новый рекорд!' : 'Игра окончена';
   $('oScore').textContent = score.toLocaleString('ru-RU');
   $('oSub').textContent = `Уровень ${level}, рекорд ${save.best.toLocaleString('ru-RU')}`;
-  const hosted = sdk && sdk.environment.host === 'gamely';
-  $('coinCont').classList.toggle('hidden', won || continued || !hosted);
+  $('coinCont').classList.toggle('hidden', won || continued || !onGamely());
+  $('coinCont').innerHTML = `+3 жизни ${priceHTML(CONT_COST)}`;
+  $('oMsg').textContent = '';
   $('adCont').classList.toggle('hidden', won || continued || !sdk);
   $('oAgain').textContent = `Заново с уровня ${level}`;
   renderBoard(null); show('over');
@@ -457,10 +463,37 @@ $('lvGrid').onclick = (e) => { const b = e.target.closest('[data-lv]'); if (b &&
 $('muteBtn').onclick = () => { audio(); save.mute = !save.mute; persist(); openMenu(); };
 $('oAgain').onclick = () => { continued = false; startRun(level); };
 $('oMenu').onclick = openMenu;
-$('coinCont').onclick = async () => { $('coinCont').disabled = true; try { const r = await sdk.coins.spend(10, '+3 жизни в «Арканоиде»'); if (r.ok) cont(3); } finally { $('coinCont').disabled = false; } };
-$('adCont').onclick = async () => { $('adCont').disabled = true; try { const r = await sdk.ads.rewarded(); if (r.rewarded) cont(1); } finally { $('adCont').disabled = false; } };
+// Продолжить можно один раз за игру: +3 жизни за монетки или +1 за рекламу.
+const CONT_COST = 10;
+$('coinCont').onclick = async () => {
+  if (continued || state !== 'over') return;
+  const ok = await spendCoins($('coinCont'), CONT_COST, '+3 жизни в «Арканоиде»', null, (t) => { $('oMsg').textContent = t; });
+  if (ok && !continued && state === 'over') cont(3);
+};
+$('adCont').onclick = async () => { $('adCont').disabled = true; try { const r = await sdk.ads.rewarded(); if (r.rewarded && !continued) cont(1); } finally { $('adCont').disabled = false; } };
 $('ctrlNote').textContent = matchMedia('(pointer:coarse)').matches ? 'Водите пальцем по полю — платформа следует за ним.' : 'Мышь или стрелки, клик или пробел — запуск, Esc — пауза.';
 
+// ---------- монетки Gamely ----------
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
+const GCOIN = '<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+const COIN_MSG = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' };
+const onGamely = () => !!(sdk && sdk.environment.host === 'gamely');
+const priceHTML = (n) => `<span class="price">${GCOIN}${n}</span>`;
+async function spendCoins(btn, amount, title, fallback, say) {
+  if (btn.disabled) return false;
+  btn.disabled = true;
+  let ok = false;
+  try {
+    if (onGamely()) {
+      const r = await sdk.coins.spend(amount, title).catch(() => ({ ok: false, reason: 'unavailable' }));
+      if (r && r.ok) ok = true;
+      else if (r?.reason === 'unavailable' && fallback) ok = await fallback();
+      else if (r?.reason !== 'cancelled') say(COIN_MSG[r?.reason] || COIN_MSG.unavailable);
+    } else if (fallback) ok = await fallback();
+  } catch (e) { ok = false; }
+  btn.disabled = false;
+  return !!ok;
+}
 // ---------- сохранение ----------
 function persist() { if (sdk) sdk.data.set(save).catch(() => {}); }
 function applySave(d) {
@@ -479,7 +512,7 @@ if (window.Gamely) Gamely.init().then(async (s) => {
   s.game.ready();
   if (state === 'menu') openMenu();
 }).catch(() => {});
-window.__game = { get state() { return state; }, get score() { return score; }, start: startRun, power, get bricks() { return bricks.filter((b) => !b.dead).length; } };
+window.__game = { get state() { return state; }, get score() { return score; }, get lives() { return lives; }, lose() { gameOver(false); }, start: startRun, power, get bricks() { return bricks.filter((b) => !b.dead).length; } };
 })();
 </script>
 </body>
