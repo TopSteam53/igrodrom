@@ -38,6 +38,11 @@
     }
   });
 
+  // Настоящий localStorage — запоминаем при загрузке, до того как совместимость с Яндексом (sdk/yandex.js)
+  // подменит его своим хранилищем: иначе сохранение вне площадки попадало бы внутрь самого себя.
+  var browserStorage = null;
+  try { browserStorage = global.localStorage; browserStorage.getItem('igrodrom'); } catch (e) { browserStorage = null; }
+
   function inFrame() {
     try { return global.parent && global.parent !== global; } catch (e) { return true; }
   }
@@ -279,15 +284,15 @@
     var storageKey = 'igrodrom-sdk:' + key;
     var memory = null;
     var storage = 'memory';
-    try { global.localStorage.setItem(storageKey + ':probe', '1'); global.localStorage.removeItem(storageKey + ':probe'); storage = 'browser'; } catch (e) {}
+    try { browserStorage.setItem(storageKey + ':probe', '1'); browserStorage.removeItem(storageKey + ':probe'); storage = 'browser'; } catch (e) {}
     var boards = {};
     function readBoards() {
-      try { if (storage === 'browser') return JSON.parse(global.localStorage.getItem(storageKey + ':lb') || '{}'); } catch (e) {}
+      try { if (storage === 'browser') return JSON.parse(browserStorage.getItem(storageKey + ':lb') || '{}'); } catch (e) {}
       return boards;
     }
     function writeBoards(all) {
       boards = all;
-      try { if (storage === 'browser') global.localStorage.setItem(storageKey + ':lb', JSON.stringify(all)); } catch (e) {}
+      try { if (storage === 'browser') browserStorage.setItem(storageKey + ':lb', JSON.stringify(all)); } catch (e) {}
     }
     var coins = options && typeof options.debugCoins === 'number' ? Math.max(0, Math.floor(options.debugCoins)) : null;
     return {
@@ -297,7 +302,7 @@
       data: {
         get: function () {
           try {
-            var v = storage === 'browser' ? global.localStorage.getItem(storageKey) : memory;
+            var v = storage === 'browser' ? browserStorage.getItem(storageKey) : memory;
             return Promise.resolve(v == null ? null : JSON.parse(v));
           } catch (e) { return Promise.resolve(null); }
         },
@@ -305,13 +310,13 @@
           try {
             var json = serialize(value);
             memory = json;
-            if (storage === 'browser') global.localStorage.setItem(storageKey, json);
+            if (storage === 'browser') browserStorage.setItem(storageKey, json);
             return Promise.resolve();
           } catch (e) { return Promise.reject(e); }
         },
         clear: function () {
           memory = null;
-          try { if (storage === 'browser') global.localStorage.removeItem(storageKey); } catch (e) {}
+          try { if (storage === 'browser') browserStorage.removeItem(storageKey); } catch (e) {}
           return Promise.resolve();
         },
       },

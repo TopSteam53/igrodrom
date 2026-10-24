@@ -223,7 +223,7 @@ async function loadMine() {
         ${g.next ? `<div class="mut">${g.next.status === 'pending' ? 'Новая версия на проверке' : `Новую версию не приняли: ${esc(g.next.reason || '')}`}</div>` : ''}
         ${todo(g).length ? `<div class="mut">Заполните: ${todo(g).join(', ')}</div>` : ''}</div>
       <span class="badge ${g.status}">${STATUS[g.status]}</span>
-      <div class="acts"><button class="btn sm primary" data-open="${g.id}">Карточка</button></div>
+      <div class="acts"><a class="btn sm" href="/api/games/${g.id}/download?part=build" download title="ZIP-архив сборки, как она хранится на сайте">Скачать сборку</a><button class="btn sm primary" data-open="${g.id}">Карточка</button></div>
     </div>`).join('')
     : '<div class="empty"><p>Пока нет игр.</p><button class="btn primary" onclick="openTab(\'new\')">Добавить первую</button></div>';
   const m = location.hash.match(/^#game=([0-9a-f]{16})$/);
@@ -235,7 +235,11 @@ const todo = (g) => [
   !g.how_to_play && '«как играть»', g.screenshots.length < 2 && 'скриншоты', !g.controls.length && 'управление',
 ].filter(Boolean);
 
-$('mine').onclick = (e) => { const el = e.target.closest('[data-open]'); if (el) openGame(el.dataset.open); };
+$('mine').onclick = (e) => {
+  if (e.target.closest('a')) return; // «Скачать сборку» — ссылка, карточку не открываем
+  const el = e.target.closest('[data-open]');
+  if (el) openGame(el.dataset.open);
+};
 
 function closeEditor() {
   $('editor').classList.add('hidden');

@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { openDb } from './db.js';
 import { extractZip, isZip, ZipError } from './zip.js';
@@ -1324,10 +1325,26 @@ export function createApp({
       });
     }
     fs.stat(file, (err, st) => {
-      if (err || !st.isFile()) return missing();
-      res.writeHead(200, headers(st.size));
-      if (req.method === 'HEAD') return res.end();
-      fs.createReadStream(file).pipe(res);
+      if (!err && st.isFile()) {
+        res.writeHead(200, headers(st.size));
+        if (req.method === 'HEAD') return res.end();
+        return fs.createReadStream(file).pipe(res);
+      }
+      // Файла нет, но рядом лежит сжатый file.br: так хранятся большие сборки (index.wasm игр на Godot).
+      // Браузер распакует его сам; тому, кто не принимает br, распаковываем на лету.
+      if (encoding) return missing();
+      fs.stat(`${file}.br`, (err2, st2) => {
+        if (err2 || !st2.isFile()) return missing();
+        const acceptsBr = /\bbr\b/.test(String(req.headers['accept-encoding'] || ''));
+        const h = headers(st2.size);
+        if (acceptsBr) h['Content-Encoding'] = 'br';
+        else delete h['Content-Length'];
+        h.Vary = 'Accept-Encoding';
+        res.writeHead(200, h);
+        if (req.method === 'HEAD') return res.end();
+        const src = fs.createReadStream(`${file}.br`);
+        (acceptsBr ? src : src.pipe(zlib.createBrotliDecompress())).pipe(res);
+      });
     });
   }
 
