@@ -88,6 +88,11 @@
       (src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : '') + '</div>';
   }
 
+  // Маленькая плитка: иконка и название в две строки — для ленты «Продолжить играть».
+  function miniHTML(g) {
+    return `<a class="mini" href="${gameUrl(g)}">${iconHTML(g)}<span class="mini-title">${esc(g.title)}</span></a>`;
+  }
+
   function cardHTML(g, i) {
     const r = rating(g);
     return `<a class="card" href="${gameUrl(g)}">${coverHTML(g, i)}
@@ -302,7 +307,7 @@
   const matches = (g, q) => !q || norm(`${g.title} ${g.genre} ${g.author} ${(g.tags || []).join(' ')} ${g.short_description || ''} ${g.description || ''}`).includes(norm(q));
 
   window.Igr = {
-    $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, coverHTML, iconHTML, initHeader,
+    $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, miniHTML, coverHTML, iconHTML, initHeader,
     toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, timeLeft, invited,
   };
 })();

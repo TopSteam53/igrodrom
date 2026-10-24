@@ -91,6 +91,12 @@ header.top{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--p
 .sec-head select{width:auto;background:var(--panel);border:1px solid var(--field);color:var(--ink);border-radius:10px;padding:7px 10px;font:15px var(--text)}
 .row-scroll{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(200px,1fr);gap:20px 16px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}
 .row-scroll>*{scroll-snap-align:start;min-width:0}
+.mini-row{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px;scrollbar-width:none}
+.mini-row::-webkit-scrollbar{display:none}
+.mini{flex:none;width:84px;text-decoration:none;color:var(--ink);scroll-snap-align:start}
+.mini .game-icon{width:84px;font-size:34px}
+.mini-title{margin-top:8px;font:500 13px/1.3 var(--text);text-align:center;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mini:hover .mini-title{text-decoration:underline;text-underline-offset:3px}
 @media(min-width:1100px){.row-scroll{grid-auto-columns:calc((100% - 4*16px)/5)}}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr));gap:24px 16px}.grid>*{min-width:0}
 @media(max-width:520px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}.row-scroll{grid-auto-columns:44%}}
@@ -231,7 +237,7 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
   .hero{border-radius:18px;margin-top:14px}
   .hero-slide{grid-template-columns:1fr;gap:18px;padding:16px 16px 58px;min-height:0}
   .hero-cover{order:-1;border-radius:14px}
-  .hero-title{margin:10px 0 8px}.hero-desc{-webkit-line-clamp:2;margin-bottom:18px}
+  .hero-title{margin:10px 0 16px}.hero-desc{display:none}
   .hero-nav{left:16px;bottom:16px}
 }
 
@@ -395,7 +401,7 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .streak-n{font-size:13px;color:var(--ink-2);white-space:nowrap}
 .streak b{display:flex;align-items:center;gap:5px;font:700 17px/1 var(--text);font-variant-numeric:tabular-nums}
 .streak .coin-ico{width:18px;height:18px}
-.streak li.done{background:var(--paper);border-color:transparent}
+.streak li.done{opacity:.75}
 .streak li.done b{color:var(--ink-2)}
 .streak li.today{border:2px solid var(--key-line);padding:9px 3px}
 .streak li.today .streak-n{color:var(--ink);font-weight:600}
@@ -568,3 +574,11 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .ava-card img{width:160px;height:160px;border-radius:50%;object-fit:cover;background:var(--paper)}
 .ava-card .acts{display:flex;gap:8px;margin-top:6px}
 .cover-box{max-width:520px}
+/* ---------- профиль: вкладки ---------- */
+.acc-tabs{display:flex;gap:4px;margin:24px 0 4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:14px;width:max-content;max-width:100%}
+.acc-tab{border:0;background:none;color:var(--ink-2);font:600 15px var(--text);padding:9px 18px;border-radius:10px;cursor:pointer}
+.acc-tab:hover{color:var(--ink)}
+.acc-tab.on{background:var(--ink);color:var(--on-ink)}
+.acc-pane>.sec:first-child,.acc-pane>.panel:first-child{margin-top:16px}
+.mini-grid{display:flex;flex-wrap:wrap;gap:18px 16px}
+@media(max-width:560px){.acc-tabs{width:100%}.acc-tab{flex:1;padding:9px 6px}.mini-grid{gap:16px 12px}.mini-grid .mini{width:calc((100% - 36px)/4)}.mini-grid .game-icon{width:100%}}

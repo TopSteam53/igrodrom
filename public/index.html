@@ -35,8 +35,7 @@
       </div>
     </section>
     <section class="sec hidden" id="tourSec" aria-label="Турнир недели"></section>
-    <section class="sec hidden" id="recentSec"><div class="sec-head"><h2>Продолжить играть</h2></div><div class="row-scroll" id="recent"></div></section>
-    <section class="sec hidden" id="popularSec"><div class="sec-head"><h2>Популярные</h2></div><div class="row-scroll" id="popular"></div></section>
+    <section class="sec hidden" id="recentSec"><div class="sec-head"><h2>Продолжить играть</h2></div><div class="mini-row" id="recent"></div></section>
     <section class="sec hidden" id="freshSec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
   </div>
 
@@ -104,13 +103,12 @@ function render() {
   if (!filtering) {
     renderHero();
     renderRecent();
-    const played = games.filter((g) => g.plays > 0);
-    const showPopular = games.length >= 8 && played.length >= 4;
-    $('popularSec').classList.toggle('hidden', !showPopular);
-    if (showPopular) $('popular').innerHTML = played.sort(SORTS.popular).slice(0, 10).map(cardHTML).join('');
+    // «Популярные» не показываем: «Все игры» и так отсортированы по популярности, ряд только повторял сетку.
+    // «Новые игры» — когда новинки выделяются: пока новые почти все игры каталога, ряд был бы тем же списком.
     const fresh = games.filter(isNew);
-    $('freshSec').classList.toggle('hidden', fresh.length < 3);
-    if (fresh.length >= 3) $('fresh').innerHTML = fresh.sort(SORTS.new).slice(0, 10).map(cardHTML).join('');
+    const showFresh = fresh.length >= 3 && fresh.length <= games.length / 3;
+    $('freshSec').classList.toggle('hidden', !showFresh);
+    if (showFresh) $('fresh').innerHTML = fresh.sort(SORTS.new).slice(0, 10).map(cardHTML).join('');
   }
 
   const list = games.filter((g) => (!state.cat || g.genre === state.cat) && matches(g, state.q)).sort(SORTS[state.sort]);
@@ -175,7 +173,7 @@ let recent = [];
 function renderRecent() {
   const list = recent.map((r) => games.find((g) => g.id === r.id)).filter(Boolean);
   $('recentSec').classList.toggle('hidden', !list.length);
-  $('recent').innerHTML = list.map(cardHTML).join('');
+  $('recent').innerHTML = list.map(Igr.miniHTML).join('');
 }
 
 // ---------- турнир недели: игра, сколько осталось и тройка лучших ----------
