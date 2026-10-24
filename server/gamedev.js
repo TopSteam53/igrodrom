@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { sniffImage, IMAGE_EXT } from './images.js';
 import { ZipWriter } from './zip.js';
+import { lookOf } from './shop.js';
 
 export const PLATFORMS = ['desktop', 'mobile', 'tv'];
 export const CONTROLS = ['keyboard', 'mouse', 'touch', 'gamepad'];
@@ -112,7 +113,7 @@ export function createGameDev({
     application: db.prepare('SELECT * FROM developer_applications WHERE user_id = ?'),
     updateProfile: db.prepare(`UPDATE developer_applications SET studio = ?, about = ?, website = ?, public_contact = ?, updated_at = ?
                                 WHERE user_id = ?`),
-    devUser: db.prepare('SELECT id, name, avatar FROM users WHERE id = ?'),
+    devUser: db.prepare('SELECT id, name, avatar, frame FROM users WHERE id = ?'),
     devGames: db.prepare(`SELECT id, title, genre, age, cover, icon, short_description, description, created_at FROM games
                           WHERE author_id = ? AND status = 'approved' ORDER BY created_at DESC`),
   };
@@ -407,7 +408,7 @@ export function createGameDev({
     if (!user || !app || app.status !== 'approved' || !games.length) return null;
     return {
       developer: { id: userId, studio: app.studio, about: app.about, website: app.website || '', public_contact: contactLink(app.public_contact),
-        avatar: avatarUrl(user.avatar) },
+        avatar: avatarUrl(user.avatar), frame: lookOf(user).frame },
       games,
     };
   }

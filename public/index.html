@@ -188,7 +188,7 @@ async function loadTournament() {
       <span><span class="tour-kicker">Турнир недели</span><b class="tour-title">${esc(g.title)}</b>
       <span class="tour-left">До конца: ${Igr.timeLeft(t.ends_at - Date.now())}. Призы: ${t.prizes.join(', ')} монеток</span></span></a>
     ${top.length ? `<ol class="lb">${top.map((e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span>
-      <span class="n">${Igr.avatarHTML(e, 24)}<span>${esc(e.name)}</span></span><span class="s">${Igr.fmt(e.score)}</span></li>`).join('')}</ol>`
+      <span class="n">${Igr.avatarHTML(e, 24)}${Igr.nameHTML(e)}</span><span class="s">${Igr.fmt(e.score)}</span></li>`).join('')}</ol>`
       : '<p class="tour-empty">Результатов пока нет — первый рекорд недели может быть вашим.</p>'}
     <div class="tour-acts"><a class="btn" href="/tournament">Таблица турнира</a></div></div>`;
   $('tourSec').classList.remove('hidden');

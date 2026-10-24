@@ -41,7 +41,7 @@ const { $, esc, fmt, avatarHTML, COIN_SVG } = Igr;
 const PLACE = ['Первое место', 'Второе место', 'Третье место'];
 const when = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
 const rowHTML = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span>
-  <span class="n">${avatarHTML(e, 24)}<span>${esc(e.name)}</span></span><span class="s">${fmt(e.score)}</span></li>`;
+  <span class="n">${avatarHTML(e, 24)}${Igr.nameHTML(e)}</span><span class="s">${fmt(e.score)}</span></li>`;
 
 function renderCurrent(t, user) {
   if (!t) {
@@ -81,7 +81,7 @@ function renderPast(last) {
   $('pastTitle').textContent = `Итоги недели с ${new Date(`${last.week}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' })}`;
   $('past').innerHTML = `<p class="mut" style="margin:0 0 8px">${esc(last.game_title)}, участников: ${fmt(last.total)}</p>
     <ol class="lb">${last.winners.map((w) => `<li><span class="r">${w.place}</span>
-      <span class="n">${avatarHTML(w, 24)}<span>${esc(w.name)}</span></span><span class="s">${fmt(w.score)}</span></li>`).join('')}</ol>`;
+      <span class="n">${avatarHTML(w, 24)}${Igr.nameHTML(w)}</span><span class="s">${fmt(w.score)}</span></li>`).join('')}</ol>`;
   $('pastSec').classList.remove('hidden');
 }
 

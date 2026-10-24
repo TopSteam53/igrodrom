@@ -43,6 +43,7 @@
     <button class="acc-tab" role="tab" data-tab="rewards" id="tab-rewards">Награды</button>
     <button class="acc-tab" role="tab" data-tab="games" id="tab-games">Игры</button>
     <button class="acc-tab" role="tab" data-tab="coins" id="tab-coins">Монетки</button>
+    <button class="acc-tab" role="tab" data-tab="shop" id="tab-shop">Витрина</button>
   </nav>
 
   <div class="acc-pane" role="tabpanel" data-pane="rewards" aria-labelledby="tab-rewards">
@@ -90,7 +91,7 @@
         <span class="mut">На счёте</span>
         <div class="coin-big" id="coinBig"></div>
         <p class="mut wallet-about">Монетки — валюта Gamely. За них в играх открываются бонусы, уровни и предметы;
-          каждую трату вы подтверждаете сами.</p>
+          каждую трату вы подтверждаете сами. В <a href="#shop">Витрине</a> на них покупаются рамки, цвет имени и аватарки.</p>
       </div>
       <div class="panel wallet-shop">
         <h3>Пополнить</h3>
@@ -109,6 +110,38 @@
   </section>
   </div>
 
+  <div class="acc-pane hidden" role="tabpanel" data-pane="shop" aria-labelledby="tab-shop">
+    <div class="panel shop-top">
+      <div>
+        <h3>Так вас видят другие</h3>
+        <div class="shop-look" id="shopLook"></div>
+      </div>
+      <div class="shop-balance" id="shopBalance" aria-live="polite"></div>
+    </div>
+    <section class="panel shop-group" aria-labelledby="shopFrameT">
+      <h3 id="shopFrameT">Рамка</h3>
+      <p class="mut">Вокруг аватарки: в шапке сайта, в профиле, в отзывах и таблицах рекордов.</p>
+      <div class="shop-grid" id="shopFrame"></div>
+    </section>
+    <section class="panel shop-group" aria-labelledby="shopColorT">
+      <h3 id="shopColorT">Цвет имени</h3>
+      <p class="mut">Так ваше имя увидят все в отзывах и таблицах рекордов.</p>
+      <div class="shop-grid" id="shopColor"></div>
+    </section>
+    <section class="panel shop-group" aria-labelledby="shopAvatarT">
+      <h3 id="shopAvatarT">Аватарки</h3>
+      <p class="mut">Восемь зверей в дополнение к бесплатным. Купленных можно сменять в любой момент.</p>
+      <div class="shop-grid" id="shopAvatar"></div>
+    </section>
+    <section class="panel shop-group" aria-labelledby="shopBadgeT">
+      <h3 id="shopBadgeT">Достижение в отзывах</h3>
+      <p class="mut">Одно из полученных достижений рядом с вашим именем в отзывах. Бесплатно.</p>
+      <div class="badge-pick" id="shopBadge"></div>
+    </section>
+    <p class="mut shop-foot">Всё в витрине — только оформление: в играх оно ничего не даёт. Купленное остаётся на аккаунте,
+      монетки за него не возвращаются, передать его другому игроку нельзя. <a href="terms.html#coins">Правила</a></p>
+  </div>
+
 
 
 
@@ -121,7 +154,7 @@
 
 <script src="app.js"></script>
 <script>
-const { $, esc, fmt, me, fromApi, cardHTML, avatarHTML, coinsText, COIN_SVG, dialog, toast } = Igr;
+const { $, esc, fmt, me, fromApi, cardHTML, avatarHTML, nameHTML, coinsText, COIN_SVG, dialog, toast } = Igr;
 const PRESETS = 16;
 let user = null;
 
@@ -138,7 +171,7 @@ const DEV = {
 const ROLE = { owner: 'владелец', moderator: 'модератор' };
 
 // ---------- вкладки ----------
-const TAB_OF = { coins: 'coins', games: 'games', rewards: 'rewards', achievements: 'rewards', invite: 'rewards' };
+const TAB_OF = { coins: 'coins', games: 'games', rewards: 'rewards', achievements: 'rewards', invite: 'rewards', shop: 'shop' };
 function openTab(name, keepHash) {
   document.querySelectorAll('.acc-tab').forEach((t) => {
     const on = t.dataset.tab === name;
@@ -158,8 +191,11 @@ window.addEventListener('hashchange', fromHash);
 fromHash();
 
 function renderUser() {
-  $('ava').innerHTML = avatarHTML(user, 96);
+  $('ava').innerHTML = avatarHTML(user, user.frame ? 116 : 96);
   $('name').textContent = user.name;
+  $('name').className = `profile-name${user.nameColor ? ` nc-${user.nameColor}` : ''}`;
+  const chip = $('login');
+  if (chip?.classList.contains('user-btn')) chip.innerHTML = `${avatarHTML(user, 26)}<span class="user-name">${esc(user.name)}</span>`;
   $('email').textContent = user.email;
   $('badges').innerHTML = [
     ROLE[user.role] && `<span class="badge role ${user.role === 'owner' ? 'owner' : ''}">${ROLE[user.role]}</span>`,
@@ -186,6 +222,7 @@ me().then(async (u) => {
   renderNoAds();
   checkOrder();
   loadRewards();
+  loadShop();
   const { games } = await (await fetch('/api/me/recent')).json();
   $('recent').innerHTML = games.length ? games.map(fromApi).map(Igr.miniHTML).join('')
     : `<div class="empty"><p>Здесь появятся игры, в которых у вас есть сохранённый прогресс.</p>
@@ -202,6 +239,7 @@ async function loadCoins() {
   shop = c.shop;
   $('coinBig').innerHTML = `${COIN_SVG}<span>${fmt(c.coins)}</span>`;
   Igr.setCoins(c.coins);
+  if (shop2) { shop2.coins = c.coins; renderShop(); }
   renderStreak(c.daily);
   $('packs').innerHTML = shop.packs.map((p) => `
     <button class="pack" type="button" data-pack="${esc(p.id)}" ${shop.enabled ? '' : 'disabled'}>
@@ -310,6 +348,7 @@ async function loadRewards() {
     toast(data.fresh.length === 1 ? `Достижение «${data.fresh[0].title}»: +${coinsText(data.fresh[0].coins)}`
       : `Новые достижения: ${data.fresh.length}, +${coinsText(data.fresh.reduce((n, a) => n + a.coins, 0))}`);
     loadCoins();
+    loadShop(); // новый баланс и новые достижения для показа в отзывах
   }
 }
 $('inviteCopy').onclick = async () => {
@@ -339,6 +378,113 @@ async function checkOrder() {
   toast('Ждём подтверждения оплаты — монетки придут, как только банк ответит');
 }
 
+// ---------- витрина ----------
+// Рамки, цвета имени и платные аватарки за монетки (server/shop.js). Клик по предмету: не куплен — купить
+// и сразу надеть, куплен — надеть. «Без рамки» и «Обычный» снимают надетое.
+let shop2 = null;
+const NOUN = { frame: 'Рамка', color: 'Цвет имени', avatar: 'Аватарка' };
+const NONE = { frame: 'Без рамки', color: 'Обычный' };
+const BADGE_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle class="mark-fill" cx="10" cy="10" r="9"/><path class="mark-check" d="m6 10.4 2.7 2.7L14.2 7.4"/></svg>';
+const badgeHTML = (title) => `<span class="p-badge">${BADGE_SVG}${esc(title)}</span>`;
+
+async function shopApi(path, body) {
+  const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Не получилось');
+  return data;
+}
+async function loadShop() {
+  try { applyShop(await shopApi('/api/shop')); } catch {}
+}
+function applyShop(s) {
+  shop2 = s;
+  Object.assign(user, s.look);
+  const ava = s.items.find((i) => i.id === s.equipped.avatar);
+  if (ava) user.avatar = ava.image;
+  renderUser();
+  Igr.setCoins(s.coins);
+  renderShop();
+}
+// Как будет выглядеть игрок с предметом: для превью в плитке и в окне покупки.
+function lookWith(it) {
+  if (!it) return user;
+  if (it.slot === 'frame') return { ...user, frame: it.key };
+  if (it.slot === 'color') return { ...user, nameColor: it.key };
+  return { ...user, avatar: it.image };
+}
+function itemArt(slot, it, size = 64) {
+  // Образец цвета — первое слово имени: целиком длинное имя в плитку не помещается.
+  if (slot === 'color') return `<span class="item-name ${it ? `nc-${it.key}` : ''}">${esc(user.name.split(/\s+/)[0])}</span>`;
+  if (slot === 'frame') return avatarHTML({ ...user, frame: it ? it.key : null }, size);
+  return `<img src="${esc(it.image)}" width="${size}" height="${size}" alt="">`;
+}
+function itemTile(slot, it) {
+  const on = it ? it.equipped : !shop2.equipped[slot];
+  const status = on ? `<span class="item-s">${BADGE_SVG}Выбрано</span>`
+    : !it || it.owned ? `<span class="item-s">${it ? 'Куплено' : 'Бесплатно'}</span>`
+    : `<span class="item-s price${shop2.coins < it.price ? ' short' : ''}">${COIN_SVG}${fmt(it.price)}</span>`;
+  const title = it ? it.title : NONE[slot];
+  return `<button type="button" class="item${on ? ' on' : ''}" data-slot="${slot}" data-item="${it ? esc(it.id) : ''}"
+    aria-pressed="${on}" aria-label="${esc(`${NOUN[slot]}: ${title}`)}${it && !it.owned ? `, ${esc(coinsText(it.price))}` : ''}">
+    <span class="item-art">${itemArt(slot, it)}</span><span class="item-t">${esc(title)}</span>${status}</button>`;
+}
+function renderShop() {
+  if (!shop2 || !user) return;
+  $('shopLook').innerHTML = `${avatarHTML(user, 56)}<div class="shop-look-name">${nameHTML(user, 'b')}${user.badge ? badgeHTML(user.badge) : ''}</div>`;
+  $('shopBalance').innerHTML = `${COIN_SVG}<span>${fmt(shop2.coins)}</span>`;
+  $('shopBalance').setAttribute('aria-label', `На счёте ${coinsText(shop2.coins)}`);
+  const of = (slot) => shop2.items.filter((i) => i.slot === slot);
+  $('shopFrame').innerHTML = [null, ...of('frame')].map((it) => itemTile('frame', it)).join('');
+  $('shopColor').innerHTML = [null, ...of('color')].map((it) => itemTile('color', it)).join('');
+  $('shopAvatar').innerHTML = of('avatar').map((it) => itemTile('avatar', it)).join('');
+  $('shopBadge').innerHTML = shop2.badges.length
+    ? [{ key: null, title: 'Не показывать' }, ...shop2.badges].map((b) => {
+      const on = (shop2.equipped.badge || null) === b.key;
+      return `<button type="button" class="btn sm${on ? ' on' : ''}" data-badge="${esc(b.key || '')}" aria-pressed="${on}">${esc(b.title)}</button>`;
+    }).join('')
+    : '<p class="mut" style="margin:0">Пока нет полученных достижений. Они на вкладке <a href="#rewards">«Награды»</a>.</p>';
+}
+
+async function pickItem(slot, id) {
+  const it = id ? shop2.items.find((i) => i.id === id) : null;
+  if (it?.equipped || (!it && !shop2.equipped[slot])) return;
+  if (it && !it.owned) {
+    const preview = `<div class="shop-look" style="margin:4px 0 14px">${avatarHTML(lookWith(it), 64)}<div class="shop-look-name">${nameHTML(lookWith(it), 'b')}</div></div>`;
+    if (shop2.coins < it.price) {
+      const go = await dialog({
+        title: `Не хватает ${coinsText(it.price - shop2.coins)}`,
+        html: `${preview}<p>«${esc(it.title)}» стоит ${coinsText(it.price)}, на счёте ${coinsText(shop2.coins)}.
+          Монетки приходят за вход каждый день, за достижения и за турнир недели.</p>`,
+        buttons: [{ text: 'Закрыть', value: null }, { text: 'Где взять монетки', value: true, cls: 'primary' }],
+      });
+      if (go) openTab('rewards');
+      return;
+    }
+    const ok = await dialog({
+      title: `${NOUN[slot]} «${it.title}»`,
+      html: `${preview}<p>Стоит ${coinsText(it.price)}, после покупки останется ${coinsText(shop2.coins - it.price)}.
+        Купленное остаётся у вас: снять и надеть снова можно когда угодно.</p>`,
+      buttons: [{ text: 'Отмена', value: false }, { text: `Купить за ${fmt(it.price)}`, value: true, cls: 'primary' }],
+    });
+    if (!ok) return;
+    applyShop(await shopApi('/api/shop/buy', { item: it.id }));
+  }
+  applyShop(await shopApi('/api/shop/equip', { slot, item: it ? it.id : null }));
+  if (it && !it.owned) toast(`Куплено и надето: ${it.title}`);
+}
+for (const id of ['shopFrame', 'shopColor', 'shopAvatar']) {
+  $(id).onclick = (e) => {
+    const b = e.target.closest('[data-slot]');
+    if (b) pickItem(b.dataset.slot, b.dataset.item).catch((err) => toast(err.message));
+  };
+}
+$('shopBadge').onclick = async (e) => {
+  const b = e.target.closest('[data-badge]');
+  if (!b) return;
+  try { applyShop(await shopApi('/api/shop/equip', { slot: 'badge', item: b.dataset.badge || null })); }
+  catch (err) { toast(err.message); }
+};
+
 // ---------- аватарка ----------
 async function setAvatar(method, url, body, type = 'application/json') {
   const r = await fetch(url, { method, headers: body ? { 'content-type': type } : {}, body: body && (type === 'application/json' ? JSON.stringify(body) : body) });
@@ -346,8 +492,7 @@ async function setAvatar(method, url, body, type = 'application/json') {
   if (!r.ok) throw new Error(data.error || 'Не получилось');
   Object.assign(user, data);
   renderUser();
-  const chip = $('login');
-  if (chip) chip.innerHTML = `${avatarHTML(user, 26)}<span class="user-name">${esc(user.name)}</span>`;
+  loadShop(); // платная аватарка могла смениться бесплатной
   return data;
 }
 
@@ -371,18 +516,26 @@ function toSquare(file) {
 
 $('avaBtn').onclick = () => {
   const body = document.createElement('div');
+  // Купленные в витрине звери — в той же сетке, после бесплатных.
+  const bought = (shop2?.items || []).filter((i) => i.slot === 'avatar' && i.owned);
+  const more = (shop2?.items || []).some((i) => i.slot === 'avatar' && !i.owned);
   body.innerHTML = `<div class="ava-grid">${Array.from({ length: PRESETS }, (_, i) => i + 1).map((n) => `
       <button type="button" class="ava-pick ${user.avatar === `/avatars/${n}.svg` ? 'on' : ''}" data-n="${n}" aria-label="Аватарка ${n}">
-        <img src="/avatars/${n}.svg" width="64" height="64" alt=""></button>`).join('')}</div>
+        <img src="/avatars/${n}.svg" width="64" height="64" alt=""></button>`).join('')}${bought.map((i) => `
+      <button type="button" class="ava-pick ${user.avatar === i.image ? 'on' : ''}" data-item="${esc(i.id)}" aria-label="${esc(i.title)}">
+        <img src="${esc(i.image)}" width="64" height="64" alt=""></button>`).join('')}</div>
+    ${more ? '<p class="mut" style="margin:0 0 14px">Ещё звери — в <a href="#shop" data-shop>Витрине</a>.</p>' : ''}
     <label class="btn ava-upload"><input type="file" accept="image/png,image/jpeg,image/webp" hidden>Загрузить свою картинку</label>
     <p class="mut" style="margin:8px 0 0">Своя картинка появится у всех после проверки модератором. Без чужих фото и неприличного.</p>`;
   const close = dialog({ title: 'Аватарка', body, buttons: [
     ...(user.avatar ? [{ text: 'Убрать', value: 'clear' }] : []), { text: 'Готово', value: null, cls: 'primary' }] });
   body.onclick = async (e) => {
-    const b = e.target.closest('[data-n]');
+    if (e.target.closest('[data-shop]')) { document.querySelector('.modal')?.click(); return; }
+    const b = e.target.closest('[data-n],[data-item]');
     if (!b) return;
     try {
-      await setAvatar('PUT', '/api/me/avatar', { preset: Number(b.dataset.n) });
+      if (b.dataset.item) applyShop(await shopApi('/api/shop/equip', { slot: 'avatar', item: b.dataset.item }));
+      else await setAvatar('PUT', '/api/me/avatar', { preset: Number(b.dataset.n) });
       body.querySelectorAll('.ava-pick').forEach((x) => x.classList.toggle('on', x === b));
     } catch (err) { toast(err.message); }
   };

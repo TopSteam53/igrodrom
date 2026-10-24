@@ -1,6 +1,6 @@
 // Монетки — валюта сайта. Откуда берутся: покупка через ЮKassa, подарок при регистрации,
 // бонус за вход раз в день (серия дней подряд — в server/rewards.js), награды за достижения, турнир недели
-// и приглашения, выдача владельцем. Куда уходят: покупки в играх через SDK.
+// и приглашения, выдача владельцем. Куда уходят: покупки в играх через SDK и витрина (server/shop.js).
 // Каждое движение пишется в журнал coin_ledger, баланс — в users.coins.
 import { randomBytes, randomUUID } from 'node:crypto';
 
@@ -43,7 +43,7 @@ export function migrateLedger(db) {
       user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       delta      INTEGER NOT NULL,
       kind       TEXT NOT NULL,      -- purchase | welcome | daily | grant | spend | achievement | tournament | referral
-                                     -- | play (старое начисление за время)
+                                     -- | shop (витрина) | play (старое начисление за время)
       title      TEXT NOT NULL,      -- что увидит игрок в истории
       game_id    TEXT REFERENCES games(id) ON DELETE SET NULL,
       ref        TEXT,               -- id заказа или платежа
@@ -104,7 +104,8 @@ export function createEconomy({
   };
 
   // Движение монеток одной транзакцией: баланс и журнал всегда сходятся.
-  function move(userId, delta, kind, title, { gameId = null, ref = null, actorId = null } = {}) {
+  // during — ещё одна запись в той же транзакции (выдать купленное); если она бросит ошибку, монетки не спишутся.
+  function move(userId, delta, kind, title, { gameId = null, ref = null, actorId = null, during = null } = {}) {
     db.exec('BEGIN');
     try {
       if (delta < 0) {
@@ -112,6 +113,7 @@ export function createEconomy({
         if (!changes) throw new HttpError(409, 'Не хватает монет');
       } else q.add.run(delta, userId);
       q.ledger.run(userId, delta, kind, title, gameId, ref, actorId, now());
+      during?.();
       db.exec('COMMIT');
     } catch (err) {
       db.exec('ROLLBACK');

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Попугай</title><rect width="256" height="256" fill="#2E6BFF"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M124 66 Q106 24 82 30 Q106 46 108 70Z" fill="#FFC531"/><path d="M132 66 Q146 20 174 24 Q150 44 150 70Z" fill="#17B26A"/>
+    <ellipse cx="128" cy="142" rx="80" ry="82" fill="#F2434F"/>
+    <ellipse cx="94" cy="128" rx="28" ry="26" fill="#fff"/><ellipse cx="162" cy="128" rx="28" ry="26" fill="#fff"/>
+    <circle cx="94" cy="128" r="11" fill="#1C2140"/><circle cx="162" cy="128" r="11" fill="#1C2140"/><circle cx="97.85" cy="124.15" r="3.8499999999999996" fill="#fff"/><circle cx="165.85" cy="124.15" r="3.8499999999999996" fill="#fff"/>
+    <path d="M100 154 Q128 140 156 154 Q158 190 128 210 Q106 190 100 154Z" fill="#FFC531"/>
+    <path d="M112 182 Q128 194 144 182 Q140 202 128 210 Q116 202 112 182Z" fill="#E09B00"/></svg>

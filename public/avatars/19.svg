@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Кит</title><rect width="256" height="256" fill="#0E9F9A"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <path d="M128 74 V48 M128 54 Q110 28 92 42 M128 54 Q146 28 164 42" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <ellipse cx="128" cy="152" rx="94" ry="72" fill="#3B7BF5"/>
+    <path d="M44 174 Q128 150 212 174 Q190 222 128 224 Q66 222 44 174Z" fill="#D6E4FF"/>
+    <path d="M92 190 V210 M110 186 V214 M128 184 V216 M146 186 V214 M164 190 V210" stroke="#A9C3F7" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="86" cy="138" r="11" fill="#1C2140"/><circle cx="170" cy="138" r="11" fill="#1C2140"/><circle cx="89.85" cy="134.15" r="3.8499999999999996" fill="#fff"/><circle cx="173.85" cy="134.15" r="3.8499999999999996" fill="#fff"/><ellipse cx="62" cy="160" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/><ellipse cx="194" cy="160" rx="14" ry="9" fill="#FF8FA3" opacity=".7"/><path d="M114 160 Q128 174 142 160" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>

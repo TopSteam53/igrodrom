@@ -1,4 +1,6 @@
-// Готовые аватарки: 16 плоских зверей в SVG (public/avatars/<n>.svg).
+// Готовые аватарки: плоские звери в SVG (public/avatars/<n>.svg).
+// 1–16 — бесплатные, 17–24 — открываются за монетки в «Витрине» (server/shop.js).
+// Новых зверей добавляем только в конец: номер файла — это то, что хранится у игрока.
 //   node scripts/avatars-svg.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -121,6 +123,72 @@ const ANIMALS = [
     <path d="M128 132 Q108 170 128 214 Q148 170 128 132Z" fill="#F3F4F6"/>
     <circle cx="96" cy="134" r="12" fill="#fff"/><circle cx="160" cy="134" r="12" fill="#fff"/><circle cx="98" cy="134" r="6" fill="${INK}"/><circle cx="158" cy="134" r="6" fill="${INK}"/>
     ${nose(178, 11)}`],
+  // ---------- 17–24: за монетки ----------
+  ['Дракон', '#8B5CF6', () => `
+    <path d="M86 84 L68 26 L110 70Z" fill="#FFC531"/><path d="M170 84 L188 26 L146 70Z" fill="#FFC531"/>
+    <path d="M38 118 L64 98 L66 142Z" fill="#2FB872"/><path d="M218 118 L192 98 L190 142Z" fill="#2FB872"/>
+    <path d="M108 72 L128 42 L148 72Z" fill="#F2434F"/>
+    <ellipse cx="128" cy="142" rx="82" ry="76" fill="#3DCB81"/>
+    <circle cx="86" cy="96" r="7" fill="#2FB872"/><circle cx="170" cy="96" r="7" fill="#2FB872"/><circle cx="128" cy="86" r="6" fill="#2FB872"/>
+    <ellipse cx="128" cy="178" rx="52" ry="32" fill="#B8F5D2"/>
+    ${eyes(128, 34, 11, true)}
+    <ellipse cx="112" cy="168" rx="6" ry="4" fill="#0B7F4B"/><ellipse cx="144" cy="168" rx="6" ry="4" fill="#0B7F4B"/>
+    ${smile(186, 16)}<path d="M104 190 L110 200 L116 192Z M140 192 L146 200 L152 190Z" fill="#fff"/>`],
+  ['Ёжик', '#FFC531', () => `
+    <g fill="#6B4423">${Array.from({ length: 12 }, (_, i) => {
+      const a = (160 + i * 20) * Math.PI / 180, w = 0.2;
+      const p = (ang, r) => `${(128 + Math.cos(ang) * r).toFixed(1)} ${(150 + Math.sin(ang) * r).toFixed(1)}`;
+      return `<path d="M${p(a - w, 64)} L${p(a, 112)} L${p(a + w, 64)}Z"/>`;
+    }).join('')}</g>
+    <circle cx="128" cy="150" r="80" fill="#8B5A2B"/>
+    <path d="M60 170 Q64 106 128 104 Q192 106 196 170 Q190 226 128 226 Q66 226 60 170Z" fill="#F2D3A8"/>
+    ${eyes(150, 30, 11)}${cheeks(178, 50)}${nose(184, 14)}${smile(198, 10)}`],
+  ['Кит', '#0E9F9A', () => `
+    <path d="M128 74 V48 M128 54 Q110 28 92 42 M128 54 Q146 28 164 42" stroke="#fff" stroke-width="9" fill="none" stroke-linecap="round"/>
+    <ellipse cx="128" cy="152" rx="94" ry="72" fill="#3B7BF5"/>
+    <path d="M44 174 Q128 150 212 174 Q190 222 128 224 Q66 222 44 174Z" fill="#D6E4FF"/>
+    <path d="M92 190 V210 M110 186 V214 M128 184 V216 M146 186 V214 M164 190 V210" stroke="#A9C3F7" stroke-width="5" stroke-linecap="round"/>
+    ${eyes(138, 42, 11)}${cheeks(160, 66)}${smile(160, 14)}`],
+  ['Осьминог', '#2E6BFF', () => `
+    <g fill="none" stroke="#E84A6E" stroke-width="22" stroke-linecap="round">
+      <path d="M78 160 Q46 196 66 222"/><path d="M104 170 Q92 210 110 230"/><path d="M128 172 V232"/>
+      <path d="M152 170 Q164 210 146 230"/><path d="M178 160 Q210 196 190 222"/></g>
+    <ellipse cx="128" cy="116" rx="82" ry="74" fill="#F2557A"/>
+    <circle cx="92" cy="74" r="9" fill="#FF8FAB"/><circle cx="160" cy="70" r="12" fill="#FF8FAB"/><circle cx="134" cy="56" r="6" fill="#FF8FAB"/>
+    ${eyes(120, 32, 12, true)}${cheeks(148, 60, '#C0264D')}${smile(150, 12)}`],
+  ['Хомяк', '#F2434F', () => `
+    <circle cx="70" cy="78" r="24" fill="#E8A15C"/><circle cx="186" cy="78" r="24" fill="#E8A15C"/>
+    <circle cx="70" cy="78" r="12" fill="#FFB3C6"/><circle cx="186" cy="78" r="12" fill="#FFB3C6"/>
+    <ellipse cx="128" cy="150" rx="94" ry="80" fill="#E8A15C"/>
+    <ellipse cx="72" cy="176" rx="38" ry="32" fill="#FFF1DE"/><ellipse cx="184" cy="176" rx="38" ry="32" fill="#FFF1DE"/>
+    <path d="M128 92 Q100 118 102 168 Q128 206 154 168 Q156 118 128 92Z" fill="#FFF1DE"/>
+    ${eyes(134, 38, 11)}${nose(164, 9, '#E5536D')}
+    <path d="M128 168 V178 M116 182 Q128 190 140 182" stroke="${INK}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <rect x="120" y="186" width="16" height="12" rx="3" fill="#fff" stroke="${INK}" stroke-width="3"/>`],
+  ['Попугай', '#2E6BFF', () => `
+    <path d="M124 66 Q106 24 82 30 Q106 46 108 70Z" fill="#FFC531"/><path d="M132 66 Q146 20 174 24 Q150 44 150 70Z" fill="#17B26A"/>
+    <ellipse cx="128" cy="142" rx="80" ry="82" fill="#F2434F"/>
+    <ellipse cx="94" cy="128" rx="28" ry="26" fill="#fff"/><ellipse cx="162" cy="128" rx="28" ry="26" fill="#fff"/>
+    ${eyes(128, 34, 11)}
+    <path d="M100 154 Q128 140 156 154 Q158 190 128 210 Q106 190 100 154Z" fill="#FFC531"/>
+    <path d="M112 182 Q128 194 144 182 Q140 202 128 210 Q116 202 112 182Z" fill="#E09B00"/>`],
+  ['Олень', '#17B26A', () => `
+    <g fill="none" stroke="#7A4A23" stroke-width="10" stroke-linecap="round">
+      <path d="M96 82 Q82 54 88 22 M88 50 Q70 46 60 30"/><path d="M160 82 Q174 54 168 22 M168 50 Q186 46 196 30"/></g>
+    <ellipse cx="56" cy="114" rx="32" ry="15" fill="#B5733A" transform="rotate(-22 56 114)"/>
+    <ellipse cx="200" cy="114" rx="32" ry="15" fill="#B5733A" transform="rotate(22 200 114)"/>
+    <ellipse cx="128" cy="148" rx="70" ry="80" fill="#C98A4B"/>
+    <circle cx="108" cy="92" r="6" fill="#F2DCC2"/><circle cx="148" cy="96" r="5" fill="#F2DCC2"/><circle cx="130" cy="82" r="4" fill="#F2DCC2"/>
+    <ellipse cx="128" cy="190" rx="42" ry="32" fill="#F2DCC2"/>
+    ${eyes(136, 30, 12)}<ellipse cx="128" cy="178" rx="16" ry="11" fill="${INK}"/>${smile(198, 10)}`],
+  ['Акула', '#FFC531', () => `
+    <path d="M128 16 Q152 50 164 76 L96 76 Q110 44 128 16Z" fill="#5E6E86"/>
+    <ellipse cx="128" cy="146" rx="94" ry="78" fill="#7C8BA1"/>
+    <path d="M42 160 Q128 132 214 160 Q202 218 128 224 Q54 218 42 160Z" fill="#F3F4F6"/>
+    <path d="M50 120 q-8 12 0 24 M64 116 q-8 14 0 28 M206 120 q8 12 0 24 M192 116 q8 14 0 28" stroke="#56647A" stroke-width="5" fill="none" stroke-linecap="round"/>
+    ${eyes(124, 40, 11)}
+    <path d="M86 166 Q128 214 170 166Z" fill="#9D174D"/>
+    <path d="M86 166 L95 177 L104 169 L113 180 L122 170 L131 180 L140 170 L149 179 L158 169 L166 175 L170 166Z" fill="#fff"/>`],
 ];
 
 ANIMALS.forEach(([name, bg, head], i) => {
