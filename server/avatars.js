@@ -1,4 +1,5 @@
-// Аватарки игроков: одна из готовых (public/avatars/<n>.svg, рисует scripts/avatars-svg.mjs)
+// Аватарки игроков: одна из готовых (public/avatars/<n>.svg, рисует scripts/avatars-svg.mjs; 1–16 бесплатно,
+// 17–24 — за монетки, их ставит витрина server/shop.js)
 // или своя картинка. Своя видна другим только после проверки модератором; до этого — прежняя.
 // В users.avatar: 'p:<n>' — готовая, 'u:<файл>' — своя (DATA_DIR/avatars), NULL — буква имени.
 import fs from 'node:fs';
@@ -6,7 +7,7 @@ import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { sniffImage, IMAGE_TYPES, IMAGE_EXT } from './images.js';
 
-export const PRESET_AVATARS = 16;
+export const PRESET_AVATARS = 16; // бесплатные; дальше — платные из витрины
 const MAX_AVATAR_BYTES = 400 * 1024;
 const FILE_RE = /^[0-9a-f]{32}\.(webp|png|jpg)$/;
 
@@ -58,10 +59,15 @@ export function createAvatars({
     if (preset !== null && !(Number.isInteger(preset) && preset >= 1 && preset <= PRESET_AVATARS)) {
       throw new HttpError(400, `preset: от 1 до ${PRESET_AVATARS} или null`);
     }
-    const row = q.get.get(user.id);
-    q.setAvatar.run(preset === null ? null : `p:${preset}`, user.id);
-    drop(ownFile(row.avatar));
+    setPreset(user.id, preset);
     send(res, 200, info(q.get.get(user.id)));
+  }
+
+  // Готовая аватарка (или null — буква имени). Своя картинка, если была, больше не нужна.
+  function setPreset(userId, preset) {
+    const row = q.get.get(userId);
+    q.setAvatar.run(preset === null ? null : `p:${preset}`, userId);
+    drop(ownFile(row.avatar));
   }
 
   async function upload(req, res) {
@@ -165,5 +171,5 @@ export function createAvatars({
     return null;
   }
 
-  return { route, info, reset };
+  return { route, info, reset, setPreset };
 }

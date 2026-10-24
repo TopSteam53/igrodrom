@@ -345,7 +345,7 @@ async function loadBoard(name = boardName) {
     $('lbBoards').classList.toggle('hidden', r.boards.length < 2);
     $('lbBoards').innerHTML = r.boards.map((b) =>
       `<button class="tab ${b.board === r.board ? 'on' : ''}" role="tab" aria-selected="${b.board === r.board}" data-board="${esc(b.board)}">${esc(b.board)}</button>`).join('');
-    const row = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span><span class="n">${Igr.avatarHTML(e, 24)}<span>${esc(e.name)}</span></span><span class="s">${fmt(e.score)}</span></li>`;
+    const row = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span><span class="n">${Igr.avatarHTML(e, 24)}${Igr.nameHTML(e)}</span><span class="s">${fmt(e.score)}</span></li>`;
     const mine = r.me && r.me.rank > r.entries.length ? r.around.filter((e) => e.rank > r.entries.length) : [];
     $('lb').innerHTML = r.entries.map(row).join('') +
       (mine.length ? `${mine[0].rank > r.entries.length + 1 ? '<li class="lb-gap" aria-hidden="true">…</li>' : ''}${mine.map(row).join('')}` : '');
@@ -357,6 +357,8 @@ async function loadBoard(name = boardName) {
 $('lbBoards').onclick = (e) => { const b = e.target.closest('[data-board]'); if (b) loadBoard(b.dataset.board); };
 
 // ---------- отзывы ----------
+// Достижение, которое автор отзыва выбрал в витрине, — тем же значком, что полученные достижения в профиле.
+const BADGE_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle class="mark-fill" cx="10" cy="10" r="9"/><path class="mark-check" d="m6 10.4 2.7 2.7L14.2 7.4"/></svg>';
 let reviews = { list: [], mine: null, canModerate: false };
 const dateRu = (t) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -388,7 +390,7 @@ async function renderReviews(total = reviews.list.length) {
     };
   } else form.innerHTML = '';
   $('reviews').innerHTML = reviews.list.length ? reviews.list.map((r) => `<article class="review" data-id="${esc(r.id)}">
-      <div class="review-head">${Igr.avatarHTML(r, 32)}<b>${esc(r.name)}</b><time datetime="${new Date(r.updated_at).toISOString()}">${dateRu(r.updated_at)}</time>
+      <div class="review-head">${Igr.avatarHTML(r, 32)}${Igr.nameHTML(r, 'b')}${r.badge ? `<span class="p-badge" title="Достижение">${BADGE_SVG}${esc(r.badge)}</span>` : ''}<time datetime="${new Date(r.updated_at).toISOString()}">${dateRu(r.updated_at)}</time>
         <span class="acts">${r.mine ? '<button class="btn sm" data-act="edit">Изменить</button><button class="btn sm" data-act="del">Удалить</button>'
           : reviews.canModerate ? '<button class="btn sm bad" data-act="mod">Удалить</button>' : ''}</span></div>
       <p>${esc(r.text)}</p></article>`).join('')

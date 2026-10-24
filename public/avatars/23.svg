@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Олень</title><rect width="256" height="256" fill="#17B26A"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <g fill="none" stroke="#7A4A23" stroke-width="10" stroke-linecap="round">
+      <path d="M96 82 Q82 54 88 22 M88 50 Q70 46 60 30"/><path d="M160 82 Q174 54 168 22 M168 50 Q186 46 196 30"/></g>
+    <ellipse cx="56" cy="114" rx="32" ry="15" fill="#B5733A" transform="rotate(-22 56 114)"/>
+    <ellipse cx="200" cy="114" rx="32" ry="15" fill="#B5733A" transform="rotate(22 200 114)"/>
+    <ellipse cx="128" cy="148" rx="70" ry="80" fill="#C98A4B"/>
+    <circle cx="108" cy="92" r="6" fill="#F2DCC2"/><circle cx="148" cy="96" r="5" fill="#F2DCC2"/><circle cx="130" cy="82" r="4" fill="#F2DCC2"/>
+    <ellipse cx="128" cy="190" rx="42" ry="32" fill="#F2DCC2"/>
+    <circle cx="98" cy="136" r="12" fill="#1C2140"/><circle cx="158" cy="136" r="12" fill="#1C2140"/><circle cx="102.2" cy="131.8" r="4.199999999999999" fill="#fff"/><circle cx="162.2" cy="131.8" r="4.199999999999999" fill="#fff"/><ellipse cx="128" cy="178" rx="16" ry="11" fill="#1C2140"/><path d="M118 198 Q128 208 138 198" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>

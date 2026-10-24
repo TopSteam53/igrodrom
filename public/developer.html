@@ -60,7 +60,7 @@ const id = document.querySelector('meta[name="gamely-developer"]')?.content || n
   document.title = `${d.studio} — игры на Gamely`;
   $('loading').classList.add('hidden');
   $('head').classList.remove('hidden');
-  $('ava').innerHTML = avatarHTML({ name: d.studio, avatar: d.avatar }, 96);
+  $('ava').innerHTML = avatarHTML({ name: d.studio, avatar: d.avatar, frame: d.frame }, 96);
   $('ava').firstElementChild.classList.add('dev-ava');
   $('studio').textContent = d.studio;
   if (d.website) {

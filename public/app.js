@@ -178,13 +178,69 @@
     return (d ? [w(d, ['день', 'дня', 'дней']), w(h, H)] : h ? [w(h, H), w(m, M)] : [w(m, M)]).filter(Boolean).join(' ');
   }
 
-  // Аватарка: картинка или первая буква имени на цветном круге.
+  // Аватарка: картинка или первая буква имени на цветном круге. С рамкой из витрины (u.frame) — тот же размер
+  // снаружи: сама аватарка уменьшается до 78 %, рамка рисуется в оставшемся кольце, соседи не сдвигаются.
   const AVATAR_BG = ['#2E6BFF', '#F2434F', '#17B26A', '#8B5CF6', '#E8890C', '#0E9F9A', '#C2417B', '#475569'];
   function avatarHTML(u, size = 32) {
+    const art = FRAME_ART[u?.frame];
+    const s = art ? Math.round(size * 0.78) : size;
     const name = String(u?.name || '?').trim();
-    if (u?.avatar) return `<img class="ava" src="${esc(u.avatar)}" width="${size}" height="${size}" alt="" loading="lazy">`;
-    const bg = AVATAR_BG[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % AVATAR_BG.length];
-    return `<span class="ava ava-letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.45)}px;background:${bg}" aria-hidden="true">${esc([...name][0].toUpperCase())}</span>`;
+    let ava;
+    if (u?.avatar) ava = `<img class="ava" src="${esc(u.avatar)}" width="${s}" height="${s}" alt="" loading="lazy">`;
+    else {
+      const bg = AVATAR_BG[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % AVATAR_BG.length];
+      ava = `<span class="ava ava-letter" style="width:${s}px;height:${s}px;font-size:${Math.round(s * 0.45)}px;background:${bg}" aria-hidden="true">${esc([...name][0].toUpperCase())}</span>`;
+    }
+    return art ? `<span class="ava-fr" style="width:${size}px;height:${size}px">${ava}<svg viewBox="0 0 100 100" aria-hidden="true">${art}</svg></span>` : ava;
+  }
+
+  // Рамки витрины (server/shop.js, FRAMES). Круг 100×100: аватарка занимает r = 39, рамка — кольцо от 39 до 50.
+  // Цвета — токены темы, поэтому рамки сами подстраиваются под тёмную тему.
+  const FRAME_ART = (() => {
+    const rad = (d) => (d * Math.PI) / 180;
+    const at = (deg, r) => [50 + r * Math.cos(rad(deg)), 50 + r * Math.sin(rad(deg))];
+    const n = (v) => +v.toFixed(2);
+    const ring = (r, w, color, extra = '') => `<circle cx="50" cy="50" r="${r}" fill="none" style="stroke:var(${color})" stroke-width="${w}"${extra}/>`;
+    const star = (cx, cy, R) => `<path style="fill:var(--start);stroke:var(--navy)" stroke-width="1.3" stroke-linejoin="round" d="M${Array.from({ length: 10 }, (_, i) => {
+      const r = i % 2 ? R * 0.46 : R;
+      return `${n(cx + r * Math.cos(rad(-90 + i * 36)))} ${n(cy + r * Math.sin(rad(-90 + i * 36)))}`;
+    }).join('L')}Z"/>`;
+    // Пиксели: клетки сетки 20×20, чей центр попадает в кольцо.
+    const cell = 100 / 20;
+    let pixels = '';
+    for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) {
+      const d = Math.hypot((x + 0.5) * cell - 50, (y + 0.5) * cell - 50);
+      if (d > 41 && d < 49) pixels += `M${n(x * cell)} ${n(y * cell)}h${cell}v${cell}h-${cell}z`;
+    }
+    // Лавры: две ветки от низа к верху, листья попеременно снаружи и внутри.
+    const leaf = (deg, side) => {
+      const [x, y] = at(deg, side ? 46.4 : 43.2);
+      const rot = deg + 90 + (side ? -28 : 28);
+      return `<ellipse cx="${n(x)}" cy="${n(y)}" rx="6.4" ry="2.7" transform="rotate(${n(rot)} ${n(x)} ${n(y)})"/>`;
+    };
+    let branch = '';
+    for (let i = 0; i < 9; i++) branch += leaf(106 + i * 15, i % 2);
+    const mirror = (svg) => `<g transform="matrix(-1 0 0 1 100 0)">${svg}</g>`;
+    return {
+      dashed: ring(45, 5, '--a', ' stroke-dasharray="8.84 5.3"'),
+      double: ring(47.4, 3.2, '--y') + ring(41.4, 2, '--y'),
+      buttons: ring(45, 2.6, '--ink-2') + [['--y', -90], ['--b', 0], ['--x', 90], ['--a', 180]].map(([c, d]) => {
+        const [x, y] = at(d, 44.5);
+        return `<circle cx="${n(x)}" cy="${n(y)}" r="6.6" style="fill:var(${c});stroke:var(--panel)" stroke-width="1.8"/>`;
+      }).join(''),
+      pixel: `<path style="fill:var(--b)" shape-rendering="crispEdges" d="${pixels}"/>`,
+      stars: ring(45, 2.6, '--start') + [-90, -18, 54, 126, 198].map((d) => star(...at(d, 44.5), 7.4)).join(''),
+      laurel: `<g style="fill:var(--x)">${branch}${mirror(branch)}</g>`,
+      gold: ring(45, 9, '--start') + ring(45, 9, '--start-deep', ' stroke-dasharray="1.6 2.327"')
+        + ring(40.3, 1.5, '--navy') + ring(49.3, 1.5, '--navy'),
+    };
+  })();
+
+  // Имя игрока с цветом из витрины (u.nameColor). Цвета — токены --nc-* с контрастом не меньше 4.5:1 в обеих темах.
+  const NAME_COLORS = ['blue', 'green', 'red', 'purple', 'pink', 'gold'];
+  function nameHTML(u, tag = 'span') {
+    const c = NAME_COLORS.includes(u?.nameColor) ? ` class="nc-${u.nameColor}"` : '';
+    return `<${tag}${c}>${esc(u?.name)}</${tag}>`;
   }
 
   // ---------- монетки ----------
@@ -308,6 +364,6 @@
 
   window.Igr = {
     $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, miniHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, timeLeft, invited,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, timeLeft, invited,
   };
 })();

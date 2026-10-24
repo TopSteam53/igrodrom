@@ -4,6 +4,7 @@
 // Крона нет: итоги прошедшей недели подводит первый запрос после её конца.
 import { createHmac, randomBytes } from 'node:crypto';
 import { avatarUrl } from './avatars.js';
+import { lookOf, LOOK_COLS } from './shop.js';
 import { sha256 } from './auth.js';
 
 // Серия входов: день 1…7, потом круг повторяется, а счётчик дней подряд растёт дальше.
@@ -131,7 +132,7 @@ export function createRewards({
     // Начали турнир посреди недели: рекорды, поставленные с понедельника, уже в зачёте.
     tSeed: db.prepare(`INSERT OR IGNORE INTO tournament_scores (week, user_id, score, at)
                        SELECT ?, user_id, score, updated_at FROM leaderboard_scores WHERE game_id = ? AND board = ? AND updated_at >= ?`),
-    tTop: db.prepare(`SELECT s.user_id, s.score, s.at, s.place, u.name, u.avatar FROM tournament_scores s JOIN users u ON u.id = s.user_id
+    tTop: db.prepare(`SELECT s.user_id, s.score, s.at, s.place, u.name, u.avatar, ${LOOK_COLS} FROM tournament_scores s JOIN users u ON u.id = s.user_id
                       WHERE s.week = ? AND u.blocked_at IS NULL ORDER BY s.score DESC, s.at ASC LIMIT ?`),
     tMine: db.prepare('SELECT score, at FROM tournament_scores WHERE week = ? AND user_id = ?'),
     tRank: db.prepare(`SELECT COUNT(*) AS n FROM tournament_scores s JOIN users u ON u.id = s.user_id
@@ -139,7 +140,7 @@ export function createRewards({
     tCount: db.prepare(`SELECT COUNT(*) AS n FROM tournament_scores s JOIN users u ON u.id = s.user_id
                         WHERE s.week = ? AND u.blocked_at IS NULL`),
     setPlace: db.prepare('UPDATE tournament_scores SET place = ? WHERE week = ? AND user_id = ?'),
-    winners: db.prepare(`SELECT s.place, s.score, u.name, u.avatar FROM tournament_scores s JOIN users u ON u.id = s.user_id
+    winners: db.prepare(`SELECT s.place, s.score, u.name, u.avatar, ${LOOK_COLS} FROM tournament_scores s JOIN users u ON u.id = s.user_id
                          WHERE s.week = ? AND s.place IS NOT NULL ORDER BY s.place`),
     game: db.prepare("SELECT id, slug, title, genre, cover, icon, status FROM games WHERE id = ?"),
     games: db.prepare("SELECT id, title FROM games WHERE status = 'approved' ORDER BY title COLLATE NOCASE"),
@@ -292,7 +293,7 @@ export function createRewards({
     checkAchievements(userId);
   }
 
-  const entry = (r, i, user) => ({ rank: i + 1, name: r.name, avatar: avatarUrl(r.avatar), score: r.score, me: !!user && r.user_id === user.id });
+  const entry = (r, i, user) => ({ rank: i + 1, name: r.name, avatar: avatarUrl(r.avatar), ...lookOf(r), score: r.score, me: !!user && r.user_id === user.id });
 
   function tournamentView(t, user, top = 10) {
     const g = q.game.get(t.game_id);
@@ -312,7 +313,7 @@ export function createRewards({
   const resultsView = (t) => ({
     week: t.week, game_id: t.game_id, game_title: t.game_title, board: t.board, settled_at: t.settled_at,
     total: q.tCount.get(t.week).n,
-    winners: q.winners.all(t.week).map((w) => ({ place: w.place, name: w.name, avatar: avatarUrl(w.avatar), score: w.score })),
+    winners: q.winners.all(t.week).map((w) => ({ place: w.place, name: w.name, avatar: avatarUrl(w.avatar), ...lookOf(w), score: w.score })),
   });
 
   function currentTournament(req, res) {

@@ -12,6 +12,9 @@
   /* тёмные варианты для кнопок с белым текстом: контраст ≥ 4.5:1 */
   --a-ink:#2459E0;--b-ink:#D62839;--x-ink:#0B7F4B;
   --navy:#1C2140;              /* текст на жёлтом и на светлых плашках — в обеих темах */
+  --start-deep:#E5A400;        /* насечки на золотой рамке витрины */
+  /* цвета имени из витрины: контраст ≥ 5:1 к --panel и --paper */
+  --nc-blue:#2459E0;--nc-green:#0A7543;--nc-red:#C41E30;--nc-purple:#6D3FE0;--nc-pink:#B8336F;--nc-gold:#856000;
   --on-ink:var(--paper);       /* текст на заливке цветом --ink (выбранная вкладка, тост) */
   --key-line:var(--ink);--key-shadow:var(--ink); /* контур и твёрдая тень кнопок-клавиш */
   --link:#2459E0;--err:#C21F2F;--code-bg:#1C2140;--skeleton:#DDE2EE;
@@ -24,12 +27,14 @@
   color-scheme:dark;
   --paper:#12152A;--panel:#1D2140;--panel-hover:#252A4D;--ink:#ECEEF7;--ink-2:#A3AAC7;--line:#2D3254;--field:#6E7697;
   --key-line:#4B5384;--key-shadow:#060814;--link:#8EAFFF;--err:#FF8A93;--code-bg:#0A0C1C;--skeleton:#22274A;
+  --nc-blue:#8EAFFF;--nc-green:#4FD891;--nc-red:#FF8A93;--nc-purple:#B9A0FF;--nc-pink:#FF8FC7;--nc-gold:#FFC531;
   --search-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%23ECEEF7' stroke-width='2.2'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
 }}
 :root[data-theme=dark]{
   color-scheme:dark;
   --paper:#12152A;--panel:#1D2140;--panel-hover:#252A4D;--ink:#ECEEF7;--ink-2:#A3AAC7;--line:#2D3254;--field:#6E7697;
   --key-line:#4B5384;--key-shadow:#060814;--link:#8EAFFF;--err:#FF8A93;--code-bg:#0A0C1C;--skeleton:#22274A;
+  --nc-blue:#8EAFFF;--nc-green:#4FD891;--nc-red:#FF8A93;--nc-purple:#B9A0FF;--nc-pink:#FF8FC7;--nc-gold:#FFC531;
   --search-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%23ECEEF7' stroke-width='2.2'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
 }
 *{box-sizing:border-box}
@@ -584,3 +589,44 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .acc-pane>.sec:first-child,.acc-pane>.panel:first-child{margin-top:16px}
 .mini-grid{display:flex;flex-wrap:wrap;gap:18px 16px}
 @media(max-width:560px){.acc-tabs{width:100%}.acc-tab{flex:1;padding:9px 6px}.mini-grid{gap:16px 12px}.mini-grid .mini{width:calc((100% - 36px)/4)}.mini-grid .game-icon{width:100%}}
+
+/* ---------- витрина: рамки, цвет имени, достижение рядом с именем ---------- */
+/* Рамка не меняет размер: снаружи — размер аватарки, внутри аватарка на 78 %, рамка — в кольце вокруг. */
+.ava-fr{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;vertical-align:middle;line-height:0}
+.ava-fr>.ava{width:78%!important;height:78%!important}
+.ava-fr>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.me-ava .ava-fr{width:116px!important;height:116px!important}
+.me-ava .ava-fr>.ava{box-shadow:none;font-size:40px!important}
+.nc-blue{color:var(--nc-blue)}.nc-green{color:var(--nc-green)}.nc-red{color:var(--nc-red)}
+.nc-purple{color:var(--nc-purple)}.nc-pink{color:var(--nc-pink)}.nc-gold{color:var(--nc-gold)}
+.p-badge{display:inline-flex;align-items:center;gap:5px;color:var(--ink-2);font-size:14px}
+.p-badge svg{width:15px;height:15px;flex:none}
+
+.shop-top{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+.shop-look{display:flex;align-items:center;gap:12px;min-width:0}
+.shop-look-name{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
+.shop-look-name b{font-weight:600;font-size:17px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shop-balance{display:flex;align-items:center;gap:8px;font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.shop-balance .coin-ico{width:24px;height:24px}
+.shop-group{margin-top:16px}
+.shop-group h3{margin:0 0 4px}
+.shop-group>p.mut{margin:0 0 16px}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:14px 12px}
+.item{--lift:3px;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;padding:14px 8px 12px;cursor:pointer;text-align:center;
+  font:inherit;color:var(--ink);background:var(--panel);border:2px solid var(--key-line);border-radius:14px;
+  box-shadow:0 var(--lift) 0 var(--key-shadow);transition:transform .06s,box-shadow .06s}
+.item:hover{background:var(--panel-hover)}
+.item:active{transform:translateY(var(--lift));box-shadow:0 0 0 var(--key-shadow)}
+.item.on{border-color:var(--a);box-shadow:0 0 0 2px var(--a),0 var(--lift) 0 var(--key-shadow)}
+.item-art{display:flex;align-items:center;justify-content:center;height:64px;max-width:100%}
+.item-art img{width:64px;height:64px;border-radius:50%}
+.item-name{font:700 16px/1.2 var(--text);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-t{font-weight:600;font-size:14px;line-height:1.25}
+.item-s{margin-top:auto;display:flex;align-items:center;gap:5px;font-size:14px;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.item-s .coin-ico,.item-s svg{width:16px;height:16px}
+.item-s.price{font-weight:700;color:var(--ink)}
+.item-s.price.short{color:var(--ink-2);font-weight:600}
+.badge-pick{display:flex;flex-wrap:wrap;gap:10px}
+.shop-foot{margin:16px 0 0;font-size:14px;max-width:70ch}.shop-foot a{color:var(--link)}
+@media(max-width:560px){.shop-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 8px}.item{padding:12px 4px 10px}
+  .item-art{height:56px}.item-art img{width:56px;height:56px}.item-name{font-size:14px}.item-t{font-size:13px}}

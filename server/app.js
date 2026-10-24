@@ -14,6 +14,7 @@ import { createGameDev, migrateGameMeta, metaView } from './gamedev.js';
 import { createDevRef } from './devref.js';
 import { createAdmin, migrateAdmin } from './admin.js';
 import { createRewards, migrateRewards } from './rewards.js';
+import { createShop, migrateShop, LOOK_COLS } from './shop.js';
 import { slugify } from './slug.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
@@ -117,6 +118,7 @@ export function createApp({
   migrateGameMeta(db);
   migrateAdmin(db);
   migrateRewards(db);
+  migrateShop(db);
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
@@ -132,7 +134,7 @@ export function createApp({
     userByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
     userById: db.prepare('SELECT * FROM users WHERE id = ?'),
     insertUser: db.prepare('INSERT INTO users (email, name, pass_hash, created_at) VALUES (?, ?, ?, ?)'),
-    sessionUser: db.prepare(`SELECT u.id, u.email, u.name, u.role, u.email_verified_at, u.coins, u.avatar, u.avatar_pending, u.avatar_note, u.last_seen_at FROM sessions s JOIN users u ON u.id = s.user_id
+    sessionUser: db.prepare(`SELECT u.id, u.email, u.name, u.role, u.email_verified_at, u.coins, u.avatar, u.avatar_pending, u.avatar_note, u.last_seen_at, ${LOOK_COLS} FROM sessions s JOIN users u ON u.id = s.user_id
                              WHERE s.token_hash = ? AND s.expires_at > ? AND u.blocked_at IS NULL`),
     touchUser: db.prepare('UPDATE users SET last_seen_at = ? WHERE id = ?'),
     deleteUserSessions: db.prepare('DELETE FROM sessions WHERE user_id = ?'),
@@ -143,14 +145,14 @@ export function createApp({
     deleteToken: db.prepare('DELETE FROM email_tokens WHERE token_hash = ?'),
     deleteTokens: db.prepare('DELETE FROM email_tokens WHERE user_id = ? AND kind = ?'),
     purgeTokens: db.prepare('DELETE FROM email_tokens WHERE expires_at <= ?'),
-    lbTop: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+    lbTop: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar, ${LOOK_COLS} FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
                        WHERE s.game_id = ? AND s.board = ? ORDER BY s.score DESC, s.updated_at ASC LIMIT ?`),
-    lbMine: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+    lbMine: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar, ${LOOK_COLS} FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
                         WHERE s.game_id = ? AND s.board = ? AND s.user_id = ?`),
-    lbAbove: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+    lbAbove: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar, ${LOOK_COLS} FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
                          WHERE s.game_id = ? AND s.board = ? AND (s.score > ? OR (s.score = ? AND s.updated_at < ?))
                          ORDER BY s.score ASC, s.updated_at DESC LIMIT ?`),
-    lbBelow: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
+    lbBelow: db.prepare(`SELECT s.user_id, s.score, s.extra, s.updated_at, u.name, u.avatar, ${LOOK_COLS} FROM leaderboard_scores s JOIN users u ON u.id = s.user_id
                          WHERE s.game_id = ? AND s.board = ? AND (s.score < ? OR (s.score = ? AND s.updated_at > ?))
                          ORDER BY s.score DESC, s.updated_at ASC LIMIT ?`),
     lbRank: db.prepare(`SELECT COUNT(*) AS n FROM leaderboard_scores WHERE game_id = ? AND board = ?
@@ -162,7 +164,7 @@ export function createApp({
     lbUpsert: db.prepare(`INSERT INTO leaderboard_scores (game_id, board, user_id, score, extra, updated_at) VALUES (?, ?, ?, ?, ?, ?)
                           ON CONFLICT (game_id, board, user_id) DO UPDATE SET score = excluded.score, extra = excluded.extra,
                             updated_at = excluded.updated_at WHERE excluded.score > leaderboard_scores.score`),
-    reviews: db.prepare(`SELECT r.user_id, r.text, r.created_at, r.updated_at, u.name, u.avatar FROM game_reviews r JOIN users u ON u.id = r.user_id
+    reviews: db.prepare(`SELECT r.user_id, r.text, r.created_at, r.updated_at, u.name, u.avatar, ${LOOK_COLS} FROM game_reviews r JOIN users u ON u.id = r.user_id
                          WHERE r.game_id = ? ORDER BY r.updated_at DESC LIMIT 200`),
     reviewCount: db.prepare('SELECT COUNT(*) AS n FROM game_reviews WHERE game_id = ?'),
     myReview: db.prepare('SELECT text, created_at, updated_at FROM game_reviews WHERE game_id = ? AND user_id = ?'),
@@ -277,6 +279,7 @@ export function createApp({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, HttpError, requireModerator, isAdmin, isModerator, admins, logAction,
     studioEmail: STUDIO_EMAIL, avatars, economy,
   });
+  const shop = createShop({ db, now, send, readJson, HttpError, requireUser, economy, avatars });
   if (seedDemoGames) seedDemo();
   for (const g of q.unslugged.all()) assignSlug(g.id, g.title);
 
@@ -498,7 +501,7 @@ export function createApp({
   const publicUser = (u) => ({
     id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
     developer: developerStatus(u), canPublish: canPublish(u),
-    emailVerified: !!u.email_verified_at, coins: u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), ...avatars.info(u),
+    emailVerified: !!u.email_verified_at, coins: u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), ...avatars.info(u), ...shop.look(u),
   });
 
   function requireDeveloper(req) {
@@ -950,7 +953,7 @@ export function createApp({
   function lbEntry(gameId, board, row, me) {
     const { n } = q.lbRank.get(gameId, board, row.score, row.score, row.updated_at);
     return {
-      rank: n + 1, name: row.name, avatar: avatarUrl(row.avatar), score: row.score, extra: row.extra || '',
+      rank: n + 1, name: row.name, avatar: avatarUrl(row.avatar), ...shop.look(row), score: row.score, extra: row.extra || '',
       player: playerIdOf(row.user_id, gameId), me: !!me && row.user_id === me.id,
     };
   }
@@ -965,7 +968,7 @@ export function createApp({
     const user = currentUser(req);
     const mine = user ? q.lbMine.get(id, board, user.id) : null;
     const entries = q.lbTop.all(id, board, top).map((r, i) => ({
-      rank: i + 1, name: r.name, avatar: avatarUrl(r.avatar), score: r.score, extra: r.extra || '', player: playerIdOf(r.user_id, id), me: r.user_id === user?.id,
+      rank: i + 1, name: r.name, avatar: avatarUrl(r.avatar), ...shop.look(r), score: r.score, extra: r.extra || '', player: playerIdOf(r.user_id, id), me: r.user_id === user?.id,
     }));
     let near = [];
     if (mine && around) {
@@ -1026,7 +1029,7 @@ export function createApp({
     approvedGame(id);
     const user = currentUser(req);
     const reviews = q.reviews.all(id).map((r) => ({
-      id: playerIdOf(r.user_id, id), name: r.name, avatar: avatarUrl(r.avatar), text: r.text, created_at: r.created_at, updated_at: r.updated_at,
+      id: playerIdOf(r.user_id, id), name: r.name, avatar: avatarUrl(r.avatar), ...shop.look(r), text: r.text, created_at: r.created_at, updated_at: r.updated_at,
       mine: r.user_id === user?.id,
     }));
     send(res, 200, { reviews, total: q.reviewCount.get(id).n, canModerate: isModerator(user) });
@@ -1043,7 +1046,7 @@ export function createApp({
     reviewLimiter.fail(key);
     const t = now();
     q.upsertReview.run(id, user.id, text, t, t);
-    send(res, 200, { review: { id: playerIdOf(user.id, id), name: user.name, text, mine: true, ...q.myReview.get(id, user.id) } });
+    send(res, 200, { review: { id: playerIdOf(user.id, id), name: user.name, avatar: avatarUrl(user.avatar), ...shop.look(user), text, mine: true, ...q.myReview.get(id, user.id) } });
   }
 
   function deleteMyReview(req, res, id) {
@@ -1459,7 +1462,7 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || admin.route(p, m) || rewards.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);

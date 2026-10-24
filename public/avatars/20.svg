@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><title>Осьминог</title><rect width="256" height="256" fill="#2E6BFF"/><circle cx="128" cy="256" r="150" fill="#fff" opacity=".08"/>
+    <g fill="none" stroke="#E84A6E" stroke-width="22" stroke-linecap="round">
+      <path d="M78 160 Q46 196 66 222"/><path d="M104 170 Q92 210 110 230"/><path d="M128 172 V232"/>
+      <path d="M152 170 Q164 210 146 230"/><path d="M178 160 Q210 196 190 222"/></g>
+    <ellipse cx="128" cy="116" rx="82" ry="74" fill="#F2557A"/>
+    <circle cx="92" cy="74" r="9" fill="#FF8FAB"/><circle cx="160" cy="70" r="12" fill="#FF8FAB"/><circle cx="134" cy="56" r="6" fill="#FF8FAB"/>
+    <circle cx="96" cy="120" r="19" fill="#fff"/><circle cx="160" cy="120" r="19" fill="#fff"/><circle cx="96" cy="120" r="12" fill="#1C2140"/><circle cx="160" cy="120" r="12" fill="#1C2140"/><circle cx="100.2" cy="115.8" r="4.199999999999999" fill="#fff"/><circle cx="164.2" cy="115.8" r="4.199999999999999" fill="#fff"/><ellipse cx="68" cy="148" rx="14" ry="9" fill="#C0264D" opacity=".7"/><ellipse cx="188" cy="148" rx="14" ry="9" fill="#C0264D" opacity=".7"/><path d="M116 150 Q128 162 140 150" fill="none" stroke="#1C2140" stroke-width="6" stroke-linecap="round"/></svg>
