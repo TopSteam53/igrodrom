@@ -183,7 +183,8 @@
   const AVATAR_BG = ['#2E6BFF', '#F2434F', '#17B26A', '#8B5CF6', '#E8890C', '#0E9F9A', '#C2417B', '#475569'];
   function avatarHTML(u, size = 32) {
     const art = FRAME_ART[u?.frame];
-    const s = art ? Math.round(size * 0.78) : size;
+    const fx = FRAME_FX[u?.frame];
+    const s = art || fx ? Math.round(size * 0.78) : size;
     const name = String(u?.name || '?').trim();
     let ava;
     if (u?.avatar) ava = `<img class="ava" src="${esc(u.avatar)}" width="${s}" height="${s}" alt="" loading="lazy">`;
@@ -191,6 +192,8 @@
       const bg = AVATAR_BG[[...name].reduce((n, c) => n + c.charCodeAt(0), 0) % AVATAR_BG.length];
       ava = `<span class="ava ava-letter" style="width:${s}px;height:${s}px;font-size:${Math.round(s * 0.45)}px;background:${bg}" aria-hidden="true">${esc([...name][0].toUpperCase())}</span>`;
     }
+    // Анимированная рамка: слои под аватаркой (кольцо, свечение) и над ней (корона), --s — размер для свечения.
+    if (fx) return `<span class="ava-fr fx-${u.frame}" style="width:${size}px;height:${size}px;--s:${size}px">${fx.under || ''}${ava}${fx.over || ''}</span>`;
     return art ? `<span class="ava-fr" style="width:${size}px;height:${size}px">${ava}<svg viewBox="0 0 100 100" aria-hidden="true">${art}</svg></span>` : ava;
   }
 
@@ -236,11 +239,107 @@
     };
   })();
 
-  // Имя игрока с цветом из витрины (u.nameColor). Цвета — токены --nc-* с контрастом не меньше 4.5:1 в обеих темах.
-  const NAME_COLORS = ['blue', 'green', 'red', 'purple', 'pink', 'gold'];
+  // Анимированные рамки (дорогие в витрине). Слои: .fxl.ring — кольцо из CSS-градиента (маска оставляет кольцо 39–50),
+  // .fxl.glow — свечение тенью, SVG 100×100 — детали. Двигаются только transform и opacity (style.css, .fx-*);
+  // при «уменьшить движение» всё стоит, а рамка остаётся красивой и без движения.
+  // Цвета здесь фиксированные, а не токены: эффект должен выглядеть одинаково в обеих темах.
+  const FRAME_FX = (() => {
+    const rad = (d) => (d * Math.PI) / 180;
+    const at = (deg, r) => [50 + r * Math.cos(rad(deg)), 50 + r * Math.sin(rad(deg))];
+    const n = (v) => +v.toFixed(2);
+    const svg = (body, cls = '') => `<svg class="fxl${cls}" viewBox="0 0 100 100" aria-hidden="true">${body}</svg>`;
+    const RING = '<i class="fxl ring"></i>', GLOW = '<i class="fxl glow"></i>';
+    const dl = (s) => ` style="animation-delay:-${n(s)}s"`;
+    const spark = (x, y, r, d, c = '#fff') => `<path class="tw"${dl(d)} fill="${c}" d="M${n(x)} ${n(y - r)}Q${n(x + r * 0.2)} ${n(y - r * 0.2)} ${n(x + r)} ${n(y)}Q${n(x + r * 0.2)} ${n(y + r * 0.2)} ${n(x)} ${n(y + r)}Q${n(x - r * 0.2)} ${n(y + r * 0.2)} ${n(x - r)} ${n(y)}Q${n(x - r * 0.2)} ${n(y - r * 0.2)} ${n(x)} ${n(y - r)}Z"/>`;
+    const heart = 'M0 3.6C-1.2 2.6-5 0-5-2.8-5-4.6-3.6-5.8-2.2-5.8-1.2-5.8-.4-5.2 0-4.4.4-5.2 1.2-5.8 2.2-5.8 3.6-5.8 5-4.6 5-2.8 5 0 1.2 2.6 0 3.6Z';
+    const blossom = (deg) => {
+      const [x, y] = at(deg, 45);
+      const petals = [0, 72, 144, 216, 288].map((a) => `<ellipse cx="0" cy="-2.5" rx="2.1" ry="2.9" transform="rotate(${a})"/>`).join('');
+      return `<g transform="translate(${n(x)} ${n(y)}) rotate(${deg})"><g fill="#FFB7D0" stroke="#FF8FB8" stroke-width=".5">${petals}</g><circle r="1.3" fill="#FFD23F"/></g>`;
+    };
+    // Молния: ломаная вдоль кольца, радиус прыгает между 41 и 49.
+    const zig = (from, len, seed) => Array.from({ length: 9 }, (_, i) => {
+      const r = i % 2 ? 41.5 + ((seed + i * 7) % 3) : 48 - ((seed + i * 5) % 3);
+      return at(from + (len * i) / 8, r).map(n).join(' ');
+    }).join(' ');
+    const gem = (deg, c, i) => {
+      const [x, y] = at(deg, 45);
+      return `<circle cx="${n(x)}" cy="${n(y)}" r="3.3" fill="${c}" stroke="#8A5A00" stroke-width=".8"/><circle cx="${n(x - 1)}" cy="${n(y - 1)}" r="1" fill="#fff" opacity=".85"/>${spark(x + 1.6, y - 1.6, 3.2, i * 0.45)}`;
+    };
+    return {
+      hearts: {
+        under: GLOW + svg(`<circle cx="50" cy="50" r="45" fill="none" stroke="#FF5C8A" stroke-width="2.6"/>`),
+        over: svg(`<g class="spin">${[0, 60, 120, 180, 240, 300].map((a, i) => {
+          const [x, y] = at(a - 90, 45);
+          return `<g transform="translate(${n(x)} ${n(y)})"><path class="beat"${dl(i * 0.2)} d="${heart}" fill="#FF4D7E" stroke="#fff" stroke-width=".9"/></g>`;
+        }).join('')}</g>`),
+      },
+      neon: { under: GLOW + RING },
+      sakura: {
+        under: GLOW + svg(`<circle cx="50" cy="50" r="45.5" fill="none" stroke="#FFC2D9" stroke-width="2.4"/><circle cx="50" cy="50" r="41" fill="none" stroke="#FF8FB8" stroke-width="1" opacity=".7"/>`),
+        over: svg(`${[205, 325, 85].map(blossom).join('')}<g class="spin">${[[20, 44], [95, 47.5], [160, 43], [235, 47], [290, 44.5]].map(([a, r], i) => {
+          const [x, y] = at(a, r);
+          return `<g transform="translate(${n(x)} ${n(y)})"><ellipse class="flut"${dl(i * 0.5)} rx="1.9" ry="3" fill="#FFB7D0" stroke="#FF8FB8" stroke-width=".4"/></g>`;
+        }).join('')}</g>`),
+      },
+      rainbow: { under: GLOW + RING, over: svg(`<g class="spin">${spark(50, 5, 4.6, 0)}</g><g class="spin rev">${spark(50, 95, 3.4, 0.8)}</g>`) },
+      electric: {
+        under: GLOW + svg(`<circle cx="50" cy="50" r="45" fill="none" stroke="#1E3A8A" stroke-width="7"/><circle cx="50" cy="50" r="45" fill="none" stroke="#60A5FA" stroke-width="1.4"/>`),
+        over: svg(`<g class="jump">${[0, 120, 240].map((a, i) => `<g class="zap"${dl(i * 0.33)}><polyline points="${zig(a, 55, i)}" fill="none" stroke="#38BDF8" stroke-width="3.4" stroke-linejoin="round" opacity=".55"/><polyline points="${zig(a, 55, i)}" fill="none" stroke="#F0FBFF" stroke-width="1.4" stroke-linejoin="round"/></g>`).join('')}</g>`),
+      },
+      flame: {
+        under: GLOW + RING,
+        over: svg(Array.from({ length: 14 }, (_, i) => {
+          const d = 0.7 + (i % 4) * 0.13;
+          return `<g transform="rotate(${n(i * (360 / 14))} 50 50)"><path class="flick" style="animation-duration:${n(d)}s;animation-delay:-${n(i * 0.21)}s" d="M46.4 10 Q45 4.6 50 -1.4 Q55 4.6 53.6 10Z" fill="#FF7A1A"/><path class="flick" style="animation-duration:${n(d)}s;animation-delay:-${n(i * 0.21)}s" d="M48.2 10 Q47.5 6 50 2.6 Q52.5 6 51.8 10Z" fill="#FFD23F"/></g>`;
+        }).join('')),
+      },
+      galaxy: {
+        under: GLOW + RING,
+        over: svg(`${[[15, 1.1], [70, .8], [130, 1], [190, .7], [250, 1.2], [310, .9], [345, .7], [100, .6]].map(([a, r], i) => {
+          const [x, y] = at(a, 42 + (i % 3) * 2.6);
+          return `<circle class="tw"${dl(i * 0.4)} cx="${n(x)}" cy="${n(y)}" r="${r}" fill="#fff"/>`;
+        }).join('')}
+          <g class="spin" style="animation-duration:7s"><circle cx="50" cy="5.4" r="3.8" fill="#FBBF24" stroke="#B45309" stroke-width=".6"/></g>
+          <g class="spin rev" style="animation-duration:11s"><g transform="rotate(140 50 50)"><circle cx="50" cy="5" r="3" fill="#F472B6"/><ellipse cx="50" cy="5" rx="5.6" ry="1.5" fill="none" stroke="#FDE68A" stroke-width=".9" transform="rotate(-20 50 5)"/></g></g>
+          <g class="spin" style="animation-duration:4.5s"><g transform="rotate(250 50 50)"><circle cx="50" cy="4.6" r="1.9" fill="#A5F3FC"/></g></g>`),
+      },
+      crown: {
+        under: GLOW + svg(`<circle cx="50" cy="50" r="45" fill="none" stroke="#E5A400" stroke-width="9"/><circle cx="50" cy="50" r="45" fill="none" stroke="#FFC531" stroke-width="5.5"/>
+          <circle cx="50" cy="50" r="49.3" fill="none" stroke="#8A5A00" stroke-width="1.2"/><circle cx="50" cy="50" r="40.6" fill="none" stroke="#8A5A00" stroke-width="1.2"/>
+          <g class="spin" style="animation-duration:3.2s"><circle cx="50" cy="50" r="45" fill="none" stroke="#FFF7D6" stroke-width="5" stroke-linecap="round" stroke-dasharray="9 274"/></g>`),
+        over: svg(`${[-45, 0, 45, 90, 135, 180, 225].map((a, i) => gem(a, ['#F2434F', '#2E9BFF', '#17B26A'][i % 3], i)).join('')}
+          <g class="bob"><path d="M37 13.5 L35.4 1.2 L43.4 6.6 L50 -2.4 L56.6 6.6 L64.6 1.2 L63 13.5Z" fill="#FFC531" stroke="#8A5A00" stroke-width="1.3" stroke-linejoin="round"/>
+          <rect x="37" y="10.6" width="26" height="3.4" rx="1" fill="#E5A400" stroke="#8A5A00" stroke-width=".8"/>
+          <circle cx="50" cy="7.6" r="2" fill="#F2434F"/><circle cx="42.4" cy="9" r="1.3" fill="#2E9BFF"/><circle cx="57.6" cy="9" r="1.3" fill="#2E9BFF"/>
+          ${spark(50, -2.6, 3.4, 0.2)}</g>`, ' over'),
+      },
+    };
+  })();
+
+  // Значок рядом с именем (витрина, u.icon). 24×24, фиксированные цвета: видно и на светлом, и на тёмном.
+  const ICON_ART = (() => {
+    const sp = (x, y, r, d = 0) => `<path class="tw" style="animation-delay:-${d}s" fill="#fff" d="M${x} ${y - r}Q${x + r * 0.2} ${y - r * 0.2} ${x + r} ${y}Q${x + r * 0.2} ${y + r * 0.2} ${x} ${y + r}Q${x - r * 0.2} ${y + r * 0.2} ${x - r} ${y}Q${x - r * 0.2} ${y - r * 0.2} ${x} ${y - r}Z"/>`;
+    const s = (body) => `<svg viewBox="0 0 24 24">${body}</svg>`;
+    return {
+      heart: s('<path class="beat" d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.1 4.3 2.6.7-1.5 2.2-2.6 4.3-2.6 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" fill="#F2434F" stroke="#B91C2C" stroke-width="1"/>'),
+      star: s('<path class="twirl" d="M12 1.8l3 6.4 7 .8-5.2 4.7 1.5 6.9L12 17l-6.3 3.6 1.5-6.9L2 9l7-.8z" fill="#FFC531" stroke="#B37A00" stroke-width="1.2" stroke-linejoin="round"/>'),
+      gamepad: s('<path d="M7 6h10c3 0 5 2.4 5.6 6l.7 4.3c.4 2.6-2.6 4-4.3 2l-2.4-2.8H7.4L5 18.3c-1.7 2-4.7.6-4.3-2L1.4 12C2 8.4 4 6 7 6z" fill="#8B5CF6" stroke="#5B21B6" stroke-width="1"/><path d="M6.3 9.2v4.4M4.1 11.4h4.4" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><circle class="blink1" cx="16.6" cy="9.8" r="1.5" fill="#FFC531"/><circle class="blink2" cx="18.8" cy="12.6" r="1.5" fill="#3DCB81"/>'),
+      fire: s('<path class="flick" d="M12 22.5c-4.6 0-7.6-3-7.6-7 0-3.6 2.6-5.8 3.8-8.8.6 1.8 1.6 2.8 2.6 3.2C10.4 6 12.8 3 15.4 1.5c-.6 3.4 1.6 5.4 2.8 7.6 1 1.8 1.4 3.4 1.4 5 0 4.6-3 8.4-7.6 8.4z" fill="#FF6A1A"/><path class="flick" style="animation-delay:-.3s" d="M12 22.5c-2.4 0-4-1.6-4-3.8 0-2.4 2-3.6 2.8-5.6.8 1.4 1.6 1.8 2.4 2 0-1.4.6-2.8 1.6-3.6.2 2 2 3.4 2 5.8 0 2.6-1.8 5.2-4.8 5.2z" fill="#FFD23F"/>'),
+      bolt: s('<path class="zapi" d="M13.5 1.5L3.8 13.6h6.8L9 22.5l10.2-12.8h-6.8l1.1-8.2z" fill="#FFD60A" stroke="#B37A00" stroke-width="1.2" stroke-linejoin="round"/>'),
+      rocket: s('<g class="shake"><path class="flick" d="M6.2 17.8c-1.4 1.4-2 3.6-2.2 4.8 1.2-.2 3.4-.8 4.8-2.2z" fill="#FF9F1C"/><path d="M14.5 3.6c2.6-1.4 5-1.6 6.2-1.4.2 1.2 0 3.6-1.4 6.2l-7 7-4.8-4.8z" fill="#F1F5F9" stroke="#475569" stroke-width="1"/><circle cx="15.6" cy="8.4" r="1.9" fill="#38BDF8" stroke="#475569" stroke-width=".8"/><path d="M7.5 10.6L4 10l2.6-3.4 4-.2zM13.4 16.5l.6 3.5 3.4-2.6.2-4z" fill="#F2434F"/><path d="M8.5 15.5l-2.2 2.2" stroke="#475569" stroke-width="1"/></g>'),
+      diamond: s(`<path d="M6.3 3h11.4L22 9l-10 12.5L2 9z" fill="#22D3EE" stroke="#0E7490" stroke-width="1.1" stroke-linejoin="round"/><path d="M2 9h20M8.6 3L6.6 9 12 21.5 17.4 9l-2-6" fill="none" stroke="#A5F3FC" stroke-width=".9"/><path d="M6.6 9L12 21.5 9.2 9z" fill="#67E8F9"/>${sp(18.5, 4.2, 3.4, 0)}${sp(5.2, 13.6, 2.2, 1.1)}`),
+      crown: s(`<g class="bob"><path d="M3 18.5L1.8 7.2l5.6 4.2L12 3.6l4.6 7.8 5.6-4.2L21 18.5z" fill="#FFC531" stroke="#B37A00" stroke-width="1.2" stroke-linejoin="round"/><rect x="3" y="17.2" width="18" height="3.4" rx="1" fill="#E5A400" stroke="#B37A00" stroke-width="1"/><circle cx="12" cy="13.6" r="1.7" fill="#F2434F"/><circle cx="7.2" cy="14.6" r="1.1" fill="#2E9BFF"/><circle cx="16.8" cy="14.6" r="1.1" fill="#2E9BFF"/>${sp(12, 2.6, 3, .3)}</g>`),
+    };
+  })();
+  const nameIconHTML = (id) => (ICON_ART[id] ? `<span class="nico ni-${id}" aria-hidden="true">${ICON_ART[id]}</span>` : '');
+
+  // Имя игрока с цветом из витрины (u.nameColor) и значком (u.icon). Цвета — токены --nc-* с контрастом
+  // не меньше 4.5:1 в обеих темах; переливы (neon…goldshine) — тоже токены, в style.css.
+  const NAME_COLORS = ['blue', 'green', 'red', 'purple', 'pink', 'gold', 'neon', 'rainbow', 'fire', 'goldshine'];
   function nameHTML(u, tag = 'span') {
     const c = NAME_COLORS.includes(u?.nameColor) ? ` class="nc-${u.nameColor}"` : '';
-    return `<${tag}${c}>${esc(u?.name)}</${tag}>`;
+    return `<${tag}${c}>${nameIconHTML(u?.icon)}${esc(u?.name)}</${tag}>`;
   }
 
   // ---------- монетки ----------
@@ -365,6 +464,6 @@
 
   window.Igr = {
     $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, miniHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, timeLeft, invited,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited,
   };
 })();

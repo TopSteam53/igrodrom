@@ -111,35 +111,16 @@
   </div>
 
   <div class="acc-pane hidden" role="tabpanel" data-pane="shop" aria-labelledby="tab-shop">
-    <div class="panel shop-top">
-      <div>
-        <h3>Так вас видят другие</h3>
-        <div class="shop-look" id="shopLook"></div>
-      </div>
+    <div class="panel shop-stage" id="shopStage">
+      <div class="stage-look" id="stageLook"></div>
+      <div class="stage-info" id="stageInfo" aria-live="polite"></div>
       <div class="shop-balance" id="shopBalance" aria-live="polite"></div>
     </div>
-    <section class="panel shop-group" aria-labelledby="shopFrameT">
-      <h3 id="shopFrameT">Рамка</h3>
-      <p class="mut">Вокруг аватарки: в шапке сайта, в профиле, в отзывах и таблицах рекордов.</p>
-      <div class="shop-grid" id="shopFrame"></div>
-    </section>
-    <section class="panel shop-group" aria-labelledby="shopColorT">
-      <h3 id="shopColorT">Цвет имени</h3>
-      <p class="mut">Так ваше имя увидят все в отзывах и таблицах рекордов.</p>
-      <div class="shop-grid" id="shopColor"></div>
-    </section>
-    <section class="panel shop-group" aria-labelledby="shopAvatarT">
-      <h3 id="shopAvatarT">Аватарки</h3>
-      <p class="mut">Восемь зверей в дополнение к бесплатным. Купленных можно сменять в любой момент.</p>
-      <div class="shop-grid" id="shopAvatar"></div>
-    </section>
-    <section class="panel shop-group" aria-labelledby="shopBadgeT">
-      <h3 id="shopBadgeT">Достижение в отзывах</h3>
-      <p class="mut">Одно из полученных достижений рядом с вашим именем в отзывах. Бесплатно.</p>
-      <div class="badge-pick" id="shopBadge"></div>
-    </section>
+    <div class="shop-tabs" role="tablist" aria-label="Разделы витрины" id="shopTabs"></div>
+    <section class="panel shop-list" id="shopList"></section>
     <p class="mut shop-foot">Всё в витрине — только оформление: в играх оно ничего не даёт. Купленное остаётся на аккаунте,
       монетки за него не возвращаются, передать его другому игроку нельзя. <a href="terms.html#coins">Правила</a></p>
+    <div class="shop-bar hidden" id="shopBar" aria-live="polite"></div>
   </div>
 
 
@@ -192,7 +173,7 @@ fromHash();
 
 function renderUser() {
   $('ava').innerHTML = avatarHTML(user, user.frame ? 116 : 96);
-  $('name').textContent = user.name;
+  $('name').innerHTML = `${Igr.nameIconHTML(user.icon)}${esc(user.name)}`;
   $('name').className = `profile-name${user.nameColor ? ` nc-${user.nameColor}` : ''}`;
   const chip = $('login');
   if (chip?.classList.contains('user-btn')) chip.innerHTML = `${avatarHTML(user, 26)}<span class="user-name">${esc(user.name)}</span>`;
@@ -379,11 +360,25 @@ async function checkOrder() {
 }
 
 // ---------- витрина ----------
-// Рамки, цвета имени и платные аватарки за монетки (server/shop.js). Клик по предмету: не куплен — купить
-// и сразу надеть, куплен — надеть. «Без рамки» и «Обычный» снимают надетое.
+// Рамки, аватарки, значки и цвета имени за монетки (server/shop.js). Клик по предмету — примерка: он сразу виден
+// на вас в «примерочной» наверху (на телефоне — в полосе внизу), там же кнопка «Купить» или «Надеть».
+// «Без рамки», «Обычный», «Без значка» снимают надетое.
 let shop2 = null;
-const NOUN = { frame: 'Рамка', color: 'Цвет имени', avatar: 'Аватарка' };
-const NONE = { frame: 'Без рамки', color: 'Обычный' };
+let shopCat = 'frame';
+let tryOn = null; // { slot, it } — что примеряется (it = null — «без …»); null — как сейчас
+const NOUN = { frame: 'Рамка', color: 'Цвет имени', icon: 'Значок', avatar: 'Аватарка' };
+const NONE = { frame: 'Без рамки', color: 'Обычный', icon: 'Без значка' };
+const FIELD = { frame: 'frame', color: 'nameColor', icon: 'icon' };
+const TIER_F = { common: 'Обычная', rare: 'Редкая', epic: 'Эпическая', legendary: 'Легендарная' };
+const TIER_M = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+const tierText = (it) => (it.slot === 'icon' || it.slot === 'color' ? TIER_M : TIER_F)[it.tier];
+const CATS = [
+  ['frame', 'Рамки', 'Вокруг аватарки: в шапке сайта, в профиле, в отзывах и таблицах рекордов.'],
+  ['avatar', 'Аватарки', 'Купленные можно сменять когда угодно. Бесплатные — в профиле: нажмите на свою аватарку.'],
+  ['icon', 'Значки', 'Маленькая анимация перед именем — в отзывах, рекордах и турнире.'],
+  ['color', 'Имя', 'Так ваше имя увидят все в отзывах и таблицах рекордов.'],
+  ['badge', 'Достижение', 'Одно из полученных достижений рядом с вашим именем в отзывах. Бесплатно.'],
+];
 const BADGE_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><circle class="mark-fill" cx="10" cy="10" r="9"/><path class="mark-check" d="m6 10.4 2.7 2.7L14.2 7.4"/></svg>';
 const badgeHTML = (title) => `<span class="p-badge">${BADGE_SVG}${esc(title)}</span>`;
 
@@ -403,87 +398,166 @@ function applyShop(s) {
   if (ava) user.avatar = ava.image;
   renderUser();
   Igr.setCoins(s.coins);
+  if (tryOn?.it) tryOn.it = s.items.find((i) => i.id === tryOn.it.id) || null;
   renderShop();
 }
-// Как будет выглядеть игрок с предметом: для превью в плитке и в окне покупки.
-function lookWith(it) {
-  if (!it) return user;
-  if (it.slot === 'frame') return { ...user, frame: it.key };
-  if (it.slot === 'color') return { ...user, nameColor: it.key };
-  return { ...user, avatar: it.image };
+// Как будет выглядеть игрок с предметом: для примерочной, плиток и окна покупки.
+function lookWith(it, slot = it?.slot) {
+  if (!it) return slot && FIELD[slot] ? { ...user, [FIELD[slot]]: null } : user;
+  if (it.slot === 'avatar') return { ...user, avatar: it.image };
+  return { ...user, [FIELD[it.slot]]: it.key };
 }
-function itemArt(slot, it, size = 64) {
+const isOn = (slot, it) => (it ? it.equipped : !shop2.equipped[slot]);
+
+function itemArt(slot, it, size = 72) {
   // Образец цвета — первое слово имени: целиком длинное имя в плитку не помещается.
   if (slot === 'color') return `<span class="item-name ${it ? `nc-${it.key}` : ''}">${esc(user.name.split(/\s+/)[0])}</span>`;
+  if (slot === 'icon') return it ? `<span class="item-ico">${Igr.nameIconHTML(it.key)}</span>` : '<span class="item-ico none" aria-hidden="true"></span>';
   if (slot === 'frame') return avatarHTML({ ...user, frame: it ? it.key : null }, size);
-  return `<img src="${esc(it.image)}" width="${size}" height="${size}" alt="">`;
+  return `<img src="${esc(it.image)}" width="${size}" height="${size}" alt="" loading="lazy">`;
 }
 function itemTile(slot, it) {
-  const on = it ? it.equipped : !shop2.equipped[slot];
-  const status = on ? `<span class="item-s">${BADGE_SVG}Выбрано</span>`
+  const on = isOn(slot, it);
+  const sel = tryOn && tryOn.slot === slot && (tryOn.it?.id ?? null) === (it?.id ?? null);
+  const status = on ? `<span class="item-s">${BADGE_SVG}Надето</span>`
     : !it || it.owned ? `<span class="item-s">${it ? 'Куплено' : 'Бесплатно'}</span>`
     : `<span class="item-s price${shop2.coins < it.price ? ' short' : ''}">${COIN_SVG}${fmt(it.price)}</span>`;
   const title = it ? it.title : NONE[slot];
-  return `<button type="button" class="item${on ? ' on' : ''}" data-slot="${slot}" data-item="${it ? esc(it.id) : ''}"
-    aria-pressed="${on}" aria-label="${esc(`${NOUN[slot]}: ${title}`)}${it && !it.owned ? `, ${esc(coinsText(it.price))}` : ''}">
-    <span class="item-art">${itemArt(slot, it)}</span><span class="item-t">${esc(title)}</span>${status}</button>`;
+  const cls = ['item', it ? `t-${it.tier}` : '', on ? 'on' : '', sel ? 'sel' : ''].filter(Boolean).join(' ');
+  return `<button type="button" class="${cls}" data-slot="${slot}" data-item="${it ? esc(it.id) : ''}" aria-pressed="${!!sel}"
+    aria-label="${esc(`${NOUN[slot]}: ${title}`)}${it ? `, ${esc(tierText(it).toLowerCase())}` : ''}${it && !it.owned ? `, ${esc(coinsText(it.price))}` : ''}${on ? ', надето' : ''}">
+    ${it?.anim && !it.owned ? '<span class="item-new">Новинка</span>' : ''}
+    <span class="item-art">${itemArt(slot, it)}</span><span class="item-t">${esc(title)}</span>
+    ${it && it.tier !== 'common' ? `<span class="item-tier">${esc(tierText(it))}</span>` : ''}${status}</button>`;
+}
+
+// Примерочная: вы с примеряемым предметом и что с ним можно сделать. compact — полоса внизу на телефоне.
+function stageActions() {
+  if (!tryOn) return '';
+  const { slot, it } = tryOn;
+  const reset = '<button type="button" class="btn sm ghost" data-act="reset">Как сейчас</button>';
+  if (!it) {
+    return shop2.equipped[slot] ? `<button type="button" class="btn sm primary" data-act="unequip">Снять ${NOUN[slot].toLowerCase()}</button>${reset}`
+      : `<span class="stage-ok">${BADGE_SVG}Ничего не надето</span>`;
+  }
+  if (it.equipped) {
+    return `<span class="stage-ok">${BADGE_SVG}Надето</span>${slot === 'avatar' ? '' : '<button type="button" class="btn sm" data-act="unequip">Снять</button>'}`;
+  }
+  if (it.owned) return `<button type="button" class="btn sm primary" data-act="equip">Надеть</button>${reset}`;
+  if (shop2.coins < it.price) {
+    return `<button type="button" class="btn sm" data-act="short">Не хватает ${fmt(it.price - shop2.coins)} ${COIN_SVG}</button>${reset}`;
+  }
+  return `<button type="button" class="btn sm primary" data-act="buy">Купить за ${fmt(it.price)} ${COIN_SVG}</button>${reset}`;
+}
+function stageText() {
+  if (!tryOn) return '<p class="stage-cap">Так вас видят другие</p><p class="mut stage-hint">Нажмите на любой предмет — он сразу появится на вас.</p>';
+  const { slot, it } = tryOn;
+  if (!it) return `<p class="stage-cap">${esc(NONE[slot])}</p>`;
+  return `<p class="stage-cap">${esc(it.title)}</p><p class="stage-tags"><span class="tier t-${it.tier}">${esc(tierText(it))}</span>
+    <span class="mut">${esc(NOUN[slot].toLowerCase())}${it.anim ? ', анимированн' + (slot === 'icon' || slot === 'color' ? 'ый' : 'ая') : ''}</span></p>`;
+}
+function renderStage() {
+  const look = tryOn ? lookWith(tryOn.it, tryOn.slot) : user;
+  const tier = tryOn?.it?.tier || 'none';
+  const nameLine = `<div class="stage-name">${nameHTML(look, 'b')}${look.badge ? badgeHTML(look.badge) : ''}</div>`;
+  $('shopStage').className = `panel shop-stage st-${tier}`;
+  $('stageLook').innerHTML = `<div class="stage-ava">${avatarHTML(look, 112)}</div>${nameLine}`;
+  $('stageInfo').innerHTML = `${stageText()}<div class="stage-acts">${stageActions()}</div>`;
+  $('shopBalance').innerHTML = `${COIN_SVG}<span>${fmt(shop2.coins)}</span>`;
+  $('shopBalance').setAttribute('aria-label', `На счёте ${coinsText(shop2.coins)}`);
+  const bar = $('shopBar');
+  bar.classList.toggle('hidden', !tryOn);
+  if (tryOn) bar.innerHTML = `${avatarHTML(look, 52)}<div class="bar-mid">${nameHTML(look, 'b')}<span class="mut">${tryOn.it ? esc(tryOn.it.title) : esc(NONE[tryOn.slot])}</span></div><div class="stage-acts">${stageActions()}</div>`;
+}
+function renderList() {
+  const [, , about] = CATS.find(([c]) => c === shopCat);
+  if (shopCat === 'badge') {
+    $('shopList').innerHTML = `<p class="mut shop-about">${esc(about)}</p><div class="badge-pick">${shop2.badges.length
+      ? [{ key: null, title: 'Не показывать' }, ...shop2.badges].map((b) => {
+        const on = (shop2.equipped.badge || null) === b.key;
+        return `<button type="button" class="btn sm${on ? ' on' : ''}" data-badge="${esc(b.key || '')}" aria-pressed="${on}">${esc(b.title)}</button>`;
+      }).join('')
+      : '<p class="mut" style="margin:0">Пока нет полученных достижений. Они на вкладке <a href="#rewards">«Награды»</a>.</p>'}</div>`;
+    return;
+  }
+  const items = shop2.items.filter((i) => i.slot === shopCat).sort((a, b) => a.price - b.price);
+  const anim = items.filter((i) => i.anim), classic = items.filter((i) => !i.anim);
+  const none = shopCat === 'avatar' ? [] : [null];
+  const grid = (list) => `<div class="shop-grid">${list.map((it) => itemTile(shopCat, it)).join('')}</div>`;
+  $('shopList').innerHTML = `<p class="mut shop-about">${esc(about)}</p>
+    ${anim.length ? `<h3 class="shop-sub">Анимированные</h3>${grid(classic.length ? anim : [...none, ...anim])}` : ''}
+    ${classic.length ? `${anim.length ? '<h3 class="shop-sub">Классика</h3>' : ''}${grid([...none, ...classic])}` : ''}`;
 }
 function renderShop() {
   if (!shop2 || !user) return;
-  $('shopLook').innerHTML = `${avatarHTML(user, 56)}<div class="shop-look-name">${nameHTML(user, 'b')}${user.badge ? badgeHTML(user.badge) : ''}</div>`;
-  $('shopBalance').innerHTML = `${COIN_SVG}<span>${fmt(shop2.coins)}</span>`;
-  $('shopBalance').setAttribute('aria-label', `На счёте ${coinsText(shop2.coins)}`);
-  const of = (slot) => shop2.items.filter((i) => i.slot === slot);
-  $('shopFrame').innerHTML = [null, ...of('frame')].map((it) => itemTile('frame', it)).join('');
-  $('shopColor').innerHTML = [null, ...of('color')].map((it) => itemTile('color', it)).join('');
-  $('shopAvatar').innerHTML = of('avatar').map((it) => itemTile('avatar', it)).join('');
-  $('shopBadge').innerHTML = shop2.badges.length
-    ? [{ key: null, title: 'Не показывать' }, ...shop2.badges].map((b) => {
-      const on = (shop2.equipped.badge || null) === b.key;
-      return `<button type="button" class="btn sm${on ? ' on' : ''}" data-badge="${esc(b.key || '')}" aria-pressed="${on}">${esc(b.title)}</button>`;
-    }).join('')
-    : '<p class="mut" style="margin:0">Пока нет полученных достижений. Они на вкладке <a href="#rewards">«Награды»</a>.</p>';
+  $('shopTabs').innerHTML = CATS.map(([c, label]) => {
+    const n = c === 'badge' ? shop2.badges.length : shop2.items.filter((i) => i.slot === c).length;
+    return `<button type="button" role="tab" class="shop-tab" data-cat="${c}" aria-selected="${c === shopCat}">${label}<span class="n">${n}</span></button>`;
+  }).join('');
+  renderStage();
+  renderList();
 }
 
-async function pickItem(slot, id) {
-  const it = id ? shop2.items.find((i) => i.id === id) : null;
-  if (it?.equipped || (!it && !shop2.equipped[slot])) return;
-  if (it && !it.owned) {
-    const preview = `<div class="shop-look" style="margin:4px 0 14px">${avatarHTML(lookWith(it), 64)}<div class="shop-look-name">${nameHTML(lookWith(it), 'b')}</div></div>`;
-    if (shop2.coins < it.price) {
-      const go = await dialog({
-        title: `Не хватает ${coinsText(it.price - shop2.coins)}`,
-        html: `${preview}<p>«${esc(it.title)}» стоит ${coinsText(it.price)}, на счёте ${coinsText(shop2.coins)}.
-          Монетки приходят за вход каждый день, за достижения и за турнир недели.</p>`,
-        buttons: [{ text: 'Закрыть', value: null }, { text: 'Где взять монетки', value: true, cls: 'primary' }],
-      });
-      if (go) openTab('rewards');
-      return;
-    }
-    const ok = await dialog({
-      title: `${NOUN[slot]} «${it.title}»`,
-      html: `${preview}<p>Стоит ${coinsText(it.price)}, после покупки останется ${coinsText(shop2.coins - it.price)}.
-        Купленное остаётся у вас: снять и надеть снова можно когда угодно.</p>`,
-      buttons: [{ text: 'Отмена', value: false }, { text: `Купить за ${fmt(it.price)}`, value: true, cls: 'primary' }],
+async function shopAct(act) {
+  const { slot, it } = tryOn || {};
+  if (act === 'reset') { tryOn = null; return renderShop(); }
+  if (act === 'unequip') return applyShop(await shopApi('/api/shop/equip', { slot, item: null }));
+  if (act === 'equip') return applyShop(await shopApi('/api/shop/equip', { slot, item: it.id }));
+  const preview = `<div class="shop-look" style="margin:4px 0 14px">${avatarHTML(lookWith(it), 64)}<div class="shop-look-name">${nameHTML(lookWith(it), 'b')}</div></div>`;
+  if (act === 'short') {
+    const go = await dialog({
+      title: `Не хватает ${coinsText(it.price - shop2.coins)}`,
+      html: `${preview}<p>«${esc(it.title)}» стоит ${coinsText(it.price)}, на счёте ${coinsText(shop2.coins)}.
+        Монетки приходят за вход каждый день, за достижения и за турнир недели.</p>`,
+      buttons: [{ text: 'Закрыть', value: null }, { text: 'Где взять монетки', value: true, cls: 'primary' }],
     });
-    if (!ok) return;
-    applyShop(await shopApi('/api/shop/buy', { item: it.id }));
+    if (go) openTab('rewards');
+    return;
   }
-  applyShop(await shopApi('/api/shop/equip', { slot, item: it ? it.id : null }));
-  if (it && !it.owned) toast(`Куплено и надето: ${it.title}`);
+  if (act !== 'buy') return;
+  const ok = await dialog({
+    title: `${NOUN[slot]} «${it.title}»`,
+    html: `${preview}<p>Стоит ${coinsText(it.price)}, после покупки останется ${coinsText(shop2.coins - it.price)}.
+      Купленное остаётся у вас: снять и надеть снова можно когда угодно.</p>`,
+    buttons: [{ text: 'Отмена', value: false }, { text: `Купить за ${fmt(it.price)}`, value: true, cls: 'primary' }],
+  });
+  if (!ok) return;
+  applyShop(await shopApi('/api/shop/buy', { item: it.id }));
+  applyShop(await shopApi('/api/shop/equip', { slot, item: it.id }));
+  toast(`Куплено и надето: ${it.title}`);
 }
-for (const id of ['shopFrame', 'shopColor', 'shopAvatar']) {
-  $(id).onclick = (e) => {
-    const b = e.target.closest('[data-slot]');
-    if (b) pickItem(b.dataset.slot, b.dataset.item).catch((err) => toast(err.message));
-  };
-}
-$('shopBadge').onclick = async (e) => {
+$('shopTabs').onclick = (e) => {
+  const b = e.target.closest('[data-cat]');
+  if (!b || b.dataset.cat === shopCat) return;
+  shopCat = b.dataset.cat;
+  renderShop();
+};
+$('shopTabs').onkeydown = (e) => {
+  if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+  const i = CATS.findIndex(([c]) => c === shopCat);
+  shopCat = CATS[(i + (e.key === 'ArrowRight' ? 1 : CATS.length - 1)) % CATS.length][0];
+  renderShop();
+  $('shopTabs').querySelector('[aria-selected="true"]').focus();
+};
+$('shopList').onclick = async (e) => {
+  const t = e.target.closest('[data-slot]');
+  if (t) {
+    const it = t.dataset.item ? shop2.items.find((i) => i.id === t.dataset.item) : null;
+    tryOn = { slot: t.dataset.slot, it };
+    renderShop();
+    return;
+  }
   const b = e.target.closest('[data-badge]');
   if (!b) return;
   try { applyShop(await shopApi('/api/shop/equip', { slot: 'badge', item: b.dataset.badge || null })); }
   catch (err) { toast(err.message); }
 };
+for (const id of ['stageInfo', 'shopBar']) {
+  $(id).onclick = (e) => {
+    const b = e.target.closest('[data-act]');
+    if (b) shopAct(b.dataset.act).catch((err) => toast(err.message));
+  };
+}
 
 // ---------- аватарка ----------
 async function setAvatar(method, url, body, type = 'application/json') {

@@ -1,4 +1,4 @@
-// Витрина: покупка рамок, цветов имени и платных аватарок за монетки, надеть и снять, показ в отзывах и рекордах.
+// Витрина: покупка рамок, цветов имени, значков и платных аватарок за монетки, надеть и снять, показ в отзывах и рекордах.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createApp } from '../server/app.js';
 import { fileURLToPath } from 'node:url';
-import { ITEMS } from '../server/shop.js';
+import { ITEMS, tierOf } from '../server/shop.js';
 
 const PUBLIC = fileURLToPath(new URL('../public', import.meta.url));
 
@@ -58,16 +58,19 @@ const me = async (b) => (await b('GET', '/api/me')).data.user;
 const grant = async (b, amount) => assert.equal((await owner('POST', `/api/admin/users/${b.id}/coins`, { amount, reason: 'Для теста витрины' })).status, 200);
 const shopSpent = async (b) => (await b('GET', '/api/me/coins')).data.history.filter((h) => h.kind === 'shop').map((h) => h.delta);
 
-test('каталог: рамки, цвета, платные звери; цены целые и положительные', async () => {
+test('каталог: рамки, цвета, значки, платные звери; цены целые и положительные', async () => {
   const p = await player('look@test.ru');
   const r = await p('GET', '/api/shop');
   assert.equal(r.status, 200);
   assert.equal(r.data.coins, 50, 'подарок новичку');
   const slots = (s) => r.data.items.filter((i) => i.slot === s).length;
-  assert.ok(slots('frame') >= 6 && slots('frame') <= 8);
-  assert.equal(slots('color'), 6);
-  assert.equal(slots('avatar'), 8);
+  assert.equal(slots('frame'), 15);
+  assert.equal(slots('color'), 10);
+  assert.equal(slots('icon'), 8);
+  assert.equal(slots('avatar'), 16);
   assert.ok(r.data.items.every((i) => !i.owned && !i.equipped && Number.isInteger(i.price) && i.price > 0));
+  assert.ok(r.data.items.every((i) => i.tier === tierOf(i.price)), 'редкость по цене');
+  assert.equal(r.data.items.filter((i) => i.anim).length, 28, 'анимированные новинки');
   for (const i of ITEMS.filter((x) => x.slot === 'avatar')) assert.ok(fs.existsSync(path.join(PUBLIC, i.image)), i.image);
   assert.equal((await browser()('GET', '/api/shop')).status, 401, 'без входа витрины нет');
 });
@@ -177,4 +180,43 @@ test('достижение рядом с именем: только получе
   assert.equal((await me(p)).badge, 'Первый рекорд');
   await p('POST', '/api/shop/equip', { slot: 'badge', item: null });
   assert.equal((await me(p)).badge, null);
+});
+
+test('каждый предмет витрины нарисован на сайте: рамка, значок, цвет имени, аватарка', () => {
+  const app = fs.readFileSync(path.join(PUBLIC, 'app.js'), 'utf8');
+  const css = fs.readFileSync(path.join(PUBLIC, 'style.css'), 'utf8');
+  for (const i of ITEMS) {
+    // FRAME_ART, FRAME_FX и ICON_ART в app.js — объекты, ключ с отступом в 6 пробелов
+    if (i.slot === 'frame' || i.slot === 'icon') assert.match(app, new RegExp(`\\n {6}${i.key}: `), i.id);
+    if (i.slot === 'color') assert.match(css, new RegExp(`\\.nc-${i.key}[{,]`), i.id);
+    if (i.anim && i.slot === 'avatar') assert.match(fs.readFileSync(path.join(PUBLIC, i.image), 'utf8'), /@keyframes/, i.image);
+  }
+});
+
+test('значок перед именем: купить, надеть, виден в /api/me, отзывах и рекордах, снять', async () => {
+  const p = await player('icon@test.ru', 'Значкист');
+  await grant(p, 1500);
+  assert.equal((await p('POST', '/api/shop/equip', { slot: 'icon', item: 'icon:crown' })).status, 403, 'не куплено');
+  assert.equal((await p('POST', '/api/shop/buy', { item: 'icon:crown' })).status, 200);
+  assert.equal((await p('POST', '/api/shop/equip', { slot: 'icon', item: 'frame:crown' })).status, 400, 'не тот слот');
+  const eq = await p('POST', '/api/shop/equip', { slot: 'icon', item: 'icon:crown' });
+  assert.equal(eq.status, 200);
+  assert.equal(eq.data.equipped.icon, 'icon:crown');
+  assert.equal((await me(p)).icon, 'crown');
+  await p('PUT', `/api/games/${gameId}/reviews`, { text: 'С короной' });
+  await p('POST', `/api/games/${gameId}/leaderboard`, { score: 7 });
+  const guest = browser();
+  assert.equal((await guest('GET', `/api/games/${gameId}/reviews`)).data.reviews.find((r) => r.name === 'Значкист').icon, 'crown');
+  assert.equal((await guest('GET', `/api/games/${gameId}/leaderboard`)).data.entries.find((e) => e.name === 'Значкист').icon, 'crown');
+  assert.deepEqual(await shopSpent(p), [-1200]);
+  assert.equal((await p('POST', '/api/shop/equip', { slot: 'icon', item: null })).status, 200);
+  assert.equal((await me(p)).icon, null);
+});
+
+test('анимированная аватарка из витрины ставится как обычная платная', async () => {
+  const p = await player('anim@test.ru');
+  await grant(p, 1500);
+  assert.equal((await p('POST', '/api/shop/buy', { item: 'avatar:32' })).status, 200);
+  assert.equal((await p('POST', '/api/shop/equip', { slot: 'avatar', item: 'avatar:32' })).status, 200);
+  assert.equal((await me(p)).avatar, '/avatars/32.svg');
 });

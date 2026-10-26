@@ -15,6 +15,10 @@
   --start-deep:#E5A400;        /* насечки на золотой рамке витрины */
   /* цвета имени из витрины: контраст ≥ 5:1 к --panel и --paper */
   --nc-blue:#2459E0;--nc-green:#0A7543;--nc-red:#C41E30;--nc-purple:#6D3FE0;--nc-pink:#B8336F;--nc-gold:#856000;
+  --tier-rare:var(--nc-blue);--tier-epic:var(--nc-purple);--tier-legend:var(--nc-gold); /* редкость в витрине */
+  /* переливы имени из витрины (.nc-neon … .nc-goldshine): каждый цвет ≥ 4.5:1 к --panel и --paper */
+  --fxn-neon:#0E6F8A;--fxn-neon-glow:rgba(14,165,233,.45);--fxn-r1:#C2410C;--fxn-r2:#A16207;--fxn-r3:#15803D;--fxn-r4:#1D4ED8;--fxn-r5:#7E22CE;--fxn-r6:#BE185D;
+  --fxn-f1:#B91C1C;--fxn-f2:#C2410C;--fxn-f3:#A16207;--fxn-gold:#7A5600;--fxn-gold-hi:#A67400;
   --on-ink:var(--paper);       /* текст на заливке цветом --ink (выбранная вкладка, тост) */
   --key-line:var(--ink);--key-shadow:var(--ink); /* контур и твёрдая тень кнопок-клавиш */
   --link:#2459E0;--err:#C21F2F;--code-bg:#1C2140;--skeleton:#DDE2EE;
@@ -28,6 +32,8 @@
   --paper:#12152A;--panel:#1D2140;--panel-hover:#252A4D;--ink:#ECEEF7;--ink-2:#A3AAC7;--line:#2D3254;--field:#6E7697;
   --key-line:#4B5384;--key-shadow:#060814;--link:#8EAFFF;--err:#FF8A93;--code-bg:#0A0C1C;--skeleton:#22274A;
   --nc-blue:#8EAFFF;--nc-green:#4FD891;--nc-red:#FF8A93;--nc-purple:#B9A0FF;--nc-pink:#FF8FC7;--nc-gold:#FFC531;
+  --fxn-neon:#67E8F9;--fxn-neon-glow:rgba(103,232,249,.65);--fxn-r1:#FB923C;--fxn-r2:#FACC15;--fxn-r3:#4ADE80;--fxn-r4:#60A5FA;--fxn-r5:#C084FC;--fxn-r6:#F472B6;
+  --fxn-f1:#F87171;--fxn-f2:#FB923C;--fxn-f3:#FDE047;--fxn-gold:#FFC531;--fxn-gold-hi:#FFF6D0;
   --search-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%23ECEEF7' stroke-width='2.2'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
 }}
 :root[data-theme=dark]{
@@ -35,6 +41,8 @@
   --paper:#12152A;--panel:#1D2140;--panel-hover:#252A4D;--ink:#ECEEF7;--ink-2:#A3AAC7;--line:#2D3254;--field:#6E7697;
   --key-line:#4B5384;--key-shadow:#060814;--link:#8EAFFF;--err:#FF8A93;--code-bg:#0A0C1C;--skeleton:#22274A;
   --nc-blue:#8EAFFF;--nc-green:#4FD891;--nc-red:#FF8A93;--nc-purple:#B9A0FF;--nc-pink:#FF8FC7;--nc-gold:#FFC531;
+  --fxn-neon:#67E8F9;--fxn-neon-glow:rgba(103,232,249,.65);--fxn-r1:#FB923C;--fxn-r2:#FACC15;--fxn-r3:#4ADE80;--fxn-r4:#60A5FA;--fxn-r5:#C084FC;--fxn-r6:#F472B6;
+  --fxn-f1:#F87171;--fxn-f2:#FB923C;--fxn-f3:#FDE047;--fxn-gold:#FFC531;--fxn-gold-hi:#FFF6D0;
   --search-icon:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' fill='none' stroke='%23ECEEF7' stroke-width='2.2'%3E%3Ccircle cx='8' cy='8' r='6'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E");
 }
 *{box-sizing:border-box}
@@ -602,34 +610,178 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .me-ava .ava-fr>.ava{box-shadow:none;font-size:40px!important}
 .nc-blue{color:var(--nc-blue)}.nc-green{color:var(--nc-green)}.nc-red{color:var(--nc-red)}
 .nc-purple{color:var(--nc-purple)}.nc-pink{color:var(--nc-pink)}.nc-gold{color:var(--nc-gold)}
+
+/* ---------- витрина: анимированные рамки, значки и переливы имени ----------
+   Рамки — public/app.js (FRAME_FX): кольцо-градиент под маской, свечение тенью, детали в SVG 100×100.
+   Двигаются только transform и opacity; при «уменьшить движение» всё стоит (правило в начале файла). */
+.ava-fr{isolation:isolate}
+.ava-fr>.ava{position:relative;z-index:1}
+.fxl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+svg.fxl{overflow:visible}
+svg.fxl.over{z-index:2}
+.fxl.ring{border-radius:50%;
+  -webkit-mask:radial-gradient(farthest-side,#0000 calc(78% - .5px),#000 78.5%,#000 calc(100% - .5px),#0000);
+  mask:radial-gradient(farthest-side,#0000 calc(78% - .5px),#000 78.5%,#000 calc(100% - .5px),#0000)}
+.fxl.glow{inset:8%;width:auto;height:auto;border-radius:50%;
+  box-shadow:0 0 calc(var(--s,40px)*.16) calc(var(--s,40px)*.02) var(--gc,#fff);animation:fx-pulse 2.2s ease-in-out infinite}
+.fx-hearts{--gc:#FF5C8A}
+.fx-neon{--gc:#A855F7}
+.fx-neon .ring{background:conic-gradient(#22D3EE,#A855F7,#F43F5E,#22D3EE);animation:fx-spin 3s linear infinite}
+.fx-sakura{--gc:#FF8FB8}
+.fx-rainbow{--gc:#FFFFFF}
+.fx-rainbow .ring{background:conic-gradient(#FF4D4D,#FF9F1C,#FFE14D,#3DDC84,#22D3EE,#3B82F6,#A855F7,#FF4D4D);animation:fx-spin 4s linear infinite}
+.fx-electric{--gc:#38BDF8}.fx-electric .glow{animation-duration:1.1s}
+.fx-flame{--gc:#FF6A1A}.fx-flame .glow{animation-duration:1.3s}
+.fx-flame .ring{background:conic-gradient(#7F1D1D,#C2410C,#991B1B,#DC2626,#7F1D1D,#C2410C,#991B1B,#DC2626,#7F1D1D);animation:fx-spin 6s linear infinite}
+.fx-galaxy{--gc:#7C3AED}
+.fx-galaxy .ring{background:conic-gradient(#1E1B4B,#7C3AED,#2563EB,#DB2777,#1E1B4B);animation:fx-spin 10s linear infinite}
+.fx-crown{--gc:#FFC531}
+.ava-fr .spin{transform-origin:50px 50px;animation:fx-spin 12s linear infinite}
+.ava-fr .spin.rev{animation-direction:reverse}
+.ava-fr .jump{transform-origin:50px 50px;animation:fx-jump 1.5s steps(1) infinite}
+.ava-fr .beat,.ava-fr .flut,.ava-fr .tw,.ava-fr .flick{transform-box:fill-box;transform-origin:center}
+.ava-fr .beat{animation:fx-beat 1.2s ease-in-out infinite}
+.ava-fr .flut{animation:fx-flut 1.6s ease-in-out infinite}
+.ava-fr .tw{animation:fx-tw 2.2s ease-in-out infinite}
+.ava-fr .flick{transform-origin:50% 100%;animation:fx-flick .9s ease-in-out infinite}
+.ava-fr .zap{animation:fx-zap .9s steps(1) infinite}
+.ava-fr .bob{animation:fx-bob 2.4s ease-in-out infinite}
+@keyframes fx-spin{to{transform:rotate(360deg)}}
+@keyframes fx-pulse{0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes fx-beat{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}
+@keyframes fx-flut{0%,100%{transform:rotate(-35deg) scale(1)}50%{transform:rotate(35deg) scale(.8)}}
+@keyframes fx-tw{0%,100%{opacity:.15;transform:scale(.35)}50%{opacity:1;transform:scale(1)}}
+@keyframes fx-flick{0%,100%{transform:scale(1,1)}25%{transform:scale(.88,1.2)}50%{transform:scale(1.06,.84)}75%{transform:scale(.94,1.1)}}
+@keyframes fx-zap{0%{opacity:1}20%{opacity:.15}35%{opacity:1}60%{opacity:0}80%{opacity:.85}}
+@keyframes fx-jump{0%{transform:rotate(0)}17%{transform:rotate(60deg)}33%{transform:rotate(150deg)}50%{transform:rotate(200deg)}67%{transform:rotate(270deg)}83%{transform:rotate(320deg)}}
+@keyframes fx-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2.2px)}}
+
+/* Значок перед именем (ICON_ART в app.js) */
+.nico{display:inline-block;width:1.1em;height:1.1em;margin-right:.3em;vertical-align:-.2em;line-height:0}
+.nico svg{width:100%;height:100%;overflow:visible}
+.nico .beat,.nico .twirl,.nico .flick,.nico .zapi,.nico .tw,.nico .blink1,.nico .blink2{transform-box:fill-box;transform-origin:center}
+.nico .beat{animation:fx-beat 1.1s ease-in-out infinite}
+.nico .twirl{animation:ni-twirl 3.2s ease-in-out infinite}
+.nico .flick{transform-origin:50% 100%;animation:fx-flick .8s ease-in-out infinite}
+.nico .zapi{animation:ni-zap 2.6s steps(1) infinite}
+.nico .blink1{animation:fx-pulse 1.2s steps(1) infinite}.nico .blink2{animation:fx-pulse 1.2s steps(1) -.6s infinite}
+.nico .shake{animation:ni-shake .3s linear infinite}
+.nico .tw{animation:fx-tw 2.2s ease-in-out infinite}
+.nico .bob{animation:ni-bob 2.4s ease-in-out infinite}
+@keyframes ni-twirl{0%,70%,100%{transform:rotate(0) scale(1)}85%{transform:rotate(72deg) scale(1.2)}}
+@keyframes ni-zap{0%,100%{opacity:1}70%{opacity:.35}74%{opacity:1}78%{opacity:.5}82%{opacity:1}}
+@keyframes ni-shake{0%,100%{transform:translate(0,0)}25%{transform:translate(.3px,-.3px)}50%{transform:translate(-.25px,.2px)}75%{transform:translate(.2px,.3px)}}
+@keyframes ni-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.2px)}}
+
+/* Переливы имени. Цвета — токены --fxn-* (в обеих темах ≥ 4.5:1 к фону). Без background-clip:text — простой цвет. */
+.nc-neon{color:var(--fxn-neon);animation:nc-neon 2.4s ease-in-out infinite}
+@keyframes nc-neon{0%,100%{text-shadow:0 0 .2em var(--fxn-neon-glow)}50%{text-shadow:0 0 .55em var(--fxn-neon-glow),0 0 .12em var(--fxn-neon-glow)}}
+.nc-rainbow{color:var(--fxn-r4)}.nc-fire{color:var(--fxn-f2)}.nc-goldshine{color:var(--fxn-gold)}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .nc-rainbow,.nc-fire,.nc-goldshine{-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+    background-size:200% 100%;background-repeat:repeat-x;animation:nc-slide 4s linear infinite}
+  .nc-rainbow{background-image:linear-gradient(90deg,var(--fxn-r1),var(--fxn-r2),var(--fxn-r3),var(--fxn-r4),var(--fxn-r5),var(--fxn-r6),var(--fxn-r1))}
+  .nc-fire{background-image:linear-gradient(90deg,var(--fxn-f1),var(--fxn-f2),var(--fxn-f3),var(--fxn-f2),var(--fxn-f1));animation-duration:2.4s}
+  .nc-goldshine{background-image:linear-gradient(100deg,var(--fxn-gold) 0 38%,var(--fxn-gold-hi) 50%,var(--fxn-gold) 62% 100%);
+    background-size:300% 100%;background-repeat:no-repeat;animation:nc-shine 3.2s ease-in-out infinite}
+}
+@keyframes nc-slide{to{background-position:200% 0}}
+@keyframes nc-shine{0%,30%{background-position:100% 0}100%{background-position:0 0}}
 .p-badge{display:inline-flex;align-items:center;gap:5px;color:var(--ink-2);font-size:14px}
 .p-badge svg{width:15px;height:15px;flex:none}
 
-.shop-top{display:flex;align-items:center;justify-content:space-between;gap:12px 24px;flex-wrap:wrap}
+/* Витрина: примерочная (сверху, на широком экране липкая), разделы-вкладки, плитки с редкостью.
+   Редкость по цене (server/shop.js, tierOf): обычная / редкая / эпическая / легендарная — токены --tier-*. */
+.shop-stage{--st:var(--a);position:relative;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"look info bal";
+  align-items:center;gap:16px 32px;overflow:hidden;isolation:isolate}
+.shop-stage::before{content:"";position:absolute;z-index:-1;left:-90px;top:50%;width:380px;height:380px;transform:translateY(-50%);
+  border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--st) 26%,transparent),transparent);pointer-events:none}
+.shop-stage.st-none::before,.shop-stage.st-common::before{background:radial-gradient(closest-side,color-mix(in srgb,var(--st) 12%,transparent),transparent)}
+.shop-stage.st-rare{--st:var(--tier-rare)}.shop-stage.st-epic{--st:var(--tier-epic)}.shop-stage.st-legendary{--st:var(--tier-legend)}
+@media(min-width:761px){.shop-stage{position:sticky;top:80px;z-index:5}}
+.stage-look{grid-area:look;display:flex;align-items:center;gap:18px;min-width:0}
+.stage-ava{flex:none;width:112px;height:112px;display:grid;place-items:center}
+.stage-name{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;max-width:260px}
+.stage-name b{font:700 20px/1.25 var(--display);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stage-info{grid-area:info;min-width:0}
+.stage-cap{margin:0;font:700 17px/1.25 var(--display)}
+.stage-hint{margin:4px 0 0;font-size:14px}
+.stage-tags{margin:6px 0 0;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:14px}
+.stage-acts{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.stage-acts:empty{display:none}
+.stage-acts .coin-ico{width:16px;height:16px}
+.stage-ok{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:14px;color:var(--ink-2)}
+.stage-ok svg{width:16px;height:16px}
+.btn.ghost{border-color:transparent;box-shadow:none;background:none;color:var(--ink-2)}
+.btn.ghost:hover{color:var(--ink);background:var(--panel-hover)}
+.shop-balance{grid-area:bal;display:flex;align-items:center;gap:8px;font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.shop-balance .coin-ico{width:24px;height:24px}
+.tier{font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2)}
+.tier.t-rare{color:var(--tier-rare)}.tier.t-epic{color:var(--tier-epic)}.tier.t-legendary{color:var(--tier-legend)}
+/* Окно покупки: превью игрока с предметом */
 .shop-look{display:flex;align-items:center;gap:12px;min-width:0}
 .shop-look-name{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0}
 .shop-look-name b{font-weight:600;font-size:17px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.shop-balance{display:flex;align-items:center;gap:8px;font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
-.shop-balance .coin-ico{width:24px;height:24px}
-.shop-group{margin-top:16px}
-.shop-group h3{margin:0 0 4px}
-.shop-group>p.mut{margin:0 0 16px}
-.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:14px 12px}
-.item{--lift:3px;display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;padding:14px 8px 12px;cursor:pointer;text-align:center;
-  font:inherit;color:var(--ink);background:var(--panel);border:2px solid var(--key-line);border-radius:14px;
-  box-shadow:0 var(--lift) 0 var(--key-shadow);transition:transform .06s,box-shadow .06s}
+
+.shop-tabs{display:flex;gap:6px;margin:18px 0 12px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px}
+.shop-tabs::-webkit-scrollbar{display:none}
+.shop-tab{--lift:2px;flex:none;display:inline-flex;align-items:center;gap:8px;cursor:pointer;font:600 15px/1 var(--text);color:var(--ink);
+  background:var(--panel);border:2px solid var(--key-line);border-radius:12px;padding:10px 16px;box-shadow:0 var(--lift) 0 var(--key-shadow)}
+.shop-tab:hover{background:var(--panel-hover)}
+.shop-tab .n{font-size:13px;font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.shop-tab[aria-selected=true]{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.shop-tab[aria-selected=true] .n{color:inherit;opacity:.7}
+.shop-about{margin:0 0 16px}
+.shop-sub{margin:26px 0 12px;font-size:17px}
+.shop-about+.shop-sub{margin-top:0}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:14px 12px}
+.item{--lift:3px;--tc:var(--ink-2);position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;
+  padding:16px 8px 12px;cursor:pointer;text-align:center;font:inherit;color:var(--ink);background:var(--panel);
+  border:2px solid var(--key-line);border-radius:14px;box-shadow:0 var(--lift) 0 var(--key-shadow);transition:transform .06s,box-shadow .06s}
 .item:hover{background:var(--panel-hover)}
 .item:active{transform:translateY(var(--lift));box-shadow:0 0 0 var(--key-shadow)}
-.item.on{border-color:var(--a);box-shadow:0 0 0 2px var(--a),0 var(--lift) 0 var(--key-shadow)}
-.item-art{display:flex;align-items:center;justify-content:center;height:64px;max-width:100%}
-.item-art img{width:64px;height:64px;border-radius:50%}
-.item-name{font:700 16px/1.2 var(--text);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item.t-rare{--tc:var(--tier-rare)}.item.t-epic{--tc:var(--tier-epic)}.item.t-legendary{--tc:var(--tier-legend)}
+.item.t-epic{border-color:color-mix(in srgb,var(--tier-epic) 60%,var(--key-line))}
+/* Легендарные — с бегущей золотой каймой */
+@property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
+.item.t-legendary{border-color:transparent;
+  background:linear-gradient(var(--panel),var(--panel)) padding-box,conic-gradient(from var(--ang),#FFC531,#FF8A1F,#FFF3C4,#E5A400,#FFC531) border-box;
+  animation:item-ang 4s linear infinite}
+.item.t-legendary:hover{background:linear-gradient(var(--panel-hover),var(--panel-hover)) padding-box,conic-gradient(from var(--ang),#FFC531,#FF8A1F,#FFF3C4,#E5A400,#FFC531) border-box}
+@keyframes item-ang{to{--ang:360deg}}
+.item.on{box-shadow:0 0 0 2px var(--x-ink),0 var(--lift) 0 var(--key-shadow)}
+.item.sel{outline:3px solid var(--a);outline-offset:3px}
+.item-art{display:flex;align-items:center;justify-content:center;width:100%;height:80px;max-width:100%}
+.item:not(.t-common) .item-art{background:radial-gradient(closest-side,color-mix(in srgb,var(--tc) 22%,transparent),transparent)}
+.item-art img{width:72px;height:72px;border-radius:50%}
+.item-ico{display:block;width:46px;height:46px}
+.item-ico .nico{width:100%;height:100%;margin:0;vertical-align:top}
+.item-ico.none{width:40px;height:40px;border:2px dashed var(--line);border-radius:50%}
+.item-name{font:700 17px/1.2 var(--text);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .item-t{font-weight:600;font-size:14px;line-height:1.25}
-.item-s{margin-top:auto;display:flex;align-items:center;gap:5px;font-size:14px;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.item-tier{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tc);line-height:1.2}
+.item-new{position:absolute;top:-10px;left:50%;transform:translateX(-50%);z-index:3;white-space:nowrap;font:700 11px/1 var(--text);padding:4px 7px;border-radius:6px;background:var(--start);color:var(--navy);box-shadow:0 0 0 2px var(--panel)}
+.item-s{margin-top:auto;padding-top:2px;display:flex;align-items:center;gap:5px;font-size:14px;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink-2)}
 .item-s .coin-ico,.item-s svg{width:16px;height:16px}
 .item-s.price{font-weight:700;color:var(--ink)}
 .item-s.price.short{color:var(--ink-2);font-weight:600}
 .badge-pick{display:flex;flex-wrap:wrap;gap:10px}
 .shop-foot{margin:16px 0 0;font-size:14px;max-width:70ch}.shop-foot a{color:var(--link)}
-@media(max-width:560px){.shop-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 8px}.item{padding:12px 4px 10px}
-  .item-art{height:56px}.item-art img{width:56px;height:56px}.item-name{font-size:14px}.item-t{font-size:13px}}
+.shop-bar{display:none}
+@media(max-width:760px){
+  .shop-stage{grid-template-columns:minmax(0,1fr);grid-template-areas:"look" "info";gap:14px}
+  .stage-look{gap:14px;padding-top:18px}.stage-name{max-width:none}
+  .stage-name b{font-size:17px;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .shop-balance{position:absolute;top:14px;right:16px;font-size:18px}.shop-balance .coin-ico{width:20px;height:20px}
+  .shop-tabs{flex-wrap:wrap;overflow:visible}.shop-tab{padding:8px 11px;font-size:14px;gap:6px}.shop-tab .n{font-size:12px}
+  [data-pane=shop]{padding-bottom:96px}
+  .shop-bar{position:fixed;left:8px;right:8px;bottom:8px;z-index:20;display:flex;align-items:center;gap:10px;padding:10px 12px;
+    background:var(--panel);border:2px solid var(--key-line);border-radius:16px;box-shadow:0 4px 0 var(--key-shadow),0 12px 32px rgba(0,0,0,.28)}
+  .bar-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .bar-mid b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-mid .mut{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .shop-bar .stage-acts{margin:0;flex:none}.shop-bar .ghost{display:none}
+}
+@media(max-width:560px){.shop-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 8px}.item{padding:14px 4px 10px}
+  .item-art{height:64px}.item-art img{width:58px;height:58px}.item-name{font-size:14px}.item-t{font-size:13px}
+  .item-ico{width:38px;height:38px}.item-new{font-size:10px;padding:3px 6px}}
