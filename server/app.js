@@ -501,12 +501,16 @@ export function createApp({
   // Игрок — любой вошедший пользователь. Разработчик — пользователь с одобренной заявкой (или модератор).
   const developerStatus = (u) => q.application.get(u.id)?.status || 'none';
   const canPublish = (u) => isAdmin(u) || developerStatus(u) === 'approved';
-  const publicUser = (u) => ({
-    id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
-    developer: developerStatus(u), canPublish: canPublish(u),
-    emailVerified: !!u.email_verified_at, coins: u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), friendNews: rewards.hasFriendNews(u.id), ...avatars.info(u), ...shop.look(u),
-    noAdsUntil: support.noAdsUntil(u),
-  });
+  // news — сначала: проверка может выдать достижение, и баланс тогда берём уже с наградой.
+  const publicUser = (u) => {
+    const news = rewards.hasNews(u.id);
+    return {
+      id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
+      developer: developerStatus(u), canPublish: canPublish(u),
+      emailVerified: !!u.email_verified_at, coins: economy.balance(u.id) ?? u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), news,
+      ...avatars.info(u), ...shop.look(u), noAdsUntil: support.noAdsUntil(u),
+    };
+  };
 
   function requireDeveloper(req) {
     const user = requireUser(req);

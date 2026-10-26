@@ -47,7 +47,11 @@
   function serverBoards(gameId) {
     const url = `/api/games/${encodeURIComponent(gameId)}/leaderboard`;
     return {
-      set: async ({ board, score, extra }) => (await api('POST', url, { board, score, extra })).entry,
+      set: async ({ board, score, extra }) => {
+        const { entry } = await api('POST', url, { board, score, extra });
+        window.Igr?.checkNews?.(); // рекорд мог дать достижение — уведомление сразу
+        return entry;
+      },
       get: ({ board, top, around }) => api('GET', `${url}?${new URLSearchParams({ board, top, around })}`),
     };
   }

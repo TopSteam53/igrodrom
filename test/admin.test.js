@@ -127,3 +127,23 @@ test('сброс аватарки и платежи', async () => {
   assert.equal((await mod('GET', '/api/admin/payments')).status, 403);
   assert.deepEqual((await owner('GET', '/api/admin/payments')).data.orders, []);
 });
+
+test('обзор по дням, витрина, приглашения, достижения: модератору — да, игроку — нет', async () => {
+  const o = (await owner('GET', '/api/admin/overview')).data;
+  assert.equal(o.activity.length, 30);
+  assert.ok(o.activity.every((d) => d.day && 'active' in d && 'plays' in d && 'regs' in d));
+  assert.ok(Array.isArray(o.top_games));
+  assert.deepEqual(Object.keys(o.invites).sort(), ['invited', 'pending', 'rewarded']);
+  assert.ok(o.money.flows.some((f) => f.kind === 'welcome' && f.income >= 57 * 50), 'подарки новичкам — в потоках монеток');
+  const p = await user('look@test.ru', 'Любопытный');
+  for (const [url, check] of [
+    ['/api/admin/shop', (d) => d.items.length > 40 && d.items.every((i) => 'sold' in i && 'wearing' in i) && d.totals.all.n === 0],
+    ['/api/admin/invites', (d) => d.totals.invited === 0 && Array.isArray(d.recent) && Array.isArray(d.top_week)],
+    ['/api/admin/achievements', (d) => d.players >= 57 && d.list.length >= 20 && d.list.every((a) => a.cat in d.cats && 'earned' in a)],
+  ]) {
+    const r = await mod('GET', url);
+    assert.equal(r.status, 200, url);
+    assert.ok(check(r.data), url);
+    assert.equal((await p('GET', url)).status, 403, url);
+  }
+});

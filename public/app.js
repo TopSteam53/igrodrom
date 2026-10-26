@@ -132,7 +132,8 @@
         chip.className = 'coin-chip'; chip.id = 'coinChip'; chip.href = 'account.html#coins';
         (login.previousElementSibling?.classList.contains('theme-btn') ? login.previousElementSibling : login).before(chip);
         setCoins(user.coins);
-        if (user.dailyBonus || user.friendNews) claimDaily();
+        if (user.dailyBonus) claimDaily();
+        else if (user.news) checkNews(true);
       }
     });
   }
@@ -146,21 +147,67 @@
       if (!r.ok) return;
       setCoins(data.coins);
       document.dispatchEvent(new CustomEvent('igr:daily', { detail: data }));
-      friendNews(data.friends);
-      if (!data.claimed) return;
-      const n = data.streak?.streak || 1;
-      toast(n > 1 ? `+${coinsText(data.claimed)} за вход, ${n} ${plural(n, ['день', 'дня', 'дней'])} подряд`
-        : `+${coinsText(data.claimed)} — бонус за вход. Завтра будет больше`);
-      // Новые достижения — следующей подсказкой, когда первая скроется.
-      (data.achievements || []).forEach((a, i) => setTimeout(() => toast(`Достижение «${a.title}»: +${coinsText(a.coins)}`), 2700 * (i + 1)));
+      if (data.claimed) {
+        const n = data.streak?.streak || 1;
+        toast(n > 1 ? `Серия ${n} ${plural(n, ['день', 'дня', 'дней'])} подряд — завтра будет больше` : 'Заходите завтра — бонус будет больше',
+          { kind: 'coins', title: `+${coinsText(data.claimed)} за вход` });
+      }
     } catch {}
+    checkNews();
   }
-  // Друзья по ссылке засчитаны (приходит с бонусом за вход, даже если бонус сегодня уже взят).
-  function friendNews(f) {
-    if (!f) return;
-    const who = f.names.length === 1 ? `Друг ${f.names[0]} засчитан` : `Засчитано друзей: ${f.names.length}`;
-    toast(`${who}: +${coinsText(f.coins)}`);
-    f.unlocked.forEach((it, i) => setTimeout(() => toast(`Открыто за друзей: «${it.title}» — наденьте в Витрине`), 2700 * (i + 1)));
+
+  // Новости аккаунта (server/rewards.js, /api/me/news): новые достижения и засчитанные друзья — уведомлением
+  // один раз. Страница сама зовёт checkNews() после события, которое может их дать (покупка, рекорд, «спасибо»).
+  let newsAt = 0;
+  async function checkNews(force) {
+    if (!force && Date.now() - newsAt < 5000) return;
+    newsAt = Date.now();
+    let n;
+    try {
+      const r = await fetch('/api/me/news', { method: 'POST' });
+      if (!r.ok) return;
+      n = await r.json();
+    } catch { return; }
+    setCoins(n.coins);
+    const show = [];
+    if (n.friends) {
+      const f = n.friends;
+      show.push(() => toast(f.names.length === 1 ? `${f.names[0]} сыграл по вашей ссылке` : `${f.names.join(', ')} — по вашей ссылке`,
+        { kind: 'friend', title: `${f.names.length === 1 ? 'Друг засчитан' : `Засчитано друзей: ${f.names.length}`}: +${coinsText(f.coins)}` }));
+      for (const it of f.unlocked) show.push(() => toast('Наденьте в Витрине — такого нет в продаже', { kind: 'gift', title: `Открыто за друзей: «${it.title}»` }));
+    }
+    for (const a of n.achievements) {
+      show.push(() => toast(`«${a.title}» · +${coinsText(a.coins)}`, { kind: 'ach', title: 'Новое достижение', icon: medalHTML(a) }));
+    }
+    show.forEach((fn, i) => setTimeout(fn, i * 650));
+    if (show.length) document.dispatchEvent(new CustomEvent('igr:news', { detail: n }));
+  }
+
+  // Медаль достижения: кольцо по уровню (bronze/silver/gold), внутри — рисунок. locked — ещё не получено.
+  const ACH_ICONS = {
+    gamepad: '<path d="M7 8h10a4 4 0 0 1 4 4l.6 3.5a2.2 2.2 0 0 1-3.8 1.8L15.6 15H8.4l-2.2 2.3a2.2 2.2 0 0 1-3.8-1.8L3 12a4 4 0 0 1 4-4z"/><path d="M8 10.5v3M6.5 12h3"/><path d="M16 11.4h.1M17.6 13.1h.1"/>',
+    compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+    map: '<path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z"/><path d="M9 4v13.5M15 6.5V20"/>',
+    trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7"/>',
+    friend: '<circle cx="10" cy="8" r="3.5"/><path d="M3.5 19c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M19 8v6M16 11h6"/>',
+    friends: '<circle cx="9" cy="8" r="3.2"/><circle cx="16.5" cy="9" r="2.6"/><path d="M3 19c.7-3.3 3-5 6-5s5.3 1.7 6 5M15 14.2c2.6-.2 4.8 1.2 5.6 4"/>',
+    crown: '<path d="M4 17 3 7l5 4 4-6 4 6 5-4-1 10z"/><path d="M4 20h16"/>',
+    chat: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12.5h5"/>',
+    heart: '<path d="M12 20s-7-4.4-8.8-8.6C1.8 8.2 3.7 5 7 5c2 0 3.4 1 5 2.8C13.6 6 15 5 17 5c3.3 0 5.2 3.2 3.8 6.4C19 15.6 12 20 12 20z"/>',
+    flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3 2.2-4.8 3.2-7.4.6 1.6 1.4 2.4 2.2 2.8C11 7 13 4.3 15.2 3c-.5 2.9 1.4 4.6 2.4 6.5.8 1.5 1.1 2.9 1.1 4.3 0 4.1-2.7 7.2-6.7 7.2z"/>',
+    face: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5c1.9 2 5.1 2 7 0M9 9.5v.5M15 9.5v.5"/>',
+    mail: '<rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="m4 7 8 6 8-6"/>',
+    coin: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/>',
+    bag: '<path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/>',
+    gem: '<path d="M7 4h10l4 5-9 11L3 9z"/><path d="M3 9h18M9 4 7.5 9 12 20l4.5-11L15 4"/>',
+    flag: '<path d="M5 21V4"/><path d="M5 4h12l-2.5 4L17 12H5"/>',
+    medal: '<circle cx="12" cy="14.5" r="5.5"/><path d="M8.5 3h7l-2 6.5h-3z"/>',
+    cup: '<path d="M7 4h10v6a5 5 0 0 1-10 0z"/><path d="M12 15v4M8 21h8M7 6H4.5a3 3 0 0 0 3 4.5M17 6h2.5a3 3 0 0 1-3 4.5"/>',
+  };
+  function medalHTML(a, locked = false) {
+    return `<span class="medal t-${esc(a.tier || 'bronze')}${locked ? ' locked' : ''}" aria-hidden="true"><svg viewBox="0 0 48 48">
+      <circle class="m-ring" cx="24" cy="24" r="22.5"/><circle class="m-in" cx="24" cy="24" r="17.5"/>
+      <g transform="translate(12 12)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${ACH_ICONS[a.icon] || ACH_ICONS.trophy}</g></svg></span>`;
   }
 
   // «Поделиться»: скопировать текст со ссылкой и (на телефоне) системное меню. Кнопок соцсетей нет намеренно
@@ -490,11 +537,44 @@
     return /^(?:[\w-]+\.html|\/(?:(?:game|category)\/[a-z0-9-]+|[\w-]*))(\?[^#]*)?$/.test(value || '') ? value : fallback;
   }
 
-  function toast(msg) {
-    let t = $('toast');
-    if (!t) { t = document.createElement('div'); t.id = 'toast'; t.className = 'toast'; document.body.append(t); }
-    t.textContent = msg; t.style.display = 'block';
-    clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 2500);
+  // Уведомления: стопка карточек справа сверху (на телефоне — сверху во всю ширину). Новая — сверху, не больше
+  // четырёх, сами исчезают (пока на карточку навели мышь — ждут), можно закрыть.
+  // toast(текст, вид) — вид: true (ошибка), строка ('ok', 'err', 'coins', 'ach', 'friend', 'gift', 'info')
+  // или { kind, title, icon, ms }. icon — готовый HTML (например, медаль достижения).
+  const NOTE_ICONS = {
+    info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2E6BFF"/><path d="M12 10.5v6M12 7.2v.1" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    ok: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#17B26A"/><path d="m7.5 12.3 3 3 6-6.3" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    err: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#F2434F"/><path d="M12 7v6.5M12 16.8v.1" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
+    coins: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="12" cy="12" r="5.6" fill="none" stroke="#1C2140" stroke-width="1.5"/></svg>',
+    friend: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#FF4D8D"/><circle cx="9.5" cy="10" r="2.4" fill="#fff"/><path d="M5.6 16.6c.6-2.2 2.1-3.3 3.9-3.3s3.3 1.1 3.9 3.3" fill="#fff"/><path d="M16.5 8.5v5M14 11h5" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+    gift: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#8B5CF6"/><rect x="6.5" y="10" width="11" height="7.5" rx="1" fill="#fff"/><rect x="5.8" y="8" width="12.4" height="2.6" rx=".8" fill="#FFC531"/><path d="M12 8v9.5" stroke="#8B5CF6" stroke-width="1.6"/><path d="M12 8c-1.6-2.6-4.2-2.4-3.6-.6M12 8c1.6-2.6 4.2-2.4 3.6-.6" fill="none" stroke="#FFC531" stroke-width="1.4"/></svg>',
+  };
+  NOTE_ICONS.ach = NOTE_ICONS.gift;
+  function toast(msg, opts = {}) {
+    const o = opts === true ? { kind: 'err' } : typeof opts === 'string' ? { kind: opts } : opts || {};
+    const kind = NOTE_ICONS[o.kind] ? o.kind : 'info';
+    // В полноэкранном режиме видно только развёрнутый элемент — стопка переезжает в него.
+    const host = document.fullscreenElement || document.body;
+    let box = $('notes');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'notes'; box.className = 'notes';
+      box.setAttribute('role', 'status'); box.setAttribute('aria-live', 'polite');
+    }
+    if (box.parentNode !== host) host.append(box);
+    const ms = o.ms || (kind === 'err' ? 6500 : kind === 'ach' || kind === 'gift' ? 6000 : 4500);
+    const el = document.createElement('div');
+    el.className = `note note-${kind}`;
+    el.innerHTML = `<span class="note-ico">${o.icon || NOTE_ICONS[kind]}</span>
+      <div class="note-t">${o.title ? `<b>${esc(o.title)}</b>` : ''}<span>${esc(msg)}</span></div>
+      <button type="button" class="note-x" aria-label="Закрыть уведомление">×</button><i class="note-bar" style="animation-duration:${ms}ms"></i>`;
+    const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 220); };
+    let timer = setTimeout(close, ms);
+    el.onmouseenter = () => { clearTimeout(timer); el.classList.add('hold'); };
+    el.onmouseleave = () => { el.classList.remove('hold'); timer = setTimeout(close, 1800); };
+    el.querySelector('.note-x').onclick = close;
+    box.prepend(el);
+    for (const old of [...box.children].slice(4)) old.remove();
   }
 
   // Поиск без учёта регистра и «ё».
@@ -503,6 +583,6 @@
 
   window.Igr = {
     $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, miniHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited, landingInvite, shareHTML,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited, landingInvite, shareHTML, checkNews, medalHTML,
   };
 })();

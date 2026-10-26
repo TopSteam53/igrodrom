@@ -28,6 +28,9 @@
     <button data-pane="avatars">🖼️ Аватарки <span class="count" id="cntAvatars"></span></button>
     <button data-pane="payments" class="owner-only">💳 Платежи</button>
     <button data-pane="tournament" class="owner-only">Турнир недели</button>
+    <button data-pane="shop">🏪 Витрина</button>
+    <button data-pane="invites">🤝 Приглашения</button>
+    <button data-pane="achievements">🏅 Достижения</button>
     <button data-pane="log">📜 Журнал</button>
     <button data-pane="team" class="owner-only">🛡️ Команда</button>
   </nav>
@@ -37,8 +40,45 @@
       <h1 class="adm-title">Обзор</h1>
       <div class="kpis" id="kpis"></div>
       <div class="queues" id="queues"></div>
-      <div class="panel chart-panel"><div class="chart-title">Регистрации за 30 дней</div><div class="chart" id="regChart"></div></div>
+      <div class="panel chart-panel">
+        <div class="chart-head"><div class="chart-title">Активность за 30 дней</div>
+          <div class="lb-boards" id="actTabs" role="tablist" aria-label="Что показать">
+            <button class="tab on" data-m="active">Заходили</button><button class="tab" data-m="plays">Запуски игр</button><button class="tab" data-m="regs">Регистрации</button>
+          </div></div>
+        <div class="chart" id="actChart"></div>
+      </div>
+      <div class="ov-grid">
+        <div class="panel"><h3>Топ игр за 7 дней</h3><table class="tbl" id="topGames"></table></div>
+        <div class="panel"><h3>Рост</h3><div class="grows" id="growth"></div></div>
+      </div>
       <div id="money"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-shop">
+      <h1 class="adm-title">Витрина</h1>
+      <div class="kpis" id="shKpis"></div>
+      <div class="lb-boards" id="shTabs" role="tablist" aria-label="Раздел витрины"></div>
+      <div class="panel table-panel"><table class="tbl" id="shTable"></table></div>
+      <h2 class="adm-sub">Последние покупки</h2>
+      <div class="panel table-panel"><table class="tbl" id="shRecent"></table></div>
+    </section>
+
+    <section class="pane hidden" id="pane-invites">
+      <h1 class="adm-title">Приглашения</h1>
+      <p class="mut">Друг засчитан, когда сыграл в две разные игры: пригласившему 100 монеток, другу 50.</p>
+      <div class="kpis" id="invKpis"></div>
+      <div class="ov-grid">
+        <div class="panel"><div class="chart-head"><h3>Кто зовёт больше всех</h3>
+          <div class="lb-boards" id="invTopTabs"><button class="tab on" data-top="week">7 дней</button><button class="tab" data-top="all">Всё время</button></div></div>
+          <ol class="lb" id="invTop"></ol></div>
+        <div class="panel table-panel"><h3>Последние по ссылкам</h3><table class="tbl" id="invRecent"></table></div>
+      </div>
+    </section>
+
+    <section class="pane hidden" id="pane-achievements">
+      <h1 class="adm-title">Достижения</h1>
+      <div class="kpis" id="achKpis"></div>
+      <div class="panel table-panel"><table class="tbl ach-tbl" id="achTable"></table></div>
     </section>
 
     <section class="pane hidden" id="pane-users">
@@ -133,7 +173,6 @@
   </main>
 </div>
 
-<div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
 <script>
@@ -148,11 +187,8 @@ const files = (n) => `${n} ${Igr.plural(n, ['файл', 'файла', 'файл�
 const rub = (n) => `${fmt(n)} ₽`;
 let me = null;
 
-function toast(msg, err) {
-  const t = $('toast');
-  t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.style.display = 'block';
-  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 3200);
-}
+// Уведомления справа сверху — общие для сайта (Igr.toast); err — красное.
+const toast = (msg, err) => Igr.toast(msg, err ? 'err' : 'ok');
 async function api(method, url, body) {
   const res = await fetch(url, { method, headers: body !== undefined ? { 'content-type': 'application/json' } : {}, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
@@ -168,7 +204,7 @@ async function ask(title, text, placeholder = 'Причина') {
 }
 
 // ---------- разделы ----------
-const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, log: loadLog, team: loadTeam };
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, log: loadLog, team: loadTeam };
 function openPane(name) {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
@@ -178,29 +214,68 @@ function openPane(name) {
 $('nav').onclick = (e) => { const b = e.target.closest('button'); if (b) openPane(b.dataset.pane); };
 
 // ---------- обзор ----------
-const kpi = (label, value, sub = '') => `<div class="kpi"><span>${label}</span><b>${value}</b>${sub ? `<small class="mut">${sub}</small>` : ''}</div>`;
+// Карточки с цифрой и спарклайном за 14 дней; график активности за 30 дней — заходили, запуски, регистрации.
+const spark = (values) => {
+  const max = Math.max(1, ...values), w = 120, h = 30, step = w / Math.max(1, values.length - 1);
+  const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - (v / max) * (h - 4)).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}"/></svg>`;
+};
+const kpi = (label, value, sub = '', series = null) => `<div class="kpi"><span>${label}</span><b>${value}</b>${sub ? `<small class="mut">${sub}</small>` : ''}${series ? spark(series) : ''}</div>`;
+const FLOW = {
+  welcome: 'Подарок новичку', daily: 'Бонус за вход', grant: 'Выдал владелец', achievement: 'Достижения', tournament: 'Турнир недели',
+  referral: 'Приглашения', purchase: 'Покупка монеток', spend: 'Траты в играх', shop: 'Витрина', thanks: 'Спасибо авторам', no_ads: 'День без рекламы',
+};
+let ov = null;
+let actMode = 'active';
+const ACT = { active: ['Заходили', 'игроков'], plays: ['Запуски игр', 'запусков'], regs: ['Регистрации', 'регистраций'] };
 async function loadOverview() {
-  const o = await api('GET', '/api/admin/overview');
+  const o = ov = await api('GET', '/api/admin/overview');
   $('cntGames').textContent = o.queues.games || '';
   $('cntDevs').textContent = o.queues.developers || '';
   $('cntAvatars').textContent = o.queues.avatars || '';
+  const last = (k) => o.activity.slice(-14).map((d) => d[k]);
+  const today = o.activity.at(-1);
   $('kpis').innerHTML = [
-    kpi('Игроков', fmt(o.users.total), `+${fmt(o.users.week)} за неделю`),
-    kpi('Заходили за неделю', fmt(o.users.active_week), `${fmt(o.users.today)} новых за сутки`),
-    kpi('Запуски сегодня', fmt(o.plays.today.n), `${fmt(o.plays.week.n)} за 7 дней`),
+    kpi('Заходили сегодня', fmt(today.active), `за неделю — ${fmt(o.users.active_week)}`, last('active')),
+    kpi('Запуски сегодня', fmt(o.plays.today.n), `за 7 дней — ${fmt(o.plays.week.n)}`, last('plays')),
+    kpi('Новые игроки за 7 дней', fmt(o.users.week), `всего — ${fmt(o.users.total)}, за сутки ${fmt(o.users.today)}`, last('regs')),
     kpi('Игр в каталоге', fmt(o.games.approved), `${fmt(o.users.developers)} разработчиков, ${fmt(o.reviews)} отзывов`),
   ].join('');
   const q = (pane, n, label) => `<button class="queue ${n ? 'hot' : ''}" data-go="${pane}"><b>${fmt(n)}</b><span>${label}</span></button>`;
   $('queues').innerHTML = q('games', o.queues.games, 'игр и обновлений ждут проверки') + q('devs', o.queues.developers, 'заявок разработчиков') +
     q('avatars', o.queues.avatars, 'аватарок на проверке') + q('users', o.users.blocked, 'заблокированных');
   $('queues').onclick = (e) => { const b = e.target.closest('[data-go]'); if (b) openPane(b.dataset.go); };
-  drawBars($('regChart'), o.registrations.map((r) => ({ label: r.day, value: r.n })), 'регистраций');
+  drawActivity();
+  $('topGames').innerHTML = o.top_games.length ? `<thead><tr><th>Игра</th><th class="n">Запуски</th><th class="n">Игроки</th><th class="n">Время</th></tr></thead><tbody>${o.top_games.map((g) =>
+    `<tr><td><a href="/game/${esc(g.slug || '')}" target="_blank" rel="noopener">${esc(g.title)}</a></td><td class="n">${fmt(g.plays)}</td><td class="n">${fmt(g.players)}</td>
+      <td class="n">${fmt(Math.round(g.seconds / 60))} мин</td></tr>`).join('')}</tbody>` : '<tbody><tr><td class="mut">За неделю запусков не было.</td></tr></tbody>';
+  const conv = o.invites.invited ? Math.round((o.invites.rewarded / o.invites.invited) * 100) : 0;
+  $('growth').innerHTML = `
+    <button class="grow" data-go="invites"><span>Приглашения</span><b>${fmt(o.invites.rewarded)} <small>из ${fmt(o.invites.invited)}</small></b>
+      <small class="mut">засчитаны · конверсия ${conv}% · ждут ${fmt(o.invites.pending)}</small></button>
+    <button class="grow" data-go="shop"><span>Витрина за 30 дней</span><b>${fmt(o.shop.n)} <small>покупок</small></b>
+      <small class="mut">${fmt(o.shop.coins)} монеток · ${fmt(o.shop.buyers)} покупателей</small></button>
+    <button class="grow" data-go="achievements"><span>Достижения за 30 дней</span><b>${fmt(o.achievements)}</b><small class="mut">выдано игрокам</small></button>`;
+  $('growth').onclick = (e) => { const b = e.target.closest('[data-go]'); if (b) openPane(b.dataset.go); };
   $('money').innerHTML = o.money ? `<h2 class="adm-sub">Монетки и платежи</h2><div class="kpis">
     ${kpi('Выручка за 30 дней', rub(o.money.month.rub), `${fmt(o.money.month.n)} покупок, сегодня ${rub(o.money.today.rub)}`)}
     ${kpi('Выручка за всё время', rub(o.money.all.rub), `${fmt(o.money.all.n)} покупок`)}
     ${kpi('Монеток у игроков', fmt(o.money.circulation), `потрачено за 30 дней: ${fmt(o.money.spent_month)}`)}
-    ${kpi('Подарено за 30 дней', fmt(o.money.given_month), 'подарки, бонусы, выдачи')}</div>` : '';
+    ${kpi('Подарено за 30 дней', fmt(o.money.given_month), 'подарки, бонусы, выдачи')}</div>
+    <div class="ov-grid"><div class="panel"><h3>Откуда приходят и куда уходят монетки · 30 дней</h3><table class="tbl"><thead><tr><th>Что</th><th class="n">Пришло</th><th class="n">Ушло</th><th class="n">Записей</th></tr></thead><tbody>
+      ${o.money.flows.length ? o.money.flows.map((f) => `<tr><td>${esc(FLOW[f.kind] || f.kind)}</td><td class="n plus">${f.income ? `+${fmt(f.income)}` : '—'}</td>
+        <td class="n">${f.outcome ? `−${fmt(f.outcome)}` : '—'}</td><td class="n mut">${fmt(f.n)}</td></tr>`).join('') : '<tr><td colspan="4" class="mut">Пока пусто.</td></tr>'}</tbody></table></div>
+    <div class="panel"><h3>Больше всего монеток</h3><ol class="lb">${o.money.rich.map((u, i) => `<li><span class="r">${i + 1}</span>
+      <span class="n"><a href="#users" data-user="${u.id}">${esc(u.name)}</a></span><span class="s">${fmt(u.coins)}</span></li>`).join('')}</ol></div></div>` : '';
+  $('money').onclick = (e) => { const a = e.target.closest('[data-user]'); if (a) { e.preventDefault(); openUser(Number(a.dataset.user)); } };
 }
+function drawActivity() {
+  if (!ov) return;
+  const [, unit] = ACT[actMode];
+  drawBars($('actChart'), ov.activity.map((d) => ({ label: d.day, value: d[actMode] })), unit);
+  for (const b of document.querySelectorAll('#actTabs [data-m]')) b.classList.toggle('on', b.dataset.m === actMode);
+}
+$('actTabs').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { actMode = b.dataset.m; drawActivity(); } };
 
 function drawBars(box, data, unit) {
   const W = Math.max(box.clientWidth, 280), H = 180, m = { t: 10, r: 6, b: 24, l: 30 };
@@ -498,6 +573,105 @@ $('tPlan').onclick = async (e) => {
   try { await api('DELETE', `/api/admin/tournaments/${week}`); toast('Турнир отменён'); loadTournament(); }
   catch (err) { toast(err.message, true); }
 };
+
+// ---------- витрина ----------
+// Что покупают и что носят: продажи из журнала монеток, владельцы (с выданным за друзей), кто носит сейчас.
+const SLOT = { frame: 'Рамки', avatar: 'Аватарки', icon: 'Значки', color: 'Имя' };
+const SLOT_ONE = { frame: 'рамка', avatar: 'аватарка', icon: 'значок', color: 'цвет имени' };
+// Род — по предмету: рамка и аватарка «редкая», значок и цвет имени — «редкий».
+const tierWord = (i) => ({
+  common: ['обычная', 'обычный'], rare: ['редкая', 'редкий'], epic: ['эпическая', 'эпический'],
+  legendary: ['легендарная', 'легендарный'], exclusive: ['за друзей', 'за друзей'],
+}[i.tier] || ['', ''])[i.slot === 'icon' || i.slot === 'color' ? 1 : 0];
+let shData = null;
+let shSlot = 'all';
+const itemArt = (i) => i.slot === 'frame' ? avatarHTML({ name: 'Г', frame: i.key }, 40)
+  : i.slot === 'icon' ? `<span class="adm-ico">${Igr.nameIconHTML(i.key)}</span>`
+  : i.slot === 'avatar' ? `<img src="${esc(i.image)}" width="40" height="40" alt="" class="ava" loading="lazy">`
+  : `<b class="nc-${esc(i.key)}">Аа</b>`;
+const itemTitle = (id) => shData?.items.find((i) => i.id === id)?.title || id;
+async function loadShopStats() {
+  shData = await api('GET', '/api/admin/shop');
+  const t = shData.totals;
+  $('shKpis').innerHTML = [
+    kpi('Покупок за 30 дней', fmt(t.month.n), `${fmt(t.month.coins)} монеток · ${fmt(t.month.buyers)} покупателей`),
+    kpi('За 7 дней', fmt(t.week.n), `${fmt(t.week.coins)} монеток`),
+    kpi('За всё время', fmt(t.all.n), `${fmt(t.all.coins)} монеток · ${fmt(t.all.buyers)} покупателей`),
+    kpi('Предметов в витрине', fmt(shData.items.length), `${fmt(shData.items.filter((i) => i.anim).length)} анимированных`),
+  ].join('');
+  renderShopStats();
+  $('shRecent').innerHTML = shData.recent.length ? `<thead><tr><th>Кто</th><th>Что</th><th class="n">Монеток</th><th>Когда</th></tr></thead><tbody>${shData.recent.map((r) =>
+    `<tr class="click" data-user="${r.user_id}"><td>${esc(r.name)}</td><td>${esc(itemTitle(r.item))}</td><td class="n">${fmt(r.coins)}</td><td>${when(r.created_at)}</td></tr>`).join('')}</tbody>`
+    : '<tbody><tr><td class="mut">Покупок пока не было.</td></tr></tbody>';
+}
+function renderShopStats() {
+  $('shTabs').innerHTML = [['all', 'Все'], ...Object.entries(SLOT)].map(([k, l]) =>
+    `<button class="tab ${k === shSlot ? 'on' : ''}" data-slot="${k}">${l}</button>`).join('');
+  const list = shData.items.filter((i) => shSlot === 'all' || i.slot === shSlot)
+    .sort((a, b) => b.sold - a.sold || b.owners - a.owners || (b.price || 0) - (a.price || 0));
+  $('shTable').innerHTML = `<thead><tr><th>Предмет</th><th class="n">Цена</th><th class="n">Продано</th><th class="n">Монеток</th><th class="n">Есть у</th><th class="n">Носят</th><th>Последняя покупка</th></tr></thead><tbody>${list.map((i) =>
+    `<tr><td><div class="u-cell">${itemArt(i)}<div><b>${esc(i.title)}</b><div class="mut">${SLOT_ONE[i.slot]} · ${tierWord(i)}${i.anim ? ' · анимация' : ''}</div></div></div></td>
+      <td class="n">${i.invite ? `${i.invite} друзей` : fmt(i.price)}</td><td class="n">${fmt(i.sold)}</td><td class="n">${fmt(i.coins)}</td>
+      <td class="n">${fmt(i.owners)}</td><td class="n">${fmt(i.wearing)}</td><td>${i.last_at ? when(i.last_at) : '<span class="mut">—</span>'}</td></tr>`).join('')}</tbody>`;
+}
+$('shTabs').onclick = (e) => { const b = e.target.closest('[data-slot]'); if (b) { shSlot = b.dataset.slot; renderShopStats(); } };
+$('shRecent').onclick = (e) => { const tr = e.target.closest('[data-user]'); if (tr) openUser(Number(tr.dataset.user)); };
+
+// ---------- приглашения ----------
+const INV_STATUS = { pending: ['ждёт', 'pending'], rewarded: ['засчитан', 'approved'], refused: ['без награды', 'rejected'] };
+let invData = null;
+let invTop = 'week';
+async function loadInviteStats() {
+  invData = await api('GET', '/api/admin/invites');
+  const t = invData.totals;
+  const conv = t.invited ? Math.round((t.rewarded / t.invited) * 100) : 0;
+  $('invKpis').innerHTML = [
+    kpi('Пришли по ссылкам', fmt(t.invited), `за 7 дней — ${fmt(invData.week.invited)}`),
+    kpi('Засчитаны', fmt(t.rewarded), `конверсия ${conv}% · за 7 дней ${fmt(invData.week.rewarded)}`),
+    kpi('Ждут двух игр', fmt(t.pending), t.refused ? `без награды: ${fmt(t.refused)}` : ''),
+    kpi('Зовут друзей', fmt(t.inviters), `ссылку брали ${fmt(invData.links)} игроков · выдано ${fmt(invData.coins)} монеток`),
+  ].join('');
+  renderInviteTop();
+  $('invRecent').innerHTML = invData.recent.length ? `<thead><tr><th>Пришёл</th><th>Позвал</th><th>Статус</th><th class="n">Игр</th><th>Когда</th></tr></thead><tbody>${invData.recent.map((r) => {
+    const [label, cls] = INV_STATUS[r.status] || [r.status, ''];
+    return `<tr><td><a href="#users" data-user="${r.friend_id}">${esc(r.friend)}</a></td><td><a href="#users" data-user="${r.inviter_id}">${esc(r.inviter)}</a></td>
+      <td><span class="badge ${cls}">${label}</span></td><td class="n">${fmt(r.games)}</td><td>${when(r.created_at)}</td></tr>`;
+  }).join('')}</tbody>` : '<tbody><tr><td class="mut">По ссылкам пока никто не пришёл.</td></tr></tbody>';
+}
+function renderInviteTop() {
+  for (const b of document.querySelectorAll('#invTopTabs [data-top]')) b.classList.toggle('on', b.dataset.top === invTop);
+  const list = invTop === 'week' ? invData.top_week : invData.top_all;
+  $('invTop').innerHTML = list.length ? list.map((u, i) => `<li><span class="r">${i + 1}</span><span class="n"><a href="#users" data-user="${u.id}">${esc(u.name)}</a></span>
+    <span class="s">${fmt(u.rewarded)} <small class="mut">из ${fmt(u.invited)}</small></span></li>`).join('') : '<li class="mut ib-empty">Пока никого.</li>';
+}
+$('invTopTabs').onclick = (e) => { const b = e.target.closest('[data-top]'); if (b) { invTop = b.dataset.top; renderInviteTop(); } };
+for (const id of ['invTop', 'invRecent']) {
+  $(id).onclick = (e) => { const a = e.target.closest('[data-user]'); if (a) { e.preventDefault(); openUser(Number(a.dataset.user)); } };
+}
+
+// ---------- достижения ----------
+const TIER_NAME = { bronze: 'бронза', silver: 'серебро', gold: 'золото' };
+async function loadAchievementStats() {
+  const d = await api('GET', '/api/admin/achievements');
+  const total = d.list.reduce((n, a) => n + a.earned, 0);
+  const top = [...d.list].sort((a, b) => b.earned - a.earned)[0];
+  $('achKpis').innerHTML = [
+    kpi('Игроков', fmt(d.players)),
+    kpi('Выдано достижений', fmt(total), `в среднем ${d.players ? (total / d.players).toFixed(1) : 0} на игрока`),
+    kpi('Монеток за достижения', fmt(d.coins)),
+    kpi('Самое частое', top?.earned ? esc(top.title) : '—', top?.earned ? `у ${fmt(top.earned)} игроков` : ''),
+  ].join('');
+  $('achTable').innerHTML = Object.entries(d.cats).map(([c, name]) => {
+    const rows = d.list.filter((a) => a.cat === c);
+    return `<tbody><tr class="grp"><th colspan="5">${esc(name)}</th></tr>${rows.map((a) => {
+      const pct = d.players ? Math.round((a.earned / d.players) * 100) : 0;
+      return `<tr><td><div class="u-cell">${Igr.medalHTML(a)}<div><b>${esc(a.title)}</b><div class="mut">${esc(a.cond)}</div></div></div></td>
+        <td>${TIER_NAME[a.tier]}</td><td class="n">${fmt(a.coins)}</td>
+        <td class="n"><div class="pct"><span class="inv-bar"><i style="width:${pct}%"></i></span>${fmt(a.earned)} · ${pct}%</div></td>
+        <td>${a.last_at ? when(a.last_at) : '<span class="mut">—</span>'}</td></tr>`;
+    }).join('')}</tbody>`;
+  }).join('');
+}
 
 // ---------- журнал ----------
 const ACTIONS = {

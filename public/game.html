@@ -389,7 +389,7 @@ $('vsBtn').onclick = async () => {
       html: `<p>Друг откроет игру и увидит ваш результат${myBest ? ` — <b>${fmt(myBest)}</b>` : ''}. Если он зарегистрируется и сыграет в ${myInvite.play_games} разные игры, вы получите ${esc(Igr.coinsText(myInvite.reward))}.</p>${Igr.shareHTML({ url: url.href, text })}`,
       buttons: [{ text: 'Готово', value: null }],
     });
-  } catch (err) { toast(err.message); }
+  } catch (err) { toast(err.message, 'err'); }
 };
 
 // Пришли по ссылке-вызову (?invite=<код>&vs=<очки>): кто позвал и какой результат побить.
@@ -567,7 +567,8 @@ $('thank').onclick = async () => {
   if (!r.ok) return toast(r.status === 409 ? 'Не хватает монеток' : data.error || 'Не получилось');
   user.coins = data.coins;
   Igr.setCoins(data.coins);
-  toast(`Спасибо! Автор получил ${Igr.coinsText(amount)}`);
+  toast(`Спасибо! Автор получил ${Igr.coinsText(amount)}`, 'ok');
+  Igr.checkNews(true);
 };
 </script>
 </body>

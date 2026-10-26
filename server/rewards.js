@@ -5,7 +5,7 @@
 // Крона нет: итоги прошедшей недели подводит первый запрос после её конца.
 import { createHmac, randomBytes } from 'node:crypto';
 import { avatarUrl } from './avatars.js';
-import { lookOf, LOOK_COLS, INVITE_ITEMS } from './shop.js';
+import { lookOf, LOOK_COLS, INVITE_ITEMS, ITEMS } from './shop.js';
 import { sha256 } from './auth.js';
 
 // Серия входов: день 1…7, потом круг повторяется, а счётчик дней подряд растёт дальше.
@@ -22,27 +22,44 @@ const INVITE_RE = /^[A-Za-z0-9_-]{8}$/;
 const BOARD_RE = /^[\w.-]{1,40}$/;
 const WEEK_RE = /^\d{4}-\d{2}-\d{2}$/;
 const DAY = 864e5;
+// Легендарные предметы витрины (id из shop.js) — для достижения «Легенда». Строки из своего каталога, не от игрока.
+const LEGENDARY_SQL = () => ITEMS.filter((i) => i.tier === 'legendary').map((i) => `'${i.id}'`).join(', ') || "''";
 
 // Достижения аккаунта. done — условие по сводке progress(); goal — для счётчика «3 из 5» в профиле.
+// cat — раздел в профиле, tier — медаль (bronze/silver/gold), icon — рисунок медали (ACH_ICONS в public/app.js).
+// Ключи не меняем: они хранятся у игроков (player_achievements) и в users.badge.
+export const ACH_CATS = { play: 'Игры', records: 'Рекорды', friends: 'Друзья', social: 'Отзывы и авторы', streak: 'Постоянство', style: 'Витрина и профиль', events: 'Турниры' };
 export const ACHIEVEMENTS = [
-  { key: 'record', title: 'Первый рекорд', cond: 'Попасть в таблицу рекордов любой игры', coins: 10, value: (s) => s.records, goal: 1 },
-  { key: 'records5', title: 'Рекордсмен', cond: 'Результаты в таблицах рекордов пяти разных игр', coins: 30, value: (s) => s.records, goal: 5 },
-  { key: 'review', title: 'Первый отзыв', cond: 'Написать отзыв об игре', coins: 10, value: (s) => s.reviews, goal: 1 },
-  { key: 'reviews5', title: 'Критик', cond: 'Отзывы о пяти играх', coins: 30, value: (s) => s.reviews, goal: 5 },
-  { key: 'streak7', title: 'Неделя подряд', cond: 'Заходить на Gamely семь дней подряд', coins: 20, value: (s) => s.streak, goal: 7 },
-  { key: 'streak30', title: 'Месяц подряд', cond: 'Заходить на Gamely тридцать дней подряд', coins: 50, value: (s) => s.streak, goal: 30 },
-  { key: 'spend', title: 'Первая покупка', cond: 'Потратить монетки в игре', coins: 10, value: (s) => s.spent, goal: 1 },
-  { key: 'invite', title: 'Позвал друга', cond: 'Друг зарегистрировался по вашей ссылке и сыграл в две разные игры', coins: 20, value: (s) => s.friends, goal: 1 },
-  { key: 'invite5', title: 'Своя компания', cond: 'Пять друзей по вашей ссылке', coins: 50, value: (s) => s.friends, goal: 5 },
-  { key: 'podium', title: 'Призёр недели', cond: 'Занять место с первого по третье в турнире недели', coins: 30, value: (s) => (s.place && s.place <= 3 ? 1 : 0), goal: 1 },
-  { key: 'champion', title: 'Чемпион недели', cond: 'Выиграть турнир недели', coins: 50, value: (s) => (s.place === 1 ? 1 : 0), goal: 1 },
-  { key: 'email', title: 'Настоящая почта', cond: 'Подтвердить почту', coins: 10, value: (s) => s.verified, goal: 1 },
-  { key: 'avatar', title: 'Своё лицо', cond: 'Выбрать аватарку в профиле', coins: 10, value: (s) => s.avatar, goal: 1 },
+  { key: 'play2', cat: 'play', tier: 'bronze', icon: 'gamepad', title: 'Первые шаги', cond: 'Сыграть в две разные игры', coins: 10, value: (s) => s.games, goal: 2 },
+  { key: 'play5', cat: 'play', tier: 'silver', icon: 'compass', title: 'Любопытный', cond: 'Сыграть в пять разных игр', coins: 25, value: (s) => s.games, goal: 5 },
+  { key: 'play15', cat: 'play', tier: 'gold', icon: 'map', title: 'Исследователь', cond: 'Сыграть в пятнадцать разных игр', coins: 60, value: (s) => s.games, goal: 15 },
+  { key: 'record', cat: 'records', tier: 'bronze', icon: 'trophy', title: 'Первый рекорд', cond: 'Попасть в таблицу рекордов любой игры', coins: 10, value: (s) => s.records, goal: 1 },
+  { key: 'records5', cat: 'records', tier: 'silver', icon: 'trophy', title: 'Рекордсмен', cond: 'Результаты в таблицах рекордов пяти разных игр', coins: 30, value: (s) => s.records, goal: 5 },
+  { key: 'records10', cat: 'records', tier: 'gold', icon: 'trophy', title: 'Чемпион каталога', cond: 'Результаты в таблицах рекордов десяти разных игр', coins: 70, value: (s) => s.records, goal: 10 },
+  { key: 'invite', cat: 'friends', tier: 'bronze', icon: 'friend', title: 'Позвал друга', cond: 'Друг зарегистрировался по вашей ссылке и сыграл в две разные игры', coins: 20, value: (s) => s.friends, goal: 1 },
+  { key: 'invite3', cat: 'friends', tier: 'silver', icon: 'friends', title: 'Компания', cond: 'Три друга по вашей ссылке', coins: 30, value: (s) => s.friends, goal: 3 },
+  { key: 'invite5', cat: 'friends', tier: 'silver', icon: 'friends', title: 'Своя компания', cond: 'Пять друзей по вашей ссылке', coins: 50, value: (s) => s.friends, goal: 5 },
+  { key: 'invite10', cat: 'friends', tier: 'gold', icon: 'crown', title: 'Вожак стаи', cond: 'Десять друзей по вашей ссылке', coins: 100, value: (s) => s.friends, goal: 10 },
+  { key: 'review', cat: 'social', tier: 'bronze', icon: 'chat', title: 'Первый отзыв', cond: 'Написать отзыв об игре', coins: 10, value: (s) => s.reviews, goal: 1 },
+  { key: 'reviews5', cat: 'social', tier: 'silver', icon: 'chat', title: 'Критик', cond: 'Отзывы о пяти играх', coins: 30, value: (s) => s.reviews, goal: 5 },
+  { key: 'thanks', cat: 'social', tier: 'bronze', icon: 'heart', title: 'Меценат', cond: 'Поблагодарить автора игры монетками', coins: 15, value: (s) => s.thanks, goal: 1 },
+  { key: 'streak3', cat: 'streak', tier: 'bronze', icon: 'flame', title: 'Три дня подряд', cond: 'Заходить на Gamely три дня подряд', coins: 5, value: (s) => s.streak, goal: 3 },
+  { key: 'streak7', cat: 'streak', tier: 'silver', icon: 'flame', title: 'Неделя подряд', cond: 'Заходить на Gamely семь дней подряд', coins: 20, value: (s) => s.streak, goal: 7 },
+  { key: 'streak30', cat: 'streak', tier: 'gold', icon: 'flame', title: 'Месяц подряд', cond: 'Заходить на Gamely тридцать дней подряд', coins: 50, value: (s) => s.streak, goal: 30 },
+  { key: 'avatar', cat: 'style', tier: 'bronze', icon: 'face', title: 'Своё лицо', cond: 'Выбрать аватарку в профиле', coins: 10, value: (s) => s.avatar, goal: 1 },
+  { key: 'email', cat: 'style', tier: 'bronze', icon: 'mail', title: 'Настоящая почта', cond: 'Подтвердить почту', coins: 10, value: (s) => s.verified, goal: 1 },
+  { key: 'spend', cat: 'style', tier: 'bronze', icon: 'coin', title: 'Первая покупка', cond: 'Потратить монетки в игре', coins: 10, value: (s) => s.spent, goal: 1 },
+  { key: 'shop1', cat: 'style', tier: 'bronze', icon: 'bag', title: 'Модник', cond: 'Купить предмет в витрине', coins: 15, value: (s) => s.shop, goal: 1 },
+  { key: 'shop5', cat: 'style', tier: 'silver', icon: 'bag', title: 'Коллекционер', cond: 'Пять предметов из витрины', coins: 40, value: (s) => s.shop, goal: 5 },
+  { key: 'legend', cat: 'style', tier: 'gold', icon: 'gem', title: 'Легенда', cond: 'Купить легендарный предмет в витрине', coins: 100, value: (s) => s.legend, goal: 1 },
+  { key: 'tourney', cat: 'events', tier: 'bronze', icon: 'flag', title: 'Участник турнира', cond: 'Попасть в таблицу турнира недели', coins: 10, value: (s) => s.tourney, goal: 1 },
+  { key: 'podium', cat: 'events', tier: 'silver', icon: 'medal', title: 'Призёр недели', cond: 'Занять место с первого по третье в турнире недели', coins: 30, value: (s) => (s.place && s.place <= 3 ? 1 : 0), goal: 1 },
+  { key: 'champion', cat: 'events', tier: 'gold', icon: 'cup', title: 'Чемпион недели', cond: 'Выиграть турнир недели', coins: 50, value: (s) => (s.place === 1 ? 1 : 0), goal: 1 },
 ];
 
 export function migrateRewards(db) {
   db.exec(`
-    -- Полученные достижения: одно на аккаунт, награда — вместе со строкой.
+    -- Полученные достижения: одно на аккаунт, награда — вместе со строкой. seen_at — игрок увидел уведомление.
     CREATE TABLE IF NOT EXISTS player_achievements (
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       key     TEXT NOT NULL,
@@ -110,6 +127,11 @@ export function migrateRewards(db) {
   add('reg_ip', 'TEXT');       // отпечаток (HMAC) адреса при регистрации — сам адрес не храним
   add('reg_vid', 'TEXT');      // хэш cookie браузера при регистрации
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_invite_code ON users(invite_code)');
+  // Уведомления о достижениях появились 27.10.2026: полученные раньше считаем уже показанными.
+  if (!db.prepare('PRAGMA table_info(player_achievements)').all().some((c) => c.name === 'seen_at')) {
+    db.exec('ALTER TABLE player_achievements ADD COLUMN seen_at INTEGER');
+    db.exec('UPDATE player_achievements SET seen_at = at');
+  }
   if (!db.prepare('PRAGMA table_info(invites)').all().some((c) => c.name === 'seen_at')) {
     db.exec('ALTER TABLE invites ADD COLUMN seen_at INTEGER');
   }
@@ -136,9 +158,16 @@ export function createRewards({
                             (SELECT COUNT(*) FROM game_reviews WHERE user_id = u.id) AS reviews,
                             EXISTS (SELECT 1 FROM coin_ledger WHERE user_id = u.id AND kind = 'spend') AS spent,
                             (SELECT COUNT(*) FROM invites WHERE inviter_id = u.id AND status = 'rewarded') AS friends,
-                            (SELECT MIN(place) FROM tournament_scores WHERE user_id = u.id) AS place
+                            (SELECT MIN(place) FROM tournament_scores WHERE user_id = u.id) AS place,
+                            EXISTS (SELECT 1 FROM tournament_scores WHERE user_id = u.id) AS tourney,
+                            (SELECT COUNT(*) FROM user_played_games WHERE user_id = u.id) AS games,
+                            EXISTS (SELECT 1 FROM game_thanks WHERE user_id = u.id) AS thanks,
+                            (SELECT COUNT(*) FROM coin_ledger WHERE user_id = u.id AND kind = 'shop') AS shop,
+                            EXISTS (SELECT 1 FROM coin_ledger WHERE user_id = u.id AND kind = 'shop' AND ref IN (${LEGENDARY_SQL()})) AS legend
                           FROM users u WHERE u.id = ?`),
     earned: db.prepare('SELECT key, at FROM player_achievements WHERE user_id = ?'),
+    unseenAch: db.prepare('SELECT key FROM player_achievements WHERE user_id = ? AND seen_at IS NULL ORDER BY at'),
+    seenAch: db.prepare('UPDATE player_achievements SET seen_at = ? WHERE user_id = ? AND seen_at IS NULL'),
     grant: db.prepare('INSERT OR IGNORE INTO player_achievements (user_id, key, at) VALUES (?, ?, ?)'),
     // турнир
     tournament: db.prepare('SELECT * FROM tournaments WHERE week = ?'),
@@ -277,13 +306,13 @@ export function createRewards({
         claimed = before.amount;
       });
     }
-    const achievements = claimed ? checkAchievements(userId) : [];
-    return { claimed, streak: streakInfo(userId), achievements, friends: friendNews(userId) };
+    if (claimed) checkAchievements(userId);
+    return { claimed, streak: streakInfo(userId) };
   }
 
   // ---------- достижения ----------
   const achievementView = (a, at = null, s = null) => ({
-    key: a.key, title: a.title, cond: a.cond, coins: a.coins, goal: a.goal, earned_at: at,
+    key: a.key, title: a.title, cond: a.cond, coins: a.coins, goal: a.goal, earned_at: at, cat: a.cat, tier: a.tier, icon: a.icon,
     value: s ? Math.min(a.goal, Number(a.value(s)) || 0) : a.goal,
   });
 
@@ -479,10 +508,30 @@ export function createRewards({
     checkAchievements(userId);
   }
 
-  // Вошедший игрок запустил игру: отмечаем её; на INVITE_GAMES-й разной игре друг засчитан.
+  // Вошедший игрок запустил игру: отмечаем её; на INVITE_GAMES-й разной игре друг засчитан. Новая игра — может
+  // дать и достижение «сыграть в N игр».
   function onPlay(userId, gameId) {
-    q.played.run(userId, gameId, now());
+    if (!q.played.run(userId, gameId, now()).changes) return;
     if (q.pendingInvite.get(userId) && q.playedCount.get(userId).n >= INVITE_GAMES) rewardInvite(userId);
+    checkAchievements(userId);
+  }
+
+  // Новости аккаунта для уведомлений: новые достижения и засчитанные друзья — один раз. Перед этим проверяем
+  // достижения: покупки в витрине и «спасибо» автору выдают их здесь, без отдельных крючков.
+  function hasNews(userId) {
+    checkAchievements(userId);
+    return q.unseenAch.all(userId).length > 0 || q.unseenCount.get(userId).n > 0;
+  }
+  function myNews(req, res) {
+    const user = requireUser(req);
+    checkAchievements(user.id);
+    const keys = q.unseenAch.all(user.id).map((r) => r.key);
+    if (keys.length) q.seenAch.run(now(), user.id);
+    const byKey = new Map(ACHIEVEMENTS.map((a) => [a.key, a]));
+    send(res, 200, {
+      achievements: keys.map((k) => byKey.get(k)).filter(Boolean).map((a) => achievementView(a, now())),
+      friends: friendNews(user.id), coins: q.coins.get(user.id).coins,
+    });
   }
 
   // Для бонуса за вход (его просит каждая страница): какие друзья засчитаны с прошлого раза и что этим открыто.
@@ -561,13 +610,13 @@ export function createRewards({
     send(res, 200, { code, url: `${siteUrl}/?invite=${code}`, reward: INVITE_COINS, friend_reward: INVITED_COINS, play_games: INVITE_GAMES });
   }
 
-  // Профиль: серия, достижения (заодно выдаются новые), приглашения.
+  // Профиль: серия, достижения (заодно выдаются новые — уведомление о них придёт через /api/me/news), приглашения.
   function myRewards(req, res) {
     const user = requireUser(req);
     settle();
-    const fresh = checkAchievements(user.id);
+    checkAchievements(user.id);
     send(res, 200, {
-      streak: streakInfo(user.id), achievements: achievementList(user.id), fresh,
+      streak: streakInfo(user.id), achievements: achievementList(user.id), cats: ACH_CATS,
       invite: inviteInfo(user.id), coins: q.coins.get(user.id).coins,
     });
   }
@@ -577,6 +626,7 @@ export function createRewards({
     let mm;
     if (p === '/api/me/rewards' && m === 'GET') return myRewards;
     if (p === '/api/me/invite' && m === 'GET') return myInvite;
+    if (p === '/api/me/news' && m === 'POST') return myNews;
     if (p === '/api/invites/top' && m === 'GET') return inviteBoard;
     if ((mm = p.match(/^\/api\/invite\/([A-Za-z0-9_-]{8})$/)) && m === 'GET') return (req, res) => publicInvite(req, res, mm[1]);
     if (p === '/api/tournament' && m === 'GET') return currentTournament;
@@ -588,7 +638,7 @@ export function createRewards({
 
   return {
     route, settle, onScore, onRegister, onVerified, onPlay, checkAchievements, weekOf,
-    hasFriendNews: (userId) => q.unseenCount.get(userId).n > 0,
+    hasNews,
     // Бонус за вход для server/economy.js: тот же адрес /api/me/coins/daily, теперь с серией.
     daily: { claim: claimDaily, info: streakInfo, available: (userId) => streakInfo(userId).available },
   };

@@ -83,7 +83,8 @@
   </section>
   <section class="sec" id="achievements" style="scroll-margin-top:90px">
     <div class="sec-head"><h2>Достижения</h2><span class="mut" id="achCount"></span></div>
-    <div class="panel"><ul class="ach-list" id="achList"></ul></div>
+    <div class="ach-sum hidden" id="achSum"></div>
+    <div id="achList"></div>
   </section>
   </div>
 
@@ -269,7 +270,7 @@ $('packs').onclick = async (e) => {
     if (!r.ok) throw new Error(data.error || 'Не получилось создать заказ');
     await Igr.goal('coins_checkout', { pack: pack.id });
     location.href = data.confirmation_url;
-  } catch (err) { toast(err.message); b.disabled = false; }
+  } catch (err) { toast(err.message, 'err'); b.disabled = false; }
 };
 
 // ---------- серия входов ----------
@@ -296,28 +297,41 @@ document.addEventListener('igr:daily', (e) => {
   if (!e.detail.claimed) return;
   renderStreak(e.detail.streak);
   loadCoins();
-  if (e.detail.achievements?.length) loadRewards();
 });
+// Новое достижение или засчитанный друг (уведомление уже показано) — обновляем награды, баланс и витрину.
+document.addEventListener('igr:news', () => { loadRewards(); loadCoins(); loadShop(); });
 
 // ---------- достижения и приглашения ----------
 const dateShort = (t) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
-// Значок: получено — круг с галочкой; нет — кольцо, заполненное по прогрессу (3 из 5).
-function achMark(a) {
-  if (a.earned_at) return `<svg class="ach-mark" viewBox="0 0 28 28" aria-hidden="true"><circle class="mark-fill" cx="14" cy="14" r="12"/><path class="mark-check" d="m8.5 14.5 3.8 3.8 7.4-7.6"/></svg>`;
-  const c = 2 * Math.PI * 11;
-  const part = a.goal > 1 ? a.value / a.goal : 0;
-  return `<svg class="ach-mark" viewBox="0 0 28 28" aria-hidden="true"><circle class="mark-track" cx="14" cy="14" r="11"/>${part
-    ? `<circle class="mark-part" cx="14" cy="14" r="11" stroke-dasharray="${(c * part).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 14 14)"/>` : ''}</svg>`;
-}
+// Достижения по разделам (cats с сервера): медаль по уровню, у неполученных — прогресс «3 из 5».
+let achCats = {};
 function renderAchievements(list) {
-  const got = list.filter((a) => a.earned_at).sort((a, b) => b.earned_at - a.earned_at);
-  const rest = list.filter((a) => !a.earned_at).sort((a, b) => b.value / b.goal - a.value / a.goal);
+  const got = list.filter((a) => a.earned_at);
+  const coins = got.reduce((n, a) => n + a.coins, 0);
   $('achCount').textContent = `${got.length} из ${list.length}`;
-  $('achList').innerHTML = [...got, ...rest].map((a) => `
-    <li class="ach ${a.earned_at ? 'got' : ''}">${achMark(a)}
-      <div class="ach-t"><b>${esc(a.title)}</b><span>${esc(a.cond)}</span></div>
-      <div class="ach-r"><span class="ach-coins">${COIN_SVG}${fmt(a.coins)}</span>
-        <small>${a.earned_at ? dateShort(a.earned_at) : a.goal > 1 ? `${fmt(a.value)} из ${fmt(a.goal)}` : ''}</small></div></li>`).join('');
+  const tiers = ['gold', 'silver', 'bronze'].map((t) => [t, got.filter((a) => a.tier === t).length]);
+  $('achSum').classList.remove('hidden');
+  $('achSum').innerHTML = `<div class="ach-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${list.length}" aria-valuenow="${got.length}"
+      aria-label="Получено достижений: ${got.length} из ${list.length}"><i style="width:${Math.round((got.length / list.length) * 100)}%"></i></div>
+    <div class="ach-sum-t">${tiers.map(([t, n]) => `<span class="ach-tier">${Igr.medalHTML({ tier: t, icon: 'medal' }, !n)}<b>${n}</b></span>`).join('')}
+      <span class="ach-earned">${COIN_SVG}<b>${fmt(coins)}</b> монеток за достижения</span></div>`;
+  const card = (a) => {
+    const done = !!a.earned_at;
+    const pct = Math.min(100, Math.round((a.value / a.goal) * 100));
+    return `<div class="ach-card${done ? ' got' : ''} t-${a.tier}">${Igr.medalHTML(a, !done)}
+      <div class="ach-body"><b>${esc(a.title)}</b><span class="mut">${esc(a.cond)}</span>
+        ${done ? `<span class="ach-date">${BADGE_SVG}Получено ${dateShort(a.earned_at)}</span>`
+          : a.goal > 1 ? `<span class="ach-prog"><span class="inv-bar"><i style="width:${pct}%"></i></span><span class="mut">${fmt(a.value)} из ${fmt(a.goal)}</span></span>` : ''}</div>
+      <span class="ach-coins">${COIN_SVG}${fmt(a.coins)}</span></div>`;
+  };
+  const cats = Object.keys(achCats).length ? Object.keys(achCats) : [...new Set(list.map((a) => a.cat))];
+  $('achList').innerHTML = cats.map((c) => {
+    const items = list.filter((a) => a.cat === c);
+    if (!items.length) return '';
+    const n = items.filter((a) => a.earned_at).length;
+    return `<section class="panel ach-cat"><h3>${esc(achCats[c] || c)} <span class="mut">${n} из ${items.length}</span></h3>
+      <div class="ach-grid">${items.map(card).join('')}</div></section>`;
+  }).join('');
 }
 // Приглашения (server/rewards.js): друг засчитан, когда сыграл в inv.play_games разные игры. За 3/5/10 друзей —
 // предметы витрины, которые не купить. Таблица «кто привёл больше всех»: неделя с призами и всё время.
@@ -353,16 +367,12 @@ async function loadRewards() {
   const r = await fetch('/api/me/rewards');
   if (!r.ok) return;
   const data = await r.json();
+  achCats = data.cats || {};
   renderStreak(data.streak);
   renderAchievements(data.achievements);
   renderInvite(data.invite);
   loadInviteBoard();
-  if (data.fresh.length) {
-    toast(data.fresh.length === 1 ? `Достижение «${data.fresh[0].title}»: +${coinsText(data.fresh[0].coins)}`
-      : `Новые достижения: ${data.fresh.length}, +${coinsText(data.fresh.reduce((n, a) => n + a.coins, 0))}`);
-    loadCoins();
-    loadShop(); // новый баланс и новые достижения для показа в отзывах
-  }
+  Igr.checkNews(); // достижения, выданные только что, — уведомлением (и событием igr:news)
 }
 
 let ibData = null;
@@ -587,7 +597,8 @@ async function shopAct(act) {
   if (!ok) return;
   applyShop(await shopApi('/api/shop/buy', { item: it.id }));
   applyShop(await shopApi('/api/shop/equip', { slot, item: it.id }));
-  toast(`Куплено и надето: ${it.title}`);
+  toast(`Куплено и надето: ${it.title}`, 'ok');
+  Igr.checkNews(true); // покупка могла дать достижение
 }
 $('shopTabs').onclick = (e) => {
   const b = e.target.closest('[data-cat]');
@@ -613,12 +624,12 @@ $('shopList').onclick = async (e) => {
   const b = e.target.closest('[data-badge]');
   if (!b) return;
   try { applyShop(await shopApi('/api/shop/equip', { slot: 'badge', item: b.dataset.badge || null })); }
-  catch (err) { toast(err.message); }
+  catch (err) { toast(err.message, 'err'); }
 };
 for (const id of ['stageInfo', 'shopBar']) {
   $(id).onclick = (e) => {
     const b = e.target.closest('[data-act]');
-    if (b) shopAct(b.dataset.act).catch((err) => toast(err.message));
+    if (b) shopAct(b.dataset.act).catch((err) => toast(err.message, 'err'));
   };
 }
 
@@ -674,7 +685,7 @@ $('avaBtn').onclick = () => {
       if (b.dataset.item) applyShop(await shopApi('/api/shop/equip', { slot: 'avatar', item: b.dataset.item }));
       else await setAvatar('PUT', '/api/me/avatar', { preset: Number(b.dataset.n) });
       body.querySelectorAll('.ava-pick').forEach((x) => x.classList.toggle('on', x === b));
-    } catch (err) { toast(err.message); }
+    } catch (err) { toast(err.message, 'err'); }
   };
   body.querySelector('input').onchange = async (e) => {
     const f = e.target.files[0];
@@ -684,9 +695,9 @@ $('avaBtn').onclick = () => {
       await setAvatar('POST', '/api/me/avatar', blob, blob.type);
       toast(user.avatarPending ? 'Отправили на проверку' : 'Аватарка обновлена');
       document.querySelector('.modal')?.click();
-    } catch (err) { toast(err.message); }
+    } catch (err) { toast(err.message, 'err'); }
   };
-  close.then((v) => { if (v === 'clear') setAvatar('PUT', '/api/me/avatar', { preset: null }).catch((err) => toast(err.message)); });
+  close.then((v) => { if (v === 'clear') setAvatar('PUT', '/api/me/avatar', { preset: null }).catch((err) => toast(err.message, 'err')); });
 };
 
 $('resend').onclick = async () => {

@@ -83,10 +83,12 @@ test('благодарности: не больше 100 монеток за су
 
   const poor = browser();
   await poor('POST', '/api/register', { email: 'poor@test.ru', password: 'secret123', name: 'Бедняк' });
-  const left = await coins(poor);
-  const spendAll = Math.floor(left / 25);
-  for (let i = 0; i < spendAll && i < 4; i++) await poor('POST', `/api/games/${gameId}/thanks`, { amount: 25 });
-  if (await coins(poor) < 5) assert.equal((await poor('POST', `/api/games/${gameId}/thanks`, { amount: 5 })).status, 409);
+  // Тратим всё, пока хватает хотя бы на 5 (первое «спасибо» ещё и даёт достижение «Меценат»), — дальше отказ.
+  for (let left = await coins(poor); left >= 5; left = await coins(poor)) {
+    const amount = left >= 25 ? 25 : left >= 10 ? 10 : 5;
+    assert.equal((await poor('POST', `/api/games/${gameId}/thanks`, { amount })).status, 200);
+  }
+  assert.equal((await poor('POST', `/api/games/${gameId}/thanks`, { amount: 5 })).status, 409);
 });
 
 test('день без рекламы: 30 монеток за сутки, покупка продлевает', async () => {

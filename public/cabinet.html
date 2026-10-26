@@ -102,7 +102,6 @@
   </section>
 </main>
 
-<div class="toast" id="toast"></div>
 
 <script src="app.js"></script>
 <script>
@@ -117,11 +116,8 @@ const CONTROLS = { keyboard: 'Клавиатура', mouse: 'Мышь', touch: '
 const ORIENT = { any: 'Любая', landscape: 'Горизонтальная', portrait: 'Вертикальная' };
 const LANGS = { ru: 'Русский', en: 'Английский', uk: 'Украинский', be: 'Белорусский', kk: 'Казахский', uz: 'Узбекский', tr: 'Турецкий', de: 'Немецкий', es: 'Испанский', other: 'Другой' };
 
-function toast(msg, err) {
-  const t = $('toast');
-  t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.style.display = 'block';
-  clearTimeout(toast.t); toast.t = setTimeout(() => { t.style.display = 'none'; }, 3200);
-}
+// Уведомления справа сверху — общие для сайта (Igr.toast); err — красное.
+const toast = (msg, err) => Igr.toast(msg, err ? 'err' : 'ok');
 
 async function api(method, url, body, type = 'application/json') {
   const res = await fetch(url, {

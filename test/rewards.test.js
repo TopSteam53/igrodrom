@@ -81,11 +81,12 @@ test('серия входов: растёт день за днём, круг и�
     assert.equal(d.claimed, expected[i], `день ${i + 1}`);
     assert.equal(d.streak.streak, i + 1);
     assert.equal(d.streak.day, (i % 7) + 1, 'после седьмого дня круг начинается снова');
-    // Седьмой день подряд — достижение «Неделя подряд», в тот же ответ.
-    assert.deepEqual(d.achievements.map((a) => a.key), i === 6 ? ['streak7'] : []);
     assert.equal((await p('POST', '/api/me/coins/daily')).data.claimed, 0, 'второй раз за день — ничего');
     clock += DAY;
   }
+  // «Три дня подряд» и «Неделя подряд» — уведомлением через /api/me/news, один раз.
+  assert.deepEqual((await p('POST', '/api/me/news')).data.achievements.map((a) => a.key), ['streak3', 'streak7']);
+  assert.deepEqual((await p('POST', '/api/me/news')).data.achievements, []);
   // Поздно вечером и рано утром по Москве — разные дни, хотя по UTC это одни сутки.
   clock = Date.parse('2026-03-11T20:59:00Z'); // 23:59 МСК 11 марта — десятый день подряд
   assert.equal((await p('POST', '/api/me/coins/daily')).data.claimed, 7);
@@ -102,7 +103,7 @@ test('серия входов: растёт день за днём, круг и�
   const daily = (await history(p)).filter((h) => h.kind === 'daily');
   assert.equal(daily.length, 12);
   assert.equal(daily.reduce((n, h) => n + h.delta, 0), 5 + 6 + 7 + 8 + 10 + 12 + 20 + 5 + 6 + 7 + 8 + 5);
-  assert.equal(await coins(p), 50 + 99 + 20, 'подарок, бонусы и награда за «Неделю подряд»');
+  assert.equal(await coins(p), 50 + 99 + 5 + 20, 'подарок, бонусы и награды за «Три дня» и «Неделю подряд»');
   assert.equal((await browser()('POST', '/api/me/coins/daily')).status, 401);
 });
 
@@ -111,16 +112,20 @@ test('достижения: условия по данным сайта, наг�
   const p = await player('ach@test.ru', 'Ачивка');
   let r = (await p('GET', '/api/me/rewards')).data;
   assert.equal(r.achievements.length >= 10, true);
-  assert.ok(r.achievements.every((a) => a.title && a.cond && a.coins >= 10 && a.coins <= 50 && a.earned_at === null));
-  assert.deepEqual(r.fresh, []);
+  assert.ok(r.achievements.every((a) => a.title && a.cond && a.coins >= 5 && a.coins <= 100 && a.earned_at === null));
+  assert.ok(r.achievements.every((a) => r.cats[a.cat] && ['bronze', 'silver', 'gold'].includes(a.tier) && a.icon), 'раздел, уровень, значок');
+  const news = async () => (await p('POST', '/api/me/news')).data.achievements.map((a) => a.key).sort();
+  assert.deepEqual(await news(), []);
 
   // Аватарка — достижение при следующей загрузке профиля.
   await p('PUT', '/api/me/avatar', { preset: 3 });
   r = (await p('GET', '/api/me/rewards')).data;
-  assert.deepEqual(r.fresh.map((a) => a.key), ['avatar']);
   assert.equal(r.coins, 60);
+  assert.equal((await p('GET', '/api/me')).data.user.news, true, 'есть новость — шапка спросит /api/me/news');
+  assert.deepEqual(await news(), ['avatar']);
+  assert.equal((await p('GET', '/api/me')).data.user.news, false);
   r = (await p('GET', '/api/me/rewards')).data;
-  assert.deepEqual(r.fresh, [], 'второй раз не выдаётся');
+  assert.deepEqual(await news(), [], 'второй раз не показывается и не выдаётся');
   assert.equal(r.coins, 60);
   // Убрал аватарку — достижение остаётся, повторно не начисляется.
   await p('PUT', '/api/me/avatar', { preset: null });
@@ -142,7 +147,7 @@ test('достижения: условия по данным сайта, наг�
   assert.equal((await p('PUT', `/api/games/${gameId}/reviews`, { text: 'Хорошая игра' })).status, 200);
   assert.equal((await p('POST', `/api/games/${gameId}/coins/spend`, { amount: 5, title: 'Щит' })).status, 200);
   r = (await p('GET', '/api/me/rewards')).data;
-  assert.deepEqual(r.fresh.map((a) => a.key).sort(), ['review', 'spend']);
+  assert.deepEqual(await news(), ['email', 'record', 'review', 'spend']);
   assert.equal(r.coins, 80 - 5 + 10 + 10);
 
   const ach = (await history(p)).filter((h) => h.kind === 'achievement');
@@ -226,7 +231,7 @@ test('турнир недели: зачёт только по выбранной
   assert.ok((await keys(c)).includes('champion'));
   assert.ok((await keys(b)).includes('podium'));
   assert.ok(!(await keys(b)).includes('champion'));
-  assert.equal(await coins(c), start.c + 150 + 10 + 30 + 50, 'приз, «Первый рекорд», «Призёр», «Чемпион»');
+  assert.equal(await coins(c), start.c + 150 + 10 + 10 + 30 + 50, 'приз, «Первый рекорд», «Участник турнира», «Призёр», «Чемпион»');
 
   adm = (await owner('GET', '/api/admin/tournaments')).data;
   assert.deepEqual(adm.past.map((p) => p.week), ['2026-04-06']);
@@ -320,8 +325,8 @@ test('приглашения без почты: друг засчитан за �
   for (const f of friends) await play(f, otherId); // вторая игра — в тот же день, дни не важны
   inv = (await boss('GET', '/api/me/rewards')).data.invite;
   assert.deepEqual([inv.confirmed, inv.coins, inv.pending.length], [3, 3 * INVITE_COINS, 0]);
-  assert.equal(await coins(friends[0]), 50 + INVITED_COINS);
-  assert.equal(await coins(boss), bossStart + 3 * INVITE_COINS + 20, 'награды и «Позвал друга»');
+  assert.equal(await coins(friends[0]), 50 + INVITED_COINS + 10, 'подарок, награда за приглашение, «Первые шаги»');
+  assert.equal(await coins(boss), bossStart + 3 * INVITE_COINS + 20 + 30, 'награды, «Позвал друга», «Компания»');
 
   // Рамка за трёх друзей открыта и надевается; значок за пятерых — нет, и не продаётся.
   const shop = (await boss('GET', '/api/shop')).data;
@@ -332,12 +337,13 @@ test('приглашения без почты: друг засчитан за �
   assert.equal((await boss('POST', '/api/shop/equip', { slot: 'frame', item: 'frame:soul' })).status, 200);
   assert.equal((await boss('GET', '/api/me')).data.user.frame, 'soul');
 
-  // Уведомление: один раз, вместе с бонусом за вход.
-  assert.equal((await boss('GET', '/api/me')).data.user.friendNews, true);
-  const news = (await boss('POST', '/api/me/coins/daily')).data.friends;
-  assert.deepEqual([news.names.length, news.coins, news.unlocked.map((u) => u.id)], [3, 3 * INVITE_COINS, ['frame:soul']]);
-  assert.equal((await boss('POST', '/api/me/coins/daily')).data.friends, null);
-  assert.equal((await boss('GET', '/api/me')).data.user.friendNews, false);
+  // Уведомление: один раз, через новости аккаунта — вместе с достижениями.
+  assert.equal((await boss('GET', '/api/me')).data.user.news, true);
+  const news = (await boss('POST', '/api/me/news')).data;
+  assert.deepEqual([news.friends.names.length, news.friends.coins, news.friends.unlocked.map((u) => u.id)], [3, 3 * INVITE_COINS, ['frame:soul']]);
+  assert.deepEqual(news.achievements.map((a) => a.key), ['invite', 'invite3']);
+  assert.equal((await boss('POST', '/api/me/news')).data.friends, null);
+  assert.equal((await boss('GET', '/api/me')).data.user.news, false);
 
   // Кто привёл больше всех: неделя и всё время; итоги недели — приз первому, один раз.
   let top = (await guest('GET', '/api/invites/top')).data;

@@ -96,12 +96,12 @@ test('покупка: хватает и не хватает монеток, по
 
   const again = await p('POST', '/api/shop/buy', { item: 'frame:laurel' });
   assert.equal(again.status, 409);
-  assert.equal((await me(p)).coins, 50);
+  assert.equal((await me(p)).coins, 50 + 15, 'и «Модник» за первую покупку');
 
   // Два одинаковых запроса разом: купится один раз.
   const both = await Promise.all([p('POST', '/api/shop/buy', { item: 'color:blue' }), p('POST', '/api/shop/buy', { item: 'color:blue' })]);
   assert.deepEqual(both.map((x) => x.status).sort(), [200, 409]);
-  assert.equal((await me(p)).coins, 0);
+  assert.equal((await me(p)).coins, 15);
   assert.deepEqual(await shopSpent(p), [-50, -200], 'в истории ровно две траты');
   const hist = (await p('GET', '/api/me/coins')).data.history.find((h) => h.kind === 'shop');
   assert.match(hist.title, /Синий/);
