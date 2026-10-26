@@ -26,7 +26,13 @@ export function adsFromEnv(env = {}) {
       rewardedTouch: str(env.ADS_YANDEX_REWARDED_TOUCH),
       banner: str(env.ADS_YANDEX_BANNER),
     },
-    vk: { bannerClient: str(env.ADS_VK_BANNER_CLIENT), bannerSlot: str(env.ADS_VK_BANNER_SLOT) },
+    vk: {
+      bannerClient: str(env.ADS_VK_BANNER_CLIENT),
+      bannerSlot: str(env.ADS_VK_BANNER_SLOT),
+      // Полноэкранные блоки: у VK на сайтах нет видео за награду, награда — за отдельный полноэкранный блок.
+      fullscreenSlot: str(env.ADS_VK_FULLSCREEN_SLOT),
+      rewardedSlot: str(env.ADS_VK_REWARDED_SLOT),
+    },
     google: { client: str(env.ADS_GOOGLE_CLIENT), bannerSlot: str(env.ADS_GOOGLE_BANNER_SLOT), test: env.ADS_GOOGLE_TEST === '1' },
     // Строки ads.txt; в .env переносы пишутся как \n. Файл DATA_DIR/ads.txt важнее.
     adsTxt: str(env.ADS_TXT).replace(/\\n/g, '\n'),

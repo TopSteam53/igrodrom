@@ -5,7 +5,7 @@
 //   none   — рекламы нет: полноэкранная не показывается, награда выдаётся сразу;
 //   test   — тестовая реклама, чтобы проверить всё до одобрения сети;
 //   yandex — Рекламная сеть Яндекса (Ya.Context.AdvManager);
-//   vk     — VK Реклама (только баннер);
+//   vk     — Рекламная сеть VK: баннер и полноэкранные блоки (за награду — отдельный полноэкранный блок);
 //   google — Google H5 Games Ads (adBreak).
 // Частота: полноэкранная не чаще раза в fullscreenInterval секунд и не в первые firstDelay секунд игры.
 (function () {
@@ -113,8 +113,44 @@
     },
   };
 
-  // ---------- VK Реклама: баннер на сайте ----------
+  // ---------- Рекламная сеть VK ----------
+  // Полноэкранный блок на сайте — тот же тег mrg-tag; событий «показан/закрыт» у него нет,
+  // поэтому следим за рекламными фреймами: появился — показ идёт, все пропали — закрыли.
+  // Если за VK_WAIT_MS ничего не появилось — рекламы нет.
+  const VK_WAIT_MS = 6000;
+  function vkFullscreen(slot) {
+    if (!slot) return Promise.resolve(null);
+    return loadScript('https://ad.mail.ru/static/ads-async.js').then(() => settle((finish) => {
+      const before = new Set(document.querySelectorAll('iframe'));
+      const ins = document.createElement('ins');
+      ins.className = 'mrg-tag';
+      ins.setAttribute('data-ad-client', `ad-${slot}`);
+      ins.setAttribute('data-ad-slot', slot);
+      ins.setAttribute('data-ad_query', `dl=${encodeURIComponent(location.href)}`);
+      document.body.append(ins);
+      const started = Date.now();
+      let shown = false;
+      const visible = (f) => f.isConnected && f.offsetWidth > 0 && f.offsetHeight > 0;
+      const done = (result) => { clearInterval(poll); ins.remove(); finish(result); };
+      const poll = setInterval(() => {
+        const fresh = [...document.querySelectorAll('iframe')].filter((f) => !before.has(f) && visible(f));
+        if (fresh.length) shown = true;
+        else if (shown) done('closed');
+        else if (Date.now() - started > VK_WAIT_MS) done('none');
+      }, 400);
+      (window.MRGtag = window.MRGtag || []).push({ onNoAds: () => { if (!shown) done('none'); } });
+    })).catch(() => 'none');
+  }
+
   const vk = {
+    async fullscreen() {
+      return (await vkFullscreen((config.vk || {}).fullscreenSlot)) === 'closed';
+    },
+    async rewarded() {
+      const r = await vkFullscreen((config.vk || {}).rewardedSlot);
+      // Блок не настроен или рекламы сейчас нет — награду даём, как без сети: игра не должна ломаться.
+      return r === 'closed' ? true : null;
+    },
     banner(el) {
       const { bannerClient, bannerSlot } = config.vk || {};
       if (!bannerClient || !bannerSlot) return false;
