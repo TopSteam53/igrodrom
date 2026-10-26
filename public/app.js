@@ -174,10 +174,10 @@
       const f = n.friends;
       show.push(() => toast(f.names.length === 1 ? `${f.names[0]} сыграл по вашей ссылке` : `${f.names.join(', ')} — по вашей ссылке`,
         { kind: 'friend', title: `${f.names.length === 1 ? 'Друг засчитан' : `Засчитано друзей: ${f.names.length}`}: +${coinsText(f.coins)}` }));
-      for (const it of f.unlocked) show.push(() => toast('Наденьте в Витрине — такого нет в продаже', { kind: 'gift', title: `Открыто за друзей: «${it.title}»` }));
+      for (const it of f.unlocked) show.push(() => toast('Открыто за друзей — наденьте в Витрине', { kind: 'gift', title: it.title }));
     }
     for (const a of n.achievements) {
-      show.push(() => toast(`«${a.title}» · +${coinsText(a.coins)}`, { kind: 'ach', title: 'Новое достижение', icon: medalHTML(a) }));
+      show.push(() => toast(`Новое достижение · +${coinsText(a.coins)}`, { kind: 'ach', title: a.title, icon: medalHTML(a) }));
     }
     show.forEach((fn, i) => setTimeout(fn, i * 650));
     if (show.length) document.dispatchEvent(new CustomEvent('igr:news', { detail: n }));
