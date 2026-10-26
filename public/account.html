@@ -52,26 +52,38 @@
       <ol class="streak" id="streak" aria-label="Бонус по дням серии"></ol>
       <p class="mut streak-note" id="streakNote"></p>
     </div>
+  <section class="sec" id="invite" style="scroll-margin-top:90px">
+    <div class="sec-head"><h2>Позовите друзей</h2></div>
+    <div class="panel invite">
+      <p class="invite-lead" id="inviteText"></p>
+      <div class="invite-link">
+        <input id="inviteUrl" readonly aria-label="Ваша ссылка-приглашение">
+      </div>
+      <div id="inviteShare"></div>
+      <dl class="invite-stats">
+        <div><dt>Пришли по ссылке</dt><dd id="invInvited">0</dd></div>
+        <div><dt>Засчитаны</dt><dd id="invConfirmed">0</dd></div>
+        <div><dt>Получено монеток</dt><dd id="invCoins">0</dd></div>
+      </dl>
+      <div class="invite-pending hidden" id="invPending"></div>
+      <h3 class="invite-sub">Только за друзей — не купить</h3>
+      <div class="invite-items" id="invItems"></div>
+      <p class="mut invite-note" id="inviteNote"></p>
+    </div>
+    <div class="panel invite-board">
+      <div class="ib-head"><h3>Кто привёл больше всех</h3>
+        <div class="ib-tabs" role="tablist" aria-label="Период">
+          <button type="button" role="tab" class="tab on" aria-selected="true" data-ib="week">Неделя</button>
+          <button type="button" role="tab" class="tab" aria-selected="false" data-ib="all">Всё время</button>
+        </div></div>
+      <p class="mut ib-note" id="ibNote"></p>
+      <ol class="lb" id="ibList"></ol>
+      <p class="mut ib-last hidden" id="ibLast"></p>
+    </div>
+  </section>
   <section class="sec" id="achievements" style="scroll-margin-top:90px">
     <div class="sec-head"><h2>Достижения</h2><span class="mut" id="achCount"></span></div>
     <div class="panel"><ul class="ach-list" id="achList"></ul></div>
-  </section>
-  <section class="sec" id="invite" style="scroll-margin-top:90px">
-    <div class="sec-head"><h2>Пригласите друга</h2></div>
-    <div class="panel invite">
-      <p id="inviteText"></p>
-      <div class="invite-link">
-        <input id="inviteUrl" readonly aria-label="Ваша ссылка-приглашение">
-        <button class="btn" id="inviteCopy" type="button">Скопировать</button>
-        <button class="btn hidden" id="inviteShare" type="button">Поделиться</button>
-      </div>
-      <dl class="invite-stats">
-        <div><dt>Пришли по ссылке</dt><dd id="invInvited">0</dd></div>
-        <div><dt>Подтвердили почту</dt><dd id="invConfirmed">0</dd></div>
-        <div><dt>Получено монеток</dt><dd id="invCoins">0</dd></div>
-      </dl>
-      <p class="mut invite-note" id="inviteNote"></p>
-    </div>
   </section>
   </div>
 
@@ -307,16 +319,35 @@ function renderAchievements(list) {
       <div class="ach-r"><span class="ach-coins">${COIN_SVG}${fmt(a.coins)}</span>
         <small>${a.earned_at ? dateShort(a.earned_at) : a.goal > 1 ? `${fmt(a.value)} из ${fmt(a.goal)}` : ''}</small></div></li>`).join('');
 }
+// Приглашения (server/rewards.js): друг засчитан, когда сыграл в inv.play_games разные игры. За 3/5/10 друзей —
+// предметы витрины, которые не купить. Таблица «кто привёл больше всех»: неделя с призами и всё время.
+let invite = null;
 function renderInvite(inv) {
-  $('inviteText').textContent = `Отправьте другу свою ссылку. Когда он зарегистрируется и подтвердит почту, вы получите ${coinsText(inv.reward)}, `
-    + `а друг — ${coinsText(inv.friend_reward)} сверх подарка новичку.`;
+  invite = inv;
+  $('inviteText').innerHTML = `Отправьте другу ссылку. Когда он зарегистрируется и сыграет в ${inv.play_games} разные игры, вы получите <b>${esc(coinsText(inv.reward))}</b>, а друг — <b>${esc(coinsText(inv.friend_reward))}</b> сверх подарка новичку.`;
   $('inviteUrl').value = inv.url;
+  $('inviteShare').innerHTML = Igr.shareHTML({ url: inv.url, text: `Играю в бесплатные игры на Gamely — заходи, по моей ссылке дадут ${coinsText(inv.friend_reward)} 🎮` });
   $('invInvited').textContent = fmt(inv.invited);
   $('invConfirmed').textContent = fmt(inv.confirmed);
   $('invCoins').textContent = fmt(inv.coins);
+  $('invPending').classList.toggle('hidden', !inv.pending.length);
+  $('invPending').innerHTML = inv.pending.length ? `<b>Ещё не засчитаны:</b> ${inv.pending.map((p) =>
+    `${esc(p.name)} <span class="mut">(игр: ${p.games} из ${inv.play_games})</span>`).join(', ')}` : '';
+  $('invItems').innerHTML = inv.items.map((it) => {
+    const done = inv.confirmed >= it.friends;
+    const art = it.slot === 'frame' ? avatarHTML({ ...user, frame: it.key }, 64)
+      : it.slot === 'icon' ? `<span class="item-ico">${Igr.nameIconHTML(it.key)}</span>`
+      : `<img src="${esc(it.image)}" width="64" height="64" alt="">`;
+    const pct = Math.min(100, Math.round((inv.confirmed / it.friends) * 100));
+    return `<div class="inv-item${done ? ' done' : ''}"><span class="inv-art">${art}</span>
+      <span class="inv-t"><b>${esc(it.title)}</b><span class="mut">${it.slot === 'frame' ? 'рамка' : it.slot === 'icon' ? 'значок' : 'аватарка'} · за ${it.friends} друзей</span>
+      ${done ? `<a class="inv-ok" href="#shop">${BADGE_SVG}Открыто — надеть</a>`
+        : `<span class="inv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${it.friends}" aria-valuenow="${Math.min(inv.confirmed, it.friends)}"
+            aria-label="${esc(it.title)}: друзей ${inv.confirmed} из ${it.friends}"><i style="width:${pct}%"></i></span><span class="mut">${fmt(Math.min(inv.confirmed, it.friends))} из ${it.friends}</span>`}</span></div>`;
+  }).join('');
   $('inviteNote').textContent = inv.confirmed >= inv.limit
     ? `Вы пригласили ${fmt(inv.limit)} друзей — это максимум для наград. Друзья по ссылке по-прежнему могут присоединиться.`
-    : `Награда — за первых ${fmt(inv.limit)} друзей. Своя же ссылка в другом аккаунте не считается.`;
+    : `Своя же ссылка в другом аккаунте не считается. Награды — за первых ${fmt(inv.limit)} друзей.`;
 }
 async function loadRewards() {
   const r = await fetch('/api/me/rewards');
@@ -325,6 +356,7 @@ async function loadRewards() {
   renderStreak(data.streak);
   renderAchievements(data.achievements);
   renderInvite(data.invite);
+  loadInviteBoard();
   if (data.fresh.length) {
     toast(data.fresh.length === 1 ? `Достижение «${data.fresh[0].title}»: +${coinsText(data.fresh[0].coins)}`
       : `Новые достижения: ${data.fresh.length}, +${coinsText(data.fresh.reduce((n, a) => n + a.coins, 0))}`);
@@ -332,14 +364,38 @@ async function loadRewards() {
     loadShop(); // новый баланс и новые достижения для показа в отзывах
   }
 }
-$('inviteCopy').onclick = async () => {
-  try { await navigator.clipboard.writeText($('inviteUrl').value); toast('Ссылка скопирована'); }
-  catch { $('inviteUrl').select(); toast('Выделили ссылку — скопируйте её'); }
-};
-if (navigator.share) {
-  $('inviteShare').classList.remove('hidden');
-  $('inviteShare').onclick = () => navigator.share({ title: 'Gamely', text: 'Играю в браузерные игры на Gamely, заходи', url: $('inviteUrl').value }).catch(() => {});
+
+let ibData = null;
+let ibMode = 'week';
+async function loadInviteBoard() {
+  try { ibData = await (await fetch('/api/invites/top')).json(); } catch { return; }
+  renderInviteBoard();
 }
+function renderInviteBoard() {
+  if (!ibData) return;
+  const { week } = ibData;
+  const list = ibMode === 'week' ? week.top : ibData.all;
+  const prizes = week.prizes.map((p, i) => `${i + 1}-е — ${fmt(p)}`).join(', ');
+  $('ibNote').innerHTML = ibMode === 'week'
+    ? `Призы недели в монетках: ${esc(prizes)}. До итогов ${esc(Igr.timeLeft(week.ends_at - Date.now()))}.${week.mine !== null ? ` У вас на этой неделе: <b>${fmt(week.mine)}</b>.` : ''}`
+    : 'Засчитанные друзья за всё время.';
+  const row = (e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span><span class="n">${avatarHTML(e, 24)}${nameHTML(e)}</span><span class="s">${fmt(e.friends)}</span></li>`;
+  $('ibList').innerHTML = list.length ? list.map(row).join('')
+    : `<li class="ib-empty mut">${ibMode === 'week' ? 'На этой неделе пока никого — приведите друга первым и заберите приз.' : 'Пока никто не привёл друзей. Будьте первым!'}</li>`;
+  const last = ibData.last;
+  $('ibLast').classList.toggle('hidden', !(ibMode === 'week' && last?.winners.length));
+  if (last?.winners.length) $('ibLast').innerHTML = `Прошлая неделя: ${last.winners.map((w) => `${w.place}. ${esc(w.name)} (${fmt(w.friends)})`).join(' · ')}`;
+  for (const b of document.querySelectorAll('[data-ib]')) {
+    b.classList.toggle('on', b.dataset.ib === ibMode);
+    b.setAttribute('aria-selected', b.dataset.ib === ibMode);
+  }
+}
+document.querySelector('.ib-tabs').onclick = (e) => {
+  const b = e.target.closest('[data-ib]');
+  if (!b) return;
+  ibMode = b.dataset.ib;
+  renderInviteBoard();
+};
 $('inviteUrl').onfocus = (e) => e.target.select();
 
 // Вернулись со страницы оплаты: ?order=<id>. ЮKassa подтверждает платёж за несколько секунд.
@@ -369,8 +425,9 @@ let tryOn = null; // { slot, it } — что примеряется (it = null �
 const NOUN = { frame: 'Рамка', color: 'Цвет имени', icon: 'Значок', avatar: 'Аватарка' };
 const NONE = { frame: 'Без рамки', color: 'Обычный', icon: 'Без значка' };
 const FIELD = { frame: 'frame', color: 'nameColor', icon: 'icon' };
-const TIER_F = { common: 'Обычная', rare: 'Редкая', epic: 'Эпическая', legendary: 'Легендарная' };
-const TIER_M = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+const TIER_F = { common: 'Обычная', rare: 'Редкая', epic: 'Эпическая', legendary: 'Легендарная', exclusive: 'За друзей' };
+const TIER_M = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный', exclusive: 'За друзей' };
+const LOCK_SVG = '<svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="9" width="12" height="9" rx="2" fill="currentColor"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 const tierText = (it) => (it.slot === 'icon' || it.slot === 'color' ? TIER_M : TIER_F)[it.tier];
 const CATS = [
   ['frame', 'Рамки', 'Вокруг аватарки: в шапке сайта, в профиле, в отзывах и таблицах рекордов.'],
@@ -420,13 +477,14 @@ function itemTile(slot, it) {
   const on = isOn(slot, it);
   const sel = tryOn && tryOn.slot === slot && (tryOn.it?.id ?? null) === (it?.id ?? null);
   const status = on ? `<span class="item-s">${BADGE_SVG}Надето</span>`
-    : !it || it.owned ? `<span class="item-s">${it ? 'Куплено' : 'Бесплатно'}</span>`
+    : it?.invite && !it.owned ? `<span class="item-s lock">${LOCK_SVG}${fmt(Math.min(shop2.friends, it.invite))} из ${it.invite} друзей</span>`
+    : !it || it.owned ? `<span class="item-s">${it ? (it.invite ? 'Открыто' : 'Куплено') : 'Бесплатно'}</span>`
     : `<span class="item-s price${shop2.coins < it.price ? ' short' : ''}">${COIN_SVG}${fmt(it.price)}</span>`;
   const title = it ? it.title : NONE[slot];
   const cls = ['item', it ? `t-${it.tier}` : '', on ? 'on' : '', sel ? 'sel' : ''].filter(Boolean).join(' ');
   return `<button type="button" class="${cls}" data-slot="${slot}" data-item="${it ? esc(it.id) : ''}" aria-pressed="${!!sel}"
     aria-label="${esc(`${NOUN[slot]}: ${title}`)}${it ? `, ${esc(tierText(it).toLowerCase())}` : ''}${it && !it.owned ? `, ${esc(coinsText(it.price))}` : ''}${on ? ', надето' : ''}">
-    ${it?.anim && !it.owned ? '<span class="item-new">Новинка</span>' : ''}
+    ${it?.anim && !it.owned && !it.invite ? '<span class="item-new">Новинка</span>' : ''}
     <span class="item-art">${itemArt(slot, it)}</span><span class="item-t">${esc(title)}</span>
     ${it && it.tier !== 'common' ? `<span class="item-tier">${esc(tierText(it))}</span>` : ''}${status}</button>`;
 }
@@ -444,6 +502,9 @@ function stageActions() {
     return `<span class="stage-ok">${BADGE_SVG}Надето</span>${slot === 'avatar' ? '' : '<button type="button" class="btn sm" data-act="unequip">Снять</button>'}`;
   }
   if (it.owned) return `<button type="button" class="btn sm primary" data-act="equip">Надеть</button>${reset}`;
+  if (it.invite) {
+    return `<a class="btn sm primary" href="#invite">Позвать друзей</a><span class="stage-ok">${LOCK_SVG}${fmt(Math.min(shop2.friends, it.invite))} из ${it.invite} друзей</span>${reset}`;
+  }
   if (shop2.coins < it.price) {
     return `<button type="button" class="btn sm" data-act="short">Не хватает ${fmt(it.price - shop2.coins)} ${COIN_SVG}</button>${reset}`;
   }
@@ -481,10 +542,12 @@ function renderList() {
     return;
   }
   const items = shop2.items.filter((i) => i.slot === shopCat).sort((a, b) => a.price - b.price);
-  const anim = items.filter((i) => i.anim), classic = items.filter((i) => !i.anim);
+  const friends = items.filter((i) => i.invite);
+  const anim = items.filter((i) => i.anim && !i.invite), classic = items.filter((i) => !i.anim);
   const none = shopCat === 'avatar' ? [] : [null];
   const grid = (list) => `<div class="shop-grid">${list.map((it) => itemTile(shopCat, it)).join('')}</div>`;
   $('shopList').innerHTML = `<p class="mut shop-about">${esc(about)}</p>
+    ${friends.length ? `<h3 class="shop-sub">За друзей <a class="shop-sub-link" href="#invite">как получить</a></h3>${grid(friends)}` : ''}
     ${anim.length ? `<h3 class="shop-sub">Анимированные</h3>${grid(classic.length ? anim : [...none, ...anim])}` : ''}
     ${classic.length ? `${anim.length ? '<h3 class="shop-sub">Классика</h3>' : ''}${grid([...none, ...classic])}` : ''}`;
 }

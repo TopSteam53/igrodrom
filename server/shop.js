@@ -67,17 +67,24 @@ export const tierOf = (price) => (price >= 900 ? 'legendary' : price >= 450 ? 'e
 // Каталог: id вида «слот:что». Цена — в монетках.
 const entry = (slot, key, x, extra = {}) => ({ id: `${slot}:${key}`, slot, key, title: x.title, price: x.price,
   tier: tierOf(x.price), anim: !!x.anim, ...extra });
+// За друзей (rewards.js выдаёт, когда засчитан friends-й друг): не продаются, tier 'exclusive', цены нет.
+export const INVITE_ITEMS = [
+  { id: 'frame:soul', slot: 'frame', key: 'soul', title: 'Душа компании', friends: 3 },
+  { id: 'icon:leader', slot: 'icon', key: 'leader', title: 'Вожак', friends: 5 },
+  { id: 'avatar:33', slot: 'avatar', key: '33', title: 'Король вечеринки', friends: 10, image: '/avatars/33.svg' },
+];
 export const ITEMS = [
   ...FRAMES.map((f) => entry('frame', f.id, f)),
   ...NAME_COLORS.map((c) => entry('color', c.id, c)),
   ...ICONS.map((i) => entry('icon', i.id, i)),
   ...PREMIUM_AVATARS.map((a) => entry('avatar', String(a.n), a, { image: `/avatars/${a.n}.svg` })),
+  ...INVITE_ITEMS.map((it) => ({ ...it, price: 0, tier: 'exclusive', anim: true, invite: it.friends })),
 ];
 const ITEM = new Map(ITEMS.map((i) => [i.id, i]));
 const SLOT_NOUN = { frame: 'рамка', color: 'цвет имени', icon: 'значок', avatar: 'аватарка' };
-const FRAME_IDS = new Set(FRAMES.map((f) => f.id));
+const FRAME_IDS = new Set(ITEMS.filter((i) => i.slot === 'frame').map((i) => i.key));
 const COLOR_IDS = new Set(NAME_COLORS.map((c) => c.id));
-const ICON_IDS = new Set(ICONS.map((i) => i.id));
+const ICON_IDS = new Set(ITEMS.filter((i) => i.slot === 'icon').map((i) => i.key));
 const SLOTS = ['frame', 'color', 'icon', 'avatar', 'badge'];
 
 // Колонки users, которые нужны для внешнего вида игрока, — для запросов с JOIN users u.
@@ -124,6 +131,7 @@ export function createShop({ db, now, send, readJson, HttpError, requireUser, ec
     setColor: db.prepare('UPDATE users SET name_color = ? WHERE id = ?'),
     setIcon: db.prepare('UPDATE users SET icon = ? WHERE id = ?'),
     setBadge: db.prepare('UPDATE users SET badge = ? WHERE id = ?'),
+    friends: db.prepare("SELECT COUNT(*) AS n FROM invites WHERE inviter_id = ? AND status = 'rewarded'"),
   };
 
   function equippedOf(u) {
@@ -149,6 +157,7 @@ export function createShop({ db, now, send, readJson, HttpError, requireUser, ec
       // Достижения, которые можно показать рядом с именем: только полученные.
       badges: ACHIEVEMENTS.filter((a) => earned.has(a.key)).map((a) => ({ key: a.key, title: a.title })),
       look: lookOf(u),
+      friends: q.friends.get(userId).n, // засчитанные друзья — для предметов «за друзей»
     };
   }
 
@@ -164,6 +173,7 @@ export function createShop({ db, now, send, readJson, HttpError, requireUser, ec
     const item = typeof id === 'string' ? ITEM.get(id) : null;
     if (!item) throw new HttpError(400, 'Нет такого предмета');
     if (q.has.get(user.id, item.id)) throw new HttpError(409, 'Уже куплено');
+    if (item.invite) throw new HttpError(403, `Не продаётся: откроется, когда по вашей ссылке придут ${item.invite} друзей`);
     if (economy.balance(user.id) < item.price) throw new HttpError(402, 'Не хватает монеток');
     economy.move(user.id, -item.price, 'shop', `Витрина: ${SLOT_NOUN[item.slot]} «${item.title}»`, {
       ref: item.id,

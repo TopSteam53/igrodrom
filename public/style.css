@@ -15,7 +15,7 @@
   --start-deep:#E5A400;        /* насечки на золотой рамке витрины */
   /* цвета имени из витрины: контраст ≥ 5:1 к --panel и --paper */
   --nc-blue:#2459E0;--nc-green:#0A7543;--nc-red:#C41E30;--nc-purple:#6D3FE0;--nc-pink:#B8336F;--nc-gold:#856000;
-  --tier-rare:var(--nc-blue);--tier-epic:var(--nc-purple);--tier-legend:var(--nc-gold); /* редкость в витрине */
+  --tier-rare:var(--nc-blue);--tier-epic:var(--nc-purple);--tier-legend:var(--nc-gold);--tier-excl:var(--nc-pink); /* редкость в витрине */
   /* переливы имени из витрины (.nc-neon … .nc-goldshine): каждый цвет ≥ 4.5:1 к --panel и --paper */
   --fxn-neon:#0E6F8A;--fxn-neon-glow:rgba(14,165,233,.45);--fxn-r1:#C2410C;--fxn-r2:#A16207;--fxn-r3:#15803D;--fxn-r4:#1D4ED8;--fxn-r5:#7E22CE;--fxn-r6:#BE185D;
   --fxn-f1:#B91C1C;--fxn-f2:#C2410C;--fxn-f3:#A16207;--fxn-gold:#7A5600;--fxn-gold-hi:#A67400;
@@ -442,6 +442,47 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 @media(max-width:560px){.invite-stats{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.invite-stats dt{font-size:13px}}
 .invite-stats dd{margin:2px 0 0;font:700 22px/1.2 var(--text);font-variant-numeric:tabular-nums}
 .invite .invite-note{margin:14px 0 0;font-size:14px}
+/* Приглашения: «поделиться», друзья в ожидании, предметы за друзей, таблица «кто привёл больше всех», вызов другу */
+.invite .invite-lead{font-size:17px;max-width:62ch}
+.share{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+.modal .share{margin:14px 0 4px}
+.invite-pending{margin:14px 0 0;font-size:15px}
+.invite .invite-sub{margin:24px 0 12px;font-size:17px}
+.invite-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.inv-item{display:flex;align-items:center;gap:14px;padding:12px 14px;border:2px dashed color-mix(in srgb,var(--tier-excl) 55%,var(--line));border-radius:14px}
+.inv-item.done{border-style:solid;border-color:var(--x-ink)}
+.inv-art{flex:none;width:64px;height:64px;display:grid;place-items:center}
+.inv-art img{width:64px;height:64px;border-radius:50%}
+.inv-art .item-ico{width:44px;height:44px}
+.inv-t{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;font-size:14px}
+.inv-t b{font-size:16px}
+.inv-bar{display:block;height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:4px}
+.inv-bar i{display:block;height:100%;background:var(--tier-excl);border-radius:4px}
+.inv-ok{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--link);margin-top:2px}
+.inv-ok svg{width:16px;height:16px}
+.invite-board{margin-top:16px}
+.ib-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.ib-head h3{margin:0}
+.ib-tabs{display:flex;gap:6px}
+.ib-tabs .tab{padding:5px 12px;font-size:14px}
+.ib-note{margin:8px 0 10px;font-size:14px}
+.ib-empty{display:block!important;border-bottom:0!important}
+.ib-last{margin:10px 0 0;font-size:14px}
+.lb-vs{margin:12px 0 0}
+.challenge{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 18px;padding:12px 16px;border:2px solid var(--key-line);
+  border-radius:16px;background:var(--panel);box-shadow:0 3px 0 var(--key-shadow)}
+.ch-t{display:flex;flex-direction:column;gap:2px;flex:1;min-width:200px}
+.ch-t b{font-size:17px}
+.ch-score{font:800 19px/1 var(--display);color:var(--tier-legend)}
+.ch-t .mut{font-size:14px}
+/* Предметы «за друзей» в витрине */
+.item.t-exclusive{--tc:var(--tier-excl);border-style:dashed;border-color:color-mix(in srgb,var(--tier-excl) 65%,var(--key-line))}
+.item.t-exclusive.on{border-style:solid}
+.tier.t-exclusive{color:var(--tier-excl)}
+.shop-stage.st-exclusive{--st:var(--tier-excl)}
+.item-s.lock{font-weight:600;color:var(--tier-excl)}
+.stage-ok svg[viewBox="0 0 20 20"]{color:var(--tier-excl)}
+.shop-sub-link{margin-left:10px;font:600 14px var(--text);color:var(--link)}
 
 /* ---------- турнир недели (главная и /tournament) ---------- */
 .tour{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) auto;gap:16px 28px;align-items:center;background:var(--panel);border-radius:20px;padding:18px 22px}
@@ -636,6 +677,8 @@ svg.fxl.over{z-index:2}
 .fx-galaxy{--gc:#7C3AED}
 .fx-galaxy .ring{background:conic-gradient(#1E1B4B,#7C3AED,#2563EB,#DB2777,#1E1B4B);animation:fx-spin 10s linear infinite}
 .fx-crown{--gc:#FFC531}
+.fx-soul{--gc:#FF6B9A}
+.fx-soul .ring{background:conic-gradient(#FF8A4C,#FF4D8D,#FFC531,#FF8A4C);animation:fx-spin 5s linear infinite}
 .ava-fr .spin{transform-origin:50px 50px;animation:fx-spin 12s linear infinite}
 .ava-fr .spin.rev{animation-direction:reverse}
 .ava-fr .jump{transform-origin:50px 50px;animation:fx-jump 1.5s steps(1) infinite}
@@ -668,6 +711,8 @@ svg.fxl.over{z-index:2}
 .nico .shake{animation:ni-shake .3s linear infinite}
 .nico .tw{animation:fx-tw 2.2s ease-in-out infinite}
 .nico .bob{animation:ni-bob 2.4s ease-in-out infinite}
+.nico .wave{transform-box:fill-box;transform-origin:0 50%;animation:ni-wave 1.6s ease-in-out infinite}
+@keyframes ni-wave{0%,100%{transform:skewY(-7deg) scaleX(.94)}50%{transform:skewY(5deg) scaleX(1)}}
 @keyframes ni-twirl{0%,70%,100%{transform:rotate(0) scale(1)}85%{transform:rotate(72deg) scale(1.2)}}
 @keyframes ni-zap{0%,100%{opacity:1}70%{opacity:.35}74%{opacity:1}78%{opacity:.5}82%{opacity:1}}
 @keyframes ni-shake{0%,100%{transform:translate(0,0)}25%{transform:translate(.3px,-.3px)}50%{transform:translate(-.25px,.2px)}75%{transform:translate(.2px,.3px)}}

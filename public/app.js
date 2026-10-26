@@ -132,7 +132,7 @@
         chip.className = 'coin-chip'; chip.id = 'coinChip'; chip.href = 'account.html#coins';
         (login.previousElementSibling?.classList.contains('theme-btn') ? login.previousElementSibling : login).before(chip);
         setCoins(user.coins);
-        if (user.dailyBonus) claimDaily();
+        if (user.dailyBonus || user.friendNews) claimDaily();
       }
     });
   }
@@ -146,6 +146,7 @@
       if (!r.ok) return;
       setCoins(data.coins);
       document.dispatchEvent(new CustomEvent('igr:daily', { detail: data }));
+      friendNews(data.friends);
       if (!data.claimed) return;
       const n = data.streak?.streak || 1;
       toast(n > 1 ? `+${coinsText(data.claimed)} за вход, ${n} ${plural(n, ['день', 'дня', 'дней'])} подряд`
@@ -154,13 +155,39 @@
       (data.achievements || []).forEach((a, i) => setTimeout(() => toast(`Достижение «${a.title}»: +${coinsText(a.coins)}`), 2700 * (i + 1)));
     } catch {}
   }
+  // Друзья по ссылке засчитаны (приходит с бонусом за вход, даже если бонус сегодня уже взят).
+  function friendNews(f) {
+    if (!f) return;
+    const who = f.names.length === 1 ? `Друг ${f.names[0]} засчитан` : `Засчитано друзей: ${f.names.length}`;
+    toast(`${who}: +${coinsText(f.coins)}`);
+    f.unlocked.forEach((it, i) => setTimeout(() => toast(`Открыто за друзей: «${it.title}» — наденьте в Витрине`), 2700 * (i + 1)));
+  }
 
-  // Ссылка-приглашение от друга (?invite=<код>): запоминаем на 30 дней, награды сервер выдаст после регистрации
-  // и подтверждения почты. Первая ссылка не перезаписывается. Параметр убираем из адреса, чтобы он не расходился дальше.
+  // «Поделиться»: скопировать текст со ссылкой и (на телефоне) системное меню. Кнопок соцсетей нет намеренно
+  // (решение пользователя 27.10.2026: за массовые ссылки в соцсети могут забанить) — человек сам решает, куда отправить.
+  function shareHTML({ url, text }) {
+    return `<div class="share" data-url="${esc(url)}" data-text="${esc(text)}">
+      <button type="button" class="btn sm primary" data-share="copy">Скопировать приглашение</button>
+      ${navigator.share ? '<button type="button" class="btn sm" data-share="native">Поделиться</button>' : ''}</div>`;
+  }
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('.share [data-share]');
+    if (!b) return;
+    const { url, text } = b.closest('.share').dataset;
+    if (b.dataset.share === 'native') return navigator.share({ title: 'Gamely', text, url }).catch(() => {});
+    try { await navigator.clipboard.writeText(`${text} ${url}`); toast('Скопировано — отправьте другу'); }
+    catch { toast(url); }
+  });
+
+  // Ссылка-приглашение от друга (?invite=<код>): запоминаем на 30 дней, награды сервер выдаст, когда новичок
+  // поиграет в двух разных днях. Первая ссылка не перезаписывается. Параметр убираем из адреса, чтобы он не расходился
+  // дальше; код этой ссылки остаётся в landingInvite — для плашки «друг бросил вызов» на странице игры.
+  let landingInvite = null;
   (function rememberInvite() {
     const params = new URLSearchParams(location.search);
     const code = params.get('invite');
     if (code === null) return;
+    if (/^[A-Za-z0-9_-]{8}$/.test(code)) landingInvite = code;
     if (/^[A-Za-z0-9_-]{8}$/.test(code) && !/(?:^|;\s*)invite=/.test(document.cookie)) {
       document.cookie = `invite=${code}; Path=/; Max-Age=${30 * 86400}; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
     }
@@ -304,6 +331,16 @@
           <g class="spin rev" style="animation-duration:11s"><g transform="rotate(140 50 50)"><circle cx="50" cy="5" r="3" fill="#F472B6"/><ellipse cx="50" cy="5" rx="5.6" ry="1.5" fill="none" stroke="#FDE68A" stroke-width=".9" transform="rotate(-20 50 5)"/></g></g>
           <g class="spin" style="animation-duration:4.5s"><g transform="rotate(250 50 50)"><circle cx="50" cy="4.6" r="1.9" fill="#A5F3FC"/></g></g>`),
       },
+      // За трёх приглашённых друзей (не продаётся): тёплое кольцо и компания друзей над аватаркой.
+      soul: {
+        under: GLOW + RING,
+        over: svg([[-148, '#2E9BFF'], [-119, '#17B26A'], [-90, '#FFC531'], [-61, '#8B5CF6'], [-32, '#F2434F']].map(([a, c], i) => {
+          const [x, y] = at(a, 45.2);
+          return `<g transform="translate(${n(x)} ${n(y)})"><g class="bob"${dl(i * 0.35)}><circle r="4.6" fill="${c}" stroke="#fff" stroke-width="1"/>
+            <circle cx="-1.5" cy="-.7" r=".7" fill="#1C2140"/><circle cx="1.5" cy="-.7" r=".7" fill="#1C2140"/>
+            <path d="M-1.7 1.1Q0 2.6 1.7 1.1" fill="none" stroke="#1C2140" stroke-width=".7" stroke-linecap="round"/></g></g>`;
+        }).join(''), ' over'),
+      },
       crown: {
         under: GLOW + svg(`<circle cx="50" cy="50" r="45" fill="none" stroke="#E5A400" stroke-width="9"/><circle cx="50" cy="50" r="45" fill="none" stroke="#FFC531" stroke-width="5.5"/>
           <circle cx="50" cy="50" r="49.3" fill="none" stroke="#8A5A00" stroke-width="1.2"/><circle cx="50" cy="50" r="40.6" fill="none" stroke="#8A5A00" stroke-width="1.2"/>
@@ -329,6 +366,8 @@
       bolt: s('<path class="zapi" d="M13.5 1.5L3.8 13.6h6.8L9 22.5l10.2-12.8h-6.8l1.1-8.2z" fill="#FFD60A" stroke="#B37A00" stroke-width="1.2" stroke-linejoin="round"/>'),
       rocket: s('<g class="shake"><path class="flick" d="M6.2 17.8c-1.4 1.4-2 3.6-2.2 4.8 1.2-.2 3.4-.8 4.8-2.2z" fill="#FF9F1C"/><path d="M14.5 3.6c2.6-1.4 5-1.6 6.2-1.4.2 1.2 0 3.6-1.4 6.2l-7 7-4.8-4.8z" fill="#F1F5F9" stroke="#475569" stroke-width="1"/><circle cx="15.6" cy="8.4" r="1.9" fill="#38BDF8" stroke="#475569" stroke-width=".8"/><path d="M7.5 10.6L4 10l2.6-3.4 4-.2zM13.4 16.5l.6 3.5 3.4-2.6.2-4z" fill="#F2434F"/><path d="M8.5 15.5l-2.2 2.2" stroke="#475569" stroke-width="1"/></g>'),
       diamond: s(`<path d="M6.3 3h11.4L22 9l-10 12.5L2 9z" fill="#22D3EE" stroke="#0E7490" stroke-width="1.1" stroke-linejoin="round"/><path d="M2 9h20M8.6 3L6.6 9 12 21.5 17.4 9l-2-6" fill="none" stroke="#A5F3FC" stroke-width=".9"/><path d="M6.6 9L12 21.5 9.2 9z" fill="#67E8F9"/>${sp(18.5, 4.2, 3.4, 0)}${sp(5.2, 13.6, 2.2, 1.1)}`),
+      // За пятерых приглашённых друзей (не продаётся): флаг вожака.
+      leader: s('<path d="M5 2.5v19" stroke="#8A5A00" stroke-width="2.2" stroke-linecap="round"/><g class="wave"><path d="M6 3.5h13l-3.2 4.2L19 12H6z" fill="#F2434F" stroke="#B91C2C" stroke-width="1" stroke-linejoin="round"/><path d="M11 5.6l.9 1.8 2 .3-1.4 1.4.3 2-1.8-.9-1.8.9.3-2-1.4-1.4 2-.3z" fill="#FFC531"/></g><circle cx="5" cy="2.4" r="1.6" fill="#FFC531" stroke="#8A5A00" stroke-width=".8"/>'),
       crown: s(`<g class="bob"><path d="M3 18.5L1.8 7.2l5.6 4.2L12 3.6l4.6 7.8 5.6-4.2L21 18.5z" fill="#FFC531" stroke="#B37A00" stroke-width="1.2" stroke-linejoin="round"/><rect x="3" y="17.2" width="18" height="3.4" rx="1" fill="#E5A400" stroke="#B37A00" stroke-width="1"/><circle cx="12" cy="13.6" r="1.7" fill="#F2434F"/><circle cx="7.2" cy="14.6" r="1.1" fill="#2E9BFF"/><circle cx="16.8" cy="14.6" r="1.1" fill="#2E9BFF"/>${sp(12, 2.6, 3, .3)}</g>`),
     };
   })();
@@ -464,6 +503,6 @@
 
   window.Igr = {
     $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, miniHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited, landingInvite, shareHTML,
   };
 })();

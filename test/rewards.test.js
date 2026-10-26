@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../server/app.js';
-import { STREAK_COINS, MAX_INVITES } from '../server/rewards.js';
+import { STREAK_COINS, MAX_INVITES, INVITE_COINS, INVITED_COINS, INVITE_WEEK_PRIZES } from '../server/rewards.js';
 
 let server, base, dataDir, publicDir, gameId, otherId, gameTitle;
 const mail = [];
@@ -233,7 +233,7 @@ test('турнир недели: зачёт только по выбранной
   assert.equal((await owner('DELETE', '/api/admin/tournaments/2026-04-06')).status, 409, 'итоги не отменяются');
 });
 
-test('приглашения: награда после подтверждения почты, без себя, не больше лимита', async () => {
+test('приглашения: подтверждение почты засчитывает сразу, без себя, не больше лимита', async () => {
   clock = Date.parse('2026-05-04T09:00:00Z');
   const host = await player('host@test.ru', 'Хозяин', '10.1.0.1');
   let inv = (await host('GET', '/api/me/rewards')).data.invite;
@@ -254,19 +254,19 @@ test('приглашения: награда после подтверждени
   assert.equal(await coins(host), hostStart);
 
   await verify(friend, 'friend@test.ru');
-  assert.equal(await coins(friend), 50 + 20 + 10, 'подарок, награда за приглашение, «Настоящая почта»');
+  assert.equal(await coins(friend), 50 + INVITED_COINS + 10, 'подарок, награда за приглашение, «Настоящая почта»');
   inv = (await host('GET', '/api/me/rewards')).data.invite;
-  assert.deepEqual([inv.invited, inv.confirmed, inv.coins], [1, 1, 30]);
-  assert.equal(await coins(host), hostStart + 30 + 20, 'награда и достижение «Позвал друга»');
+  assert.deepEqual([inv.invited, inv.confirmed, inv.coins], [1, 1, INVITE_COINS]);
+  assert.equal(await coins(host), hostStart + INVITE_COINS + 20, 'награда и достижение «Позвал друга»');
   const ref = (await history(host)).filter((h) => h.kind === 'referral');
-  assert.deepEqual(ref.map((h) => [h.delta, h.title]), [[30, 'Друг принял приглашение: Друг']]);
+  assert.deepEqual(ref.map((h) => [h.delta, h.title]), [[INVITE_COINS, 'Друг принял приглашение: Друг']]);
 
   // Сброс пароля тоже подтверждает почту — награда второй раз не приходит.
   await friend('POST', '/api/password/forgot', { email: 'friend@test.ru' });
   const reset = [...mail].reverse().find((m) => m.to === 'friend@test.ru').text.match(/reset\.html\?token=([\w-]+)/)[1];
   assert.equal((await friend('POST', '/api/password/reset', { token: reset, password: 'newsecret1' })).status, 200);
-  assert.equal(await coins(friend), 80);
-  assert.equal((await host('GET', '/api/me/rewards')).data.invite.coins, 30);
+  assert.equal(await coins(friend), 50 + INVITED_COINS + 10);
+  assert.equal((await host('GET', '/api/me/rewards')).data.invite.coins, INVITE_COINS);
 
   // Себя пригласить нельзя: с того же адреса, что при регистрации пригласившего…
   const same = await player('same-ip@test.ru', 'Тот же адрес', '10.1.0.1', { invite: code });
@@ -281,7 +281,7 @@ test('приглашения: награда после подтверждени
   await verify(stranger, 'stranger@test.ru');
   for (const p of [same, twin, stranger]) assert.equal(await coins(p), 60, 'подарок и «Настоящая почта», без награды за приглашение');
   inv = (await host('GET', '/api/me/rewards')).data.invite;
-  assert.deepEqual([inv.invited, inv.confirmed, inv.coins], [1, 1, 30]);
+  assert.deepEqual([inv.invited, inv.confirmed, inv.coins], [1, 1, INVITE_COINS]);
 
   // Лимит: наградных приглашений не больше MAX_INVITES. Добавляем «старые» прямо в базу.
   const db = new DatabaseSync(path.join(dataDir, 'igrodrom.db'), { enableForeignKeyConstraints: false });
@@ -292,8 +292,63 @@ test('приглашения: награда после подтверждени
   const over = await player('over@test.ru', 'Сверх лимита', '10.1.0.6', { invite: code });
   await verify(last, 'last@test.ru');
   await verify(over, 'over@test.ru');
-  assert.equal(await coins(last), 80, 'двадцатое приглашение ещё с наградой');
-  assert.equal(await coins(over), 60, 'двадцать первое — без');
+  assert.equal(await coins(last), 50 + INVITED_COINS + 10, 'последнее в лимите приглашение ещё с наградой');
+  assert.equal(await coins(over), 60, 'сверх лимита — без');
   inv = (await host('GET', '/api/me/rewards')).data.invite;
-  assert.deepEqual([inv.confirmed, inv.coins, inv.limit], [MAX_INVITES, 60, MAX_INVITES]);
+  assert.deepEqual([inv.confirmed, inv.coins, inv.limit], [MAX_INVITES, 2 * INVITE_COINS, MAX_INVITES]);
+});
+
+test('приглашения без почты: друг засчитан за две разные игры, предметы за друзей, уведомление, неделя', async () => {
+  clock = Date.parse('2026-06-01T09:00:00Z'); // понедельник
+  const boss = await player('boss@test.ru', 'Заводила', '10.2.0.1');
+  const { code, reward, play_games: games } = (await boss('GET', '/api/me/invite')).data;
+  assert.deepEqual([reward, games], [INVITE_COINS, 2]);
+  const guest = browser('10.2.0.99');
+  assert.equal((await guest('GET', `/api/invite/${code}`)).data.name, 'Заводила', 'кто бросил вызов — видно без входа');
+  assert.equal((await guest('GET', '/api/invite/ZZZZZZZZ')).status, 404);
+
+  const play = (b, id = gameId) => b('POST', `/api/games/${id}/play`);
+  const friends = [];
+  for (let i = 1; i <= 3; i++) friends.push(await player(`f${i}@test.ru`, `Друг ${i}`, `10.2.0.${10 + i}`, { invite: code }));
+  const bossStart = await coins(boss);
+  for (const f of friends) { await play(f); await play(f); } // одна и та же игра дважды — всё равно одна игра
+  let inv = (await boss('GET', '/api/me/rewards')).data.invite;
+  assert.deepEqual([inv.invited, inv.confirmed], [3, 0]);
+  assert.deepEqual(inv.pending.map((p) => p.games), [1, 1, 1]);
+  assert.equal(await coins(friends[0]), 50);
+
+  for (const f of friends) await play(f, otherId); // вторая игра — в тот же день, дни не важны
+  inv = (await boss('GET', '/api/me/rewards')).data.invite;
+  assert.deepEqual([inv.confirmed, inv.coins, inv.pending.length], [3, 3 * INVITE_COINS, 0]);
+  assert.equal(await coins(friends[0]), 50 + INVITED_COINS);
+  assert.equal(await coins(boss), bossStart + 3 * INVITE_COINS + 20, 'награды и «Позвал друга»');
+
+  // Рамка за трёх друзей открыта и надевается; значок за пятерых — нет, и не продаётся.
+  const shop = (await boss('GET', '/api/shop')).data;
+  assert.equal(shop.friends, 3);
+  assert.equal(shop.items.find((i) => i.id === 'frame:soul').owned, true);
+  assert.equal(shop.items.find((i) => i.id === 'icon:leader').owned, false);
+  assert.equal((await boss('POST', '/api/shop/buy', { item: 'icon:leader' })).status, 403);
+  assert.equal((await boss('POST', '/api/shop/equip', { slot: 'frame', item: 'frame:soul' })).status, 200);
+  assert.equal((await boss('GET', '/api/me')).data.user.frame, 'soul');
+
+  // Уведомление: один раз, вместе с бонусом за вход.
+  assert.equal((await boss('GET', '/api/me')).data.user.friendNews, true);
+  const news = (await boss('POST', '/api/me/coins/daily')).data.friends;
+  assert.deepEqual([news.names.length, news.coins, news.unlocked.map((u) => u.id)], [3, 3 * INVITE_COINS, ['frame:soul']]);
+  assert.equal((await boss('POST', '/api/me/coins/daily')).data.friends, null);
+  assert.equal((await boss('GET', '/api/me')).data.user.friendNews, false);
+
+  // Кто привёл больше всех: неделя и всё время; итоги недели — приз первому, один раз.
+  let top = (await guest('GET', '/api/invites/top')).data;
+  assert.deepEqual([top.week.top[0].name, top.week.top[0].friends], ['Заводила', 3]);
+  assert.ok(top.all.some((r) => r.name === 'Заводила' && r.friends === 3));
+  const before = await coins(boss);
+  clock = Date.parse('2026-06-08T09:00:00Z');
+  top = (await guest('GET', '/api/invites/top')).data;
+  assert.deepEqual(top.last.winners.map((w) => [w.place, w.name, w.friends]), [[1, 'Заводила', 3]]);
+  assert.equal(top.week.top.length, 0, 'новая неделя — с нуля');
+  assert.equal(await coins(boss), before + INVITE_WEEK_PRIZES[0]);
+  await guest('GET', '/api/invites/top');
+  assert.equal(await coins(boss), before + INVITE_WEEK_PRIZES[0], 'приз один раз');
 });

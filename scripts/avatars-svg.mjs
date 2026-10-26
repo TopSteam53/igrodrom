@@ -407,6 +407,35 @@ const ANIMATED = [
     <ellipse cx="112" cy="180" rx="7" ry="5" fill="#8A5A00"/><ellipse cx="144" cy="180" rx="7" ry="5" fill="#8A5A00"/>
     <path d="M108 200 Q128 212 148 200" fill="none" stroke="#8A5A00" stroke-width="5" stroke-linecap="round"/>
     <circle class="sm" cx="108" cy="170" r="9" fill="#E8EEF2"/><circle class="sm" ${delay(1.3)} cx="148" cy="170" r="9" fill="#E8EEF2"/>`],
+
+  // 33 — не продаётся: за десять приглашённых друзей (server/shop.js, INVITE_ITEMS).
+  ['Король вечеринки', `<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7C3AED"/><stop offset="1" stop-color="#EC4899"/></linearGradient>
+    <clipPath id="lens"><path d="M70 120 h50 q4 0 4 4 v8 q0 22 -27 22 q-27 0 -27 -22 v-8 q0 -4 4 -4Z M136 120 h50 q4 0 4 4 v8 q0 22 -27 22 q-27 0 -27 -22 v-8 q0 -4 4 -4Z"/></clipPath>`, `
+.cf{transform-box:fill-box;transform-origin:center;animation:cf 3.2s linear infinite}
+@keyframes cf{0%{transform:translateY(-40px) rotate(0);opacity:0}10%{opacity:1}100%{transform:translateY(300px) rotate(540deg);opacity:1}}
+.hd{transform-origin:128px 220px;animation:hd 1s ease-in-out infinite}
+@keyframes hd{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.gl{animation:gl 2.6s ease-in-out infinite}
+@keyframes gl{0%,40%{transform:translateX(-80px)}100%{transform:translateX(150px)}}
+.dc{transform-box:fill-box;transform-origin:center;animation:tw 1.6s ease-in-out infinite}`, () => {
+    const conf = [[20, '#FFD23F', 0], [52, '#22D3EE', 1.1], [84, '#fff', 2.3], [176, '#FFD23F', .6], [206, '#3DCB81', 1.8], [236, '#22D3EE', 2.7], [120, '#FF8A3D', 1.5], [150, '#fff', .3]]
+      .map(([x, c, d]) => `<g class="cf" ${delay(d)}><rect x="${x}" y="0" width="9" height="5" rx="1.5" fill="${c}" style="transform-box:fill-box;transform-origin:center"/></g>`).join('');
+    return `
+    ${[[30, 40], [226, 34], [40, 210], [222, 200], [128, 18]].map(([x, y], i) => `<circle class="dc" ${delay(i * 0.3)} cx="${x}" cy="${y}" r="5" fill="#fff" opacity=".7"/>`).join('')}
+    ${conf}
+    <g class="hd">
+      <path d="M58 118 L66 44 L112 84Z" fill="#9CA3AF"/><path d="M198 118 L190 44 L144 84Z" fill="#9CA3AF"/>
+      <path d="M70 100 L74 62 L100 86Z" fill="#F9A8D4"/><path d="M186 100 L182 62 L156 86Z" fill="#F9A8D4"/>
+      <ellipse cx="128" cy="142" rx="84" ry="74" fill="#9CA3AF"/>
+      <ellipse cx="128" cy="170" rx="42" ry="28" fill="#E5E7EB"/>
+      <path d="M90 34 L84 4 L106 22 L128 0 L150 22 L172 4 L166 34Z" fill="#FFC531" stroke="#B37A00" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="128" cy="22" r="6" fill="#F2434F"/><circle cx="104" cy="26" r="4" fill="#2E9BFF"/><circle cx="152" cy="26" r="4" fill="#2E9BFF"/>
+      <path d="M62 124 H194" stroke="${INK}" stroke-width="7" stroke-linecap="round"/>
+      <path d="M70 120 h50 q4 0 4 4 v8 q0 22 -27 22 q-27 0 -27 -22 v-8 q0 -4 4 -4Z M136 120 h50 q4 0 4 4 v8 q0 22 -27 22 q-27 0 -27 -22 v-8 q0 -4 4 -4Z" fill="${INK}"/>
+      <g clip-path="url(#lens)"><rect class="gl" x="70" y="110" width="22" height="60" fill="#fff" opacity=".45" transform="rotate(25 128 135)"/></g>
+      ${nose(166, 9, '#E5536D')}${catMouth(174)}${cheeks(168, 58)}
+      <path d="M60 160 H28 M62 172 H32 M196 160 H228 M194 172 H224" stroke="${INK}" stroke-width="4" stroke-linecap="round" opacity=".6"/></g>`;
+  }],
 ];
 
 ANIMATED.forEach(([name, defs, css, head], i) => {

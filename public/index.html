@@ -35,6 +35,7 @@
       </div>
     </section>
     <section class="sec hidden" id="tourSec" aria-label="Турнир недели"></section>
+    <section class="sec hidden" id="inviteSec" aria-label="Позовите друзей"></section>
     <section class="sec hidden" id="recentSec"><div class="sec-head"><h2>Продолжить играть</h2></div><div class="mini-row" id="recent"></div></section>
     <section class="sec hidden" id="freshSec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
   </div>
@@ -194,6 +195,21 @@ async function loadTournament() {
   $('tourSec').classList.remove('hidden');
 }
 
+// ---------- позовите друзей: только вошедшим (гостю — плашка входа ниже) ----------
+async function loadInvitePromo() {
+  if (!(await Igr.me())) return;
+  let top;
+  try { top = await (await fetch('/api/invites/top')).json(); } catch { return; }
+  const leader = top.week.top[0];
+  $('inviteSec').innerHTML = `<div class="tour invite-promo">
+    <div><span class="tour-kicker">Позовите друзей</span><b class="tour-title">+${Igr.fmt(top.reward)} монеток за каждого друга</b>
+      <span class="tour-left">Другу — +${Igr.fmt(top.friend_reward)}. За 3, 5 и 10 друзей — рамка, значок и аватарка, которых нет в продаже.</span></div>
+    <p class="tour-empty">${leader ? `Лидер недели: ${Igr.nameHTML(leader)} — ${Igr.fmt(leader.friends)}. Приз за первое место — ${Igr.fmt(top.week.prizes[0])} монеток.`
+      : `Кто приведёт больше всех друзей за неделю — получит ${Igr.fmt(top.week.prizes[0])} монеток. Пока никого — приз может быть вашим.`}</p>
+    <div class="tour-acts"><a class="btn primary" href="/account#invite">Пригласить</a></div></div>`;
+  $('inviteSec').classList.remove('hidden');
+}
+
 // ---------- плашка входа для гостя ----------
 const BAR_KEY = 'igrodrom-login-bar';
 function initLoginBar() {
@@ -237,6 +253,7 @@ loadCatalog().then(async ({ live, games: list }) => {
   if (!live) return;
   initLoginBar();
   loadTournament();
+  loadInvitePromo();
   try {
     recent = (await (await fetch('/api/recent')).json()).games || [];
     if (!state.q && !state.cat) renderRecent();

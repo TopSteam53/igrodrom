@@ -504,7 +504,7 @@ export function createApp({
   const publicUser = (u) => ({
     id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
     developer: developerStatus(u), canPublish: canPublish(u),
-    emailVerified: !!u.email_verified_at, coins: u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), ...avatars.info(u), ...shop.look(u),
+    emailVerified: !!u.email_verified_at, coins: u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), friendNews: rewards.hasFriendNews(u.id), ...avatars.info(u), ...shop.look(u),
     noAdsUntil: support.noAdsUntil(u),
   });
 
@@ -1076,6 +1076,8 @@ export function createApp({
     if (stats.isBot(req.headers['user-agent'])) return send(res, 200, { counted: false });
     const { visitor, setCookie } = visitorOf(req);
     const counted = stats.recordStart(id, visitor, clientIp(req));
+    const user = currentUser(req);
+    if (user) rewards.onPlay(user.id, id); // разные игры: так засчитывается приглашённый друг
     send(res, 200, { counted }, setCookie ? { 'Set-Cookie': setCookie } : {});
   }
 

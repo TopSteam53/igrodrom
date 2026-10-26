@@ -64,13 +64,16 @@ test('каталог: рамки, цвета, значки, платные зв�
   assert.equal(r.status, 200);
   assert.equal(r.data.coins, 50, 'подарок новичку');
   const slots = (s) => r.data.items.filter((i) => i.slot === s).length;
-  assert.equal(slots('frame'), 15);
+  assert.equal(slots('frame'), 16);
   assert.equal(slots('color'), 10);
-  assert.equal(slots('icon'), 8);
-  assert.equal(slots('avatar'), 16);
-  assert.ok(r.data.items.every((i) => !i.owned && !i.equipped && Number.isInteger(i.price) && i.price > 0));
-  assert.ok(r.data.items.every((i) => i.tier === tierOf(i.price)), 'редкость по цене');
-  assert.equal(r.data.items.filter((i) => i.anim).length, 28, 'анимированные новинки');
+  assert.equal(slots('icon'), 9);
+  assert.equal(slots('avatar'), 17);
+  const sold = r.data.items.filter((i) => !i.invite);
+  assert.ok(r.data.items.every((i) => !i.owned && !i.equipped));
+  assert.ok(sold.every((i) => Number.isInteger(i.price) && i.price > 0 && i.tier === tierOf(i.price)), 'цена и редкость по цене');
+  assert.deepEqual(r.data.items.filter((i) => i.invite).map((i) => [i.id, i.invite, i.tier]),
+    [['frame:soul', 3, 'exclusive'], ['icon:leader', 5, 'exclusive'], ['avatar:33', 10, 'exclusive']], 'за друзей');
+  assert.equal(sold.filter((i) => i.anim).length, 28, 'анимированные новинки');
   for (const i of ITEMS.filter((x) => x.slot === 'avatar')) assert.ok(fs.existsSync(path.join(PUBLIC, i.image)), i.image);
   assert.equal((await browser()('GET', '/api/shop')).status, 401, 'без входа витрины нет');
 });

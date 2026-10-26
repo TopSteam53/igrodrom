@@ -22,6 +22,7 @@
   <div class="empty" id="loading">Загрузка…</div>
 
   <article id="game" class="hidden">
+    <div class="challenge hidden" id="challenge" aria-live="polite"></div>
     <div class="game-head">
       <div id="icon"></div>
       <div>
@@ -74,6 +75,7 @@
           <div class="lb-boards hidden" id="lbBoards" role="tablist" aria-label="Таблицы рекордов"></div>
           <ol class="lb" id="lb"></ol>
           <p class="mut hidden" id="lbNote" style="margin:10px 0 0"></p>
+          <div class="lb-vs hidden" id="lbVs"><button class="btn sm primary" id="vsBtn" type="button">Бросить вызов другу</button></div>
         </div>
       </div>
     </div>
@@ -191,7 +193,7 @@ function render(all) {
     $('saveHint').innerHTML = `Прогресс сохраняется в этом браузере. <a href="${loginUrl()}">Войдите</a>, чтобы он был доступен на всех ваших устройствах. Новичкам дарим 50 монеток.`;
     $('saveHint').classList.remove('hidden');
   });
-  if (live) { loadBoard(); loadReviews(); }
+  if (live) { loadBoard(); loadReviews(); showChallenge(); }
 }
 
 const loginUrl = () => `login.html?next=${encodeURIComponent(Igr.gameUrl(game))}`;
@@ -343,6 +345,7 @@ const feedbackBridge = {
 
 // ---------- рекорды ----------
 let boardName = null;
+let myBest = null; // свой лучший результат в открытой таблице — для «Бросить вызов другу»
 async function loadBoard(name = boardName) {
   try {
     const qs = new URLSearchParams({ top: 10, around: 1, ...(name && { board: name }) });
@@ -358,11 +361,55 @@ async function loadBoard(name = boardName) {
     $('lb').innerHTML = r.entries.map(row).join('') +
       (mine.length ? `${mine[0].rank > r.entries.length + 1 ? '<li class="lb-gap" aria-hidden="true">…</li>' : ''}${mine.map(row).join('')}` : '');
     const user = await Igr.me();
+    myBest = r.me?.score ?? null;
+    $('lbVs').classList.toggle('hidden', !(user && r.me));
     $('lbNote').classList.toggle('hidden', !!user);
     $('lbNote').innerHTML = user ? '' : `<a href="${loginUrl()}">Войдите</a>, чтобы ваш результат попал в таблицу.`;
   } catch {}
 }
 $('lbBoards').onclick = (e) => { const b = e.target.closest('[data-board]'); if (b) loadBoard(b.dataset.board); };
+
+// ---------- вызов другу ----------
+// Ссылка на эту игру с личным приглашением и своим рекордом: друг увидит, что побить, а за друга, который
+// зарегистрируется и сыграет в две разные игры, вы получите монетки (server/rewards.js).
+let myInvite = null;
+$('vsBtn').onclick = async () => {
+  try {
+    if (!myInvite) {
+      const r = await fetch('/api/me/invite');
+      if (!r.ok) return toast('Войдите, чтобы бросить вызов');
+      myInvite = await r.json();
+    }
+    const url = new URL(Igr.gameUrl(game), location.origin);
+    url.searchParams.set('invite', myInvite.code);
+    if (myBest) url.searchParams.set('vs', myBest);
+    const text = myBest ? `Я набрал ${fmt(myBest)} в «${game.title}» на Gamely. Сможешь больше?` : `Сыграй в «${game.title}» на Gamely`;
+    await Igr.dialog({
+      title: 'Бросить вызов другу',
+      html: `<p>Друг откроет игру и увидит ваш результат${myBest ? ` — <b>${fmt(myBest)}</b>` : ''}. Если он зарегистрируется и сыграет в ${myInvite.play_games} разные игры, вы получите ${esc(Igr.coinsText(myInvite.reward))}.</p>${Igr.shareHTML({ url: url.href, text })}`,
+      buttons: [{ text: 'Готово', value: null }],
+    });
+  } catch (err) { toast(err.message); }
+};
+
+// Пришли по ссылке-вызову (?invite=<код>&vs=<очки>): кто позвал и какой результат побить.
+async function showChallenge() {
+  const code = Igr.landingInvite;
+  if (!code) return;
+  let from;
+  try {
+    const r = await fetch(`/api/invite/${code}`);
+    if (!r.ok) return;
+    from = await r.json();
+  } catch { return; }
+  const vs = Number(new URLSearchParams(location.search).get('vs'));
+  const user = await Igr.me();
+  $('challenge').innerHTML = `${Igr.avatarHTML(from, 44)}<div class="ch-t"><b>${Igr.nameHTML(from)} ${vs > 0 ? `бросает вам вызов: <span class="ch-score">${fmt(vs)}</span>` : 'зовёт вас поиграть'}</b>
+    <span class="mut">${vs > 0 ? 'Сможете набрать больше? Ваш результат появится в таблице рекордов.' : 'Играйте бесплатно, прямо в браузере.'}
+    ${user ? '' : `Зарегистрируйтесь — новичкам 50 монеток и ещё ${esc(Igr.coinsText(from.friend_reward))} по приглашению.`}</span></div>
+    ${user ? '' : `<a class="btn sm primary" href="login.html?mode=register&next=${encodeURIComponent(Igr.gameUrl(game))}">Регистрация</a>`}`;
+  $('challenge').classList.remove('hidden');
+}
 
 // ---------- отзывы ----------
 // Достижение, которое автор отзыва выбрал в витрине, — тем же значком, что полученные достижения в профиле.
