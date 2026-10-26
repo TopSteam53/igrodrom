@@ -318,7 +318,8 @@
       const s = document.createElement('script');
       s.async = true; s.src = 'https://mc.yandex.ru/metrika/tag.js';
       document.head.append(s);
-      window.ym(Number(id), 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+      // Вебвизор: записи визитов в Метрике (пароли и платёжные поля Метрика скрывает сама; игры в песочнице не пишутся)
+      window.ym(Number(id), 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: true });
     });
   }
 
