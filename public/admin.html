@@ -158,28 +158,38 @@
 
     <section class="pane hidden" id="pane-partners">
       <h1 class="adm-title">Блогеры</h1>
-      <p class="mut" id="ptRules"></p>
+      <div class="panel pt-how">
+        <h3>Как это работает</h3>
+        <ol>
+          <li><b>Добавьте блогера и придумайте ему промокод</b> — обычно это его ник, например MAKAROFF.</li>
+          <li><b>Блогер называет промокод в ролике</b> или даёт ссылку в описании. Плашку для видео и баннеры он берёт в своём кабинете.</li>
+          <li><b>Новичок вводит промокод при регистрации</b> и сразу получает <span id="ptBonus">100</span> монеток. Здесь видно, сколько людей пришло от блогера.</li>
+        </ol>
+        <p class="mut" id="ptRules"></p>
+      </div>
       <div class="kpis" id="ptKpis"></div>
       <div class="panel table-panel"><table class="tbl" id="ptTable"></table></div>
       <div id="ptCard"></div>
       <form class="panel t-form pt-form" id="ptForm">
         <h3 id="ptFormTitle">Добавить блогера</h3>
         <input type="hidden" id="ptId">
-        <label for="ptName">Имя или канал</label><input id="ptName" maxlength="60" required>
-        <div class="pt-two">
-          <div><label for="ptCode">Код ссылки</label><input id="ptCode" maxlength="24" pattern="[a-z0-9_-]{2,24}" placeholder="obbi" required>
-            <p class="mut" id="ptLinkHint">латиница — ссылка будет playgamely.ru/p/код</p></div>
-          <div><label for="ptPromo">Промокод</label><input id="ptPromo" maxlength="24" placeholder="ОББИ">
-            <p class="mut">можно по-русски; пусто — как код ссылки</p></div>
-        </div>
-        <div class="pt-two">
-          <div><label for="ptRate">Ставка, ₽ за засчитанного игрока</label><input id="ptRate" type="number" min="0" max="10000" step="1" value="0" required></div>
-          <div><label for="ptTarget">Куда ведёт ссылка</label><select id="ptTarget"><option value="">Главная</option></select></div>
-        </div>
-        <label for="ptEmail">Почта его аккаунта на сайте <span class="mut">— откроет кабинет блогера</span></label>
-        <input id="ptEmail" type="email" placeholder="можно добавить позже">
-        <label for="ptContact">Контакт <span class="mut">— видно только здесь</span></label>
-        <input id="ptContact" maxlength="200" placeholder="@telegram, ссылка на канал">
+        <label for="ptName">Имя блогера или канала</label><input id="ptName" maxlength="60" placeholder="Например, Makaroff" required>
+        <label for="ptPromo">Промокод</label><input id="ptPromo" maxlength="24" placeholder="MAKAROFF" required>
+        <p class="mut pt-hint">Его зрители вводят при регистрации. Можно по-русски, регистр не важен.</p>
+        <div class="pt-preview" id="ptPreview"></div>
+        <label for="ptRate">Сколько платите блогеру, ₽ за игрока</label>
+        <input id="ptRate" type="number" min="0" max="10000" step="1" value="0" required>
+        <p class="mut pt-hint">За каждого, кто пришёл по промокоду и правда играет: 2 разные игры и 2 разных дня на сайте. 0 — если без оплаты.</p>
+        <details class="pt-more" id="ptMore">
+          <summary>Дополнительно</summary>
+          <label for="ptCode">Адрес ссылки <span class="mut">— сайт придумал сам из промокода</span></label>
+          <div class="pt-url"><span>playgamely.ru/p/</span><input id="ptCode" maxlength="24" pattern="[a-z0-9_-]{2,24}" placeholder="makaroff"></div>
+          <label for="ptTarget">Куда ведёт ссылка</label><select id="ptTarget"><option value="">Главная</option></select>
+          <label for="ptEmail">Почта аккаунта блогера на Gamely <span class="mut">— откроет ему кабинет с его статистикой и баннерами</span></label>
+          <input id="ptEmail" type="email" placeholder="можно добавить позже">
+          <label for="ptContact">Как связаться <span class="mut">— видно только вам</span></label>
+          <input id="ptContact" maxlength="200" placeholder="@telegram или ссылка на канал">
+        </details>
         <label class="pt-check hidden" id="ptActiveRow"><input type="checkbox" id="ptActive" checked> Ссылка и промокод работают</label>
         <div class="pt-acts"><button class="btn primary" id="ptSave">Добавить</button><button class="btn hidden" type="button" id="ptCancel">Отмена</button></div>
         <div class="err-text" id="ptErr"></div>
@@ -843,7 +853,8 @@ let ptGames = null;
 async function loadPartners() {
   const d = await api('GET', '/api/admin/partners');
   ptList = d.partners;
-  $('ptRules').textContent = `Новичок по ссылке или промокоду сразу получает ${d.bonus} монеток. Блогеру игрок засчитывается, когда сыграл в ${d.rules.games} разные игры и заходил в ${d.rules.days} разных дня; ставка фиксируется в момент засчёта. Деньги сайт не переводит — выплату отметьте здесь после перевода.`;
+  $('ptBonus').textContent = fmt(d.bonus);
+  $('ptRules').textContent = `Если платите блогеру: игрок засчитывается, когда сыграл в ${d.rules.games} разные игры и заходил на сайт ${d.rules.days} разных дня — так не считаются пустые регистрации. Сайт сам посчитает, сколько вы должны; деньги переводите сами и отмечаете выплату в карточке блогера.`;
   const sum = (k) => ptList.reduce((n, p) => n + p[k], 0);
   $('ptKpis').innerHTML = [
     kpi('Блогеров', fmt(ptList.filter((p) => p.active).length), ptList.some((p) => !p.active) ? `выключено: ${ptList.filter((p) => !p.active).length}` : ''),
@@ -894,6 +905,9 @@ function editPartner(p) {
   $('ptName').value = p?.name || ''; $('ptCode').value = p?.code || ''; $('ptPromo').value = p?.promo || '';
   $('ptRate').value = p?.rate ?? 0; $('ptTarget').value = p?.target || ''; $('ptEmail').value = p?.account?.email || '';
   $('ptContact').value = p?.contact || ''; $('ptActive').checked = p ? p.active : true;
+  ptCodeTouched = !!p;
+  $('ptMore').open = false;
+  ptShowPreview();
   $('ptActiveRow').classList.toggle('hidden', !p); $('ptCancel').classList.toggle('hidden', !p);
   $('ptFormTitle').textContent = p ? `Изменить: ${p.name}` : 'Добавить блогера';
   $('ptSave').textContent = p ? 'Сохранить' : 'Добавить';
@@ -909,11 +923,24 @@ $('ptCard').onclick = (e) => {
   if (ed) editPartner(ptList.find((p) => p.id === Number(ed.dataset.ptEdit)));
 };
 $('ptCancel').onclick = () => editPartner(null);
-$('ptCode').oninput = () => { $('ptLinkHint').textContent = `ссылка будет playgamely.ru/p/${$('ptCode').value || 'код'}`; };
+// Адрес ссылки — из промокода латиницей, пока владелец не поправил его сам.
+const PT_LAT = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'h', ц: 'c', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya' };
+const ptSlug = (s) => [...String(s).toLowerCase()].map((c) => PT_LAT[c] ?? c).join('').replace(/[^a-z0-9_-]/g, '').slice(0, 24);
+let ptCodeTouched = false;
+function ptShowPreview() {
+  const promo = $('ptPromo').value.trim().toUpperCase();
+  const code = $('ptCode').value || ptSlug(promo);
+  $('ptPreview').innerHTML = promo ? `<div><span>Зритель вводит промокод</span><b>${esc(promo)}</b></div>
+    <div><span>Ссылка для описания ролика</span><b>playgamely.ru/p/${esc(code || '…')}</b></div>` : '';
+}
+$('ptPromo').oninput = () => { if (!ptCodeTouched) $('ptCode').value = ptSlug($('ptPromo').value); ptShowPreview(); };
+$('ptCode').oninput = () => { ptCodeTouched = true; ptShowPreview(); };
 $('ptForm').onsubmit = async (e) => {
   e.preventDefault();
   $('ptErr').textContent = '';
   const id = $('ptId').value;
+  if (!$('ptCode').value) $('ptCode').value = ptSlug($('ptPromo').value);
+  if ($('ptCode').value.length < 2) { $('ptErr').textContent = 'Промокод: хотя бы 2 буквы или цифры'; return; }
   const body = { name: $('ptName').value, code: $('ptCode').value, promo: $('ptPromo').value || $('ptCode').value, rate: Number($('ptRate').value),
     target: $('ptTarget').value, email: $('ptEmail').value, contact: $('ptContact').value, ...(id && { active: $('ptActive').checked }) };
   try {
