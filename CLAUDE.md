@@ -23,7 +23,7 @@
 - Бэкапы: `scripts/backup.sh` по cron в 04:30 → `/var/backups/igrodrom` (14 дней). Копии вне сервера пока не настроены.
 
 ## Стек и запуск
-Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm start` → localhost:3000, `npm test` (141 тест),
+Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm start` → localhost:3000, `npm test` (143 теста),
 `npm run build:sdk` и `npm run build:catalog` после правок SDK/каталога (тесты ругаются, если устарело).
 Подробности: README.md, дизайн: DESIGN.md, настройки: `.env.example`.
 
@@ -32,7 +32,13 @@ Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm
   2.5D-спрайты из `scripts/blender/sova.py`. Уровни — текстовые карты в `levels.js`; `scripts/sova-levels.mjs` решает их
   (минимум касаний, решение для подсказки → `solutions.js`, проверка устойчивости к паузам игрока), `scripts/sova-generate.mjs`
   предлагает новые. После правки уровней или физики — перезапустить решатель; `test/sova.test.js` это проверяет.
-- Каталог из 23 игр (новые — «Совёнок» и «Огонёк», выживалка в духе Vampire Survivors, `public/games/ogonek`) (`public/games/*`, у каждой meta.json), статический `catalog.json` для GitHub Pages.
+- Каталог из 24 игр (новые — «Совёнок», «Огонёк», выживалка в духе Vampire Survivors, `public/games/ogonek`, и «Бусинки») (`public/games/*`, у каждой meta.json), статический `catalog.json` для GitHub Pages.
+- «Бусинки» (`public/games/busy`, 28.10.2026, идея сестры пользователя): картина из бусин, касание бусины с краю забирает
+  её группу в лоток, 10 одного цвета — нитка (собирается на лету, большая группа уходит целиком), лоток полон — проигрыш,
+  «+10 мест» за 5 монеток/рекламу. Картины — свои рисунки (аватарки, спрайты, плоские сцены `scripts/busy-art/scenes.mjs`),
+  порядок — `scripts/busy-art/list.mjs`; `node scripts/busy-pictures.mjs [--sheet]` переводит их в бусины (Chrome без окна)
+  и подбирает лоток жадным решателем `scripts/busy-art/solver.mjs` (правила те же, что в игре) → `pictures.js`. После 53-й
+  картины — второй круг с лотком `cap2`. Следующая на очереди — «коллаж»: кусочки 3–4 картин перемешаны, менять местами.
 - «Звёздный патруль» (`public/games/starpatrol`): спрайты, фон, обложка и иконка отрендерены в Blender 5.2
   скриптом `scripts/blender/starpatrol.py` (blender --background --python … -- public/games/starpatrol [имена]).
 - «Огонёк» в 2.5D: спрайты леса и врагов из `scripts/blender/ogonek.py` (камера 45°, ловец теней) → `public/games/ogonek/img`;

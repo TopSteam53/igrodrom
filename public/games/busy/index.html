@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Бусинки</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:#efe5d3;color:#3b2f27;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transparent}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+#top{position:fixed;left:0;right:0;top:0;height:56px;display:flex;align-items:center;gap:10px;padding:0 14px;max-width:1100px;margin:0 auto;pointer-events:none}
+#top>*{pointer-events:auto}
+#lvl{margin-right:auto;line-height:1.1}
+#lvl small{display:block;font-size:12px;font-weight:700;color:#8a7766;letter-spacing:.06em;text-transform:uppercase}
+#lvl b{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}
+#strings{display:flex;align-items:center;gap:6px;height:38px;padding:0 12px 0 8px;border-radius:12px;background:#fbf6ec;box-shadow:inset 0 0 0 1.5px #dccbb0;font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+#strings svg{width:26px;height:26px}
+#strings.bump{animation:bump .35s ease-out}
+@keyframes bump{40%{transform:scale(1.14)}}
+#muteBtn{width:38px;height:38px;border-radius:12px;background:#fbf6ec;box-shadow:inset 0 0 0 1.5px #dccbb0;display:flex;align-items:center;justify-content:center;color:#5b4a3c}
+#muteBtn svg{width:20px;height:20px}
+#bar{position:fixed;left:0;right:0;bottom:0;height:68px;display:flex;align-items:center;justify-content:center;gap:12px;padding:0 12px 8px}
+.btn{height:48px;padding:0 18px;border-radius:14px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px;color:#3b2f27;background:#fbf6ec;box-shadow:inset 0 0 0 2px #3b2f27,0 4px 0 #3b2f27;transition:transform .08s,box-shadow .08s;white-space:nowrap}
+.btn:active{transform:translateY(3px);box-shadow:inset 0 0 0 2px #3b2f27,0 1px 0 #3b2f27}
+.btn svg{width:20px;height:20px;flex:none}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn.main{background:#e8573f;color:#fff}
+.gcoin{width:18px;height:18px;flex:none}
+.price{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+.ad{font-size:12px;font-weight:900;border-radius:6px;padding:2px 6px;background:rgba(59,47,39,.12)}
+.btn.main .ad{background:rgba(255,255,255,.22)}
+#tip{position:fixed;left:16px;right:16px;text-align:center;font-size:14px;color:#7a6a5c;pointer-events:none;transition:opacity .4s;line-height:1.35}
+#ov{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(59,47,39,.45);padding:16px}
+#ov.show{display:flex;animation:fade .25s}
+@keyframes fade{from{opacity:0}}
+.card{width:min(100%,360px);padding:22px 20px 20px;border-radius:22px;text-align:center;background:#fbf6ec;box-shadow:0 0 0 2px #3b2f27,0 8px 0 #3b2f27;animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+@keyframes pop{from{transform:scale(.7);opacity:0}}
+#ovArt{display:block;margin:0 auto 10px;width:220px;height:220px;max-width:100%}
+#ovT{margin:0;font-size:26px;font-weight:900;line-height:1.15}
+#ovS{margin:8px 0 18px;color:#7a6a5c;font-size:15px;line-height:1.4}
+#ovBtns{display:flex;flex-direction:column;gap:12px;align-items:stretch}
+#ovBtns .btn{justify-content:center}
+#toast{position:fixed;left:50%;top:64px;transform:translate(-50%,-8px);z-index:30;background:#3b2f27;color:#fbf6ec;padding:10px 16px;border-radius:12px;font-size:14px;font-weight:700;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:380px){.btn{padding:0 13px;font-size:15px}#restartBtn span{display:none}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="top">
+  <div id="lvl"><small id="picName">Картина</small><b id="lvlN">1</b></div>
+  <div id="strings" title="Собрано ниток бус"><svg viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="8.5" fill="none" stroke="#3b2f27" stroke-width="1.6"/><circle cx="13" cy="4.5" r="3" fill="#e8573f"/><circle cx="20.4" cy="9" r="3" fill="#ffc531"/><circle cx="20.4" cy="17" r="3" fill="#2ea043"/><circle cx="13" cy="21.5" r="3" fill="#3d8bff"/><circle cx="5.6" cy="17" r="3" fill="#a55eea"/><circle cx="5.6" cy="9" r="3" fill="#ff6bcb"/></svg><span id="strN">0</span></div>
+  <button id="muteBtn" aria-label="Звук"></button>
+</div>
+<div id="tip"></div>
+<div id="bar">
+  <button class="btn" id="restartBtn" title="Начать картину заново (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg><span>Заново</span></button>
+  <button class="btn main" id="moreBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span>10 мест</span><span class="cost"></span></button>
+</div>
+<div id="ov"><div class="card"><canvas id="ovArt" width="440" height="440"></canvas><h2 id="ovT"></h2><p id="ovS"></p><div id="ovBtns"></div></div></div>
+<div id="toast"></div>
+<script src="pictures.js"></script>
+<script src="../../sdk/v1.js"></script>
+<script>
+(function(){
+'use strict';
+var PICS=window.BUSY_PICTURES, STRING=10, MORE=10, MORE_COST=5;
+var cv=document.getElementById('cv'), g=cv.getContext('2d');
+var $=function(id){return document.getElementById(id)};
+var sdk=null, paused=false, mute=false, touched=false;
+
+// ---------- модель (те же правила, что в scripts/busy-art/solver.mjs) ----------
+var level=1, pic=null, W=0, Hh=0, orig=null, cells=null, cap=0, extra=0, tray=[], load=0, left=0, strings=0, stringCols=[], over=null;
+function picFor(l){return PICS[(l-1)%PICS.length]}
+function capOf(l){var p=picFor(l);return l>PICS.length?p.cap2:p.cap}
+function startLevel(l,saved){
+  level=l;pic=picFor(l);W=pic.w;Hh=pic.h;
+  orig=[];for(var i=0;i<pic.px.length;i++){var ch=pic.px.charCodeAt(i);orig.push(ch===46?-1:ch-97)}
+  cells=orig.slice();cap=capOf(l);extra=0;tray=pic.pal.map(function(){return 0});load=0;strings=0;stringCols=[];over=null;
+  left=cells.filter(function(c){return c>=0}).length;
+  if(saved){
+    for(var k=0;k<cells.length;k++)if(saved.removed.charAt(k)==='1')cells[k]=-1;
+    left=cells.filter(function(c){return c>=0}).length;
+    tray=saved.tray.slice();load=tray.reduce(function(a,b){return a+b},0);extra=saved.extra;strings=saved.strings;stringCols=saved.sc.slice();
+  }
+  trayBeads=[];colorOrder=[];seqN=0;shownStrings=strings;hover=-1;flash=null;
+  tray.forEach(function(n,c){for(var k=0;k<n;k++)trayBeads.push({c:c,state:'sit',dest:'tray',seq:seqN++,x:0,y:0,slot:0})});
+  tray.forEach(function(n,c){if(n)colorOrder.push(c)});
+  $('lvlN').textContent=level;$('picName').textContent='Картина';
+  $('strN').textContent=strings;
+  ov.classList.remove('show');
+  layout();assignSlots(true);redrawBoard();
+  tipFor();
+  if(load>=cap+extra&&left>0)endLater('lost');
+}
+function isOpen(i){
+  var x=i%W,y=(i/W)|0;
+  if(!x||!y||x===W-1||y===Hh-1)return true;
+  return cells[i-1]<0||cells[i+1]<0||cells[i-W]<0||cells[i+W]<0;
+}
+function group(i){
+  var c=cells[i],seen={},q=[i];seen[i]=1;
+  for(var k=0;k<q.length;k++){
+    var j=q[k],x=j%W,ns=[x>0?j-1:-1,x<W-1?j+1:-1,j-W,j+W];
+    for(var t=0;t<4;t++){var n=ns[t];if(n>=0&&n<cells.length&&!seen[n]&&cells[n]===c){seen[n]=1;q.push(n)}}
+  }
+  return q;
+}
+
+// ---------- раскладка ----------
+var DPR=1,VW=0,VH=0,board={x:0,y:0,s:10},trayR={x:0,y:0,w:0,h:0,cols:10,slot:30},land=false;
+function layout(){
+  DPR=Math.min(2,window.devicePixelRatio||1);VW=window.innerWidth;VH=window.innerHeight;
+  cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR);
+  var top=60,bot=72,avH=VH-top-bot,total=cap+extra;
+  land=VW>VH*1.15&&VW>=640;
+  var cols=land?5:10,rows=Math.ceil(total/cols),slot,bw,bh,bx,by;
+  if(land){
+    slot=Math.min(46,(avH-36)/rows,(VW*0.34-28)/cols);
+    trayR.w=cols*slot+28;trayR.h=rows*slot+28;
+    var gap=24,totalW=Math.min(VW-32,1100);
+    bw=totalW-trayR.w-gap;bh=avH-16;
+    bx=(VW-totalW)/2;by=top+8;
+    trayR.x=bx+bw+gap;trayR.y=top+(avH-trayR.h)/2;
+  }else{
+    var colW=Math.min(VW-24,560);
+    slot=Math.min(40,(colW-28)/cols);
+    if(rows*slot+28>avH*0.36)slot=(avH*0.36-28)/rows;
+    trayR.w=cols*slot+28;trayR.h=rows*slot+28;
+    bw=colW;bh=avH-trayR.h-44;bx=(VW-colW)/2;by=top+4;
+  }
+  trayR.cols=cols;trayR.slot=slot;
+  // Вокруг картины рамка в полбусины — она тоже должна влезть.
+  var s=Math.min(bw/(W+1),bh/(Hh+1),44),pad=Math.max(6,s*.5);
+  board.s=s;board.x=bx+(bw-s*W)/2;
+  if(land)board.y=by+(bh-s*Hh)/2;
+  else{
+    // картина, строка подсказки и лоток — одним блоком по центру свободного места
+    var stack=s*Hh+pad*2+40+trayR.h,y0=top+Math.max(0,(avH-stack)/2);
+    board.y=y0+pad;trayR.x=(VW-trayR.w)/2;trayR.y=y0+s*Hh+pad*2+40;
+  }
+  var tip=$('tip');
+  if(land){tip.style.top='';tip.style.bottom=(bot+4)+'px'}
+  else{tip.style.bottom='';tip.style.top=(board.y+s*Hh+pad+2)+'px'}
+  sprites={};boardCache=null;dirty=true;
+}
+
+// ---------- бусины-спрайты ----------
+var sprites={};
+function mix(hex,to,t){
+  var a=parseInt(hex.slice(1),16),b=parseInt(to.slice(1),16);
+  var r=(a>>16)*(1-t)+(b>>16)*t,gg=(a>>8&255)*(1-t)+(b>>8&255)*t,bl=(a&255)*(1-t)+(b&255)*t;
+  return 'rgb('+(r|0)+','+(gg|0)+','+(bl|0)+')';
+}
+function bead(hex,px,ghost){
+  var key=hex+px+(ghost?'g':'');
+  if(sprites[key])return sprites[key];
+  var n=Math.max(4,Math.ceil(px*DPR)),c=document.createElement('canvas');c.width=c.height=n;
+  var x=c.getContext('2d'),r=n/2;
+  if(ghost){
+    x.fillStyle=mix(hex,'#fbf6ec',.74);x.beginPath();x.arc(r,r,r*.8,0,7);x.fill();
+  }else{
+    x.fillStyle='rgba(59,47,39,.22)';x.beginPath();x.arc(r,r+n*.04,r*.92,0,7);x.fill();
+    var gr=x.createRadialGradient(r*.7,r*.6,r*.1,r,r,r*.92);
+    gr.addColorStop(0,mix(hex,'#ffffff',.45));gr.addColorStop(.5,hex);gr.addColorStop(1,mix(hex,'#000000',.22));
+    x.fillStyle=gr;x.beginPath();x.arc(r,r,r*.88,0,7);x.fill();
+    x.fillStyle=mix(hex,'#000000',.3);x.beginPath();x.arc(r,r,r*.2,0,7);x.fill();
+    x.fillStyle='rgba(255,255,255,.55)';x.beginPath();x.ellipse(r*.66,r*.56,r*.26,r*.14,-.6,0,7);x.fill();
+  }
+  sprites[key]=c;return c;
+}
+
+// ---------- картина (кэш) ----------
+var boardCache=null,dirty=true;
+function redrawBoard(){boardCache=null;dirty=true}
+function drawBoardCache(){
+  var s=board.s,pad=Math.max(6,s*.5);
+  var bw=Math.ceil((W*s+pad*2)*DPR),bh=Math.ceil((Hh*s+pad*2)*DPR);
+  var c=document.createElement('canvas');c.width=bw;c.height=bh;
+  var x=c.getContext('2d');
+  x.fillStyle='#fbf6ec';rr(x,0,0,bw,bh,14*DPR);x.fill();
+  x.strokeStyle='#dccbb0';x.lineWidth=1.5*DPR;rr(x,.75*DPR,.75*DPR,bw-1.5*DPR,bh-1.5*DPR,14*DPR);x.stroke();
+  for(var i=0;i<cells.length;i++){
+    var o=orig[i],px=(pad+(i%W)*s)*DPR,py=(pad+((i/W)|0)*s)*DPR;
+    if(o<0){x.fillStyle='#ece1cd';x.beginPath();x.arc(px+s*DPR/2,py+s*DPR/2,s*DPR*.12,0,7);x.fill();continue}
+    x.drawImage(bead(pic.pal[o],s,cells[i]<0),px,py,s*DPR,s*DPR);
+  }
+  boardCache={c:c,pad:pad};
+}
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+function cellCenter(i){return {x:board.x+(i%W+.5)*board.s,y:board.y+(((i/W)|0)+.5)*board.s}}
+
+// ---------- лоток ----------
+var trayBeads=[],colorOrder=[],seqN=0,shownStrings=0;
+function slotPos(k){
+  var s=trayR.slot,c=trayR.cols;
+  return {x:trayR.x+14+(k%c+.5)*s,y:trayR.y+14+(((k/c)|0)+.5)*s};
+}
+function counterPos(){var r=$('strings').getBoundingClientRect();return {x:r.left+22,y:r.top+r.height/2}}
+// Места в лотке: цвета по порядку появления, внутри цвета — по времени прилёта.
+function assignSlots(snap){
+  var live=trayBeads.filter(function(b){return b.state==='sit'||b.dest==='tray'});
+  colorOrder=colorOrder.filter(function(c){return live.some(function(b){return b.c===c})});
+  live.forEach(function(b){if(colorOrder.indexOf(b.c)<0)colorOrder.push(b.c)});
+  live.sort(function(a,b){return colorOrder.indexOf(a.c)-colorOrder.indexOf(b.c)||a.seq-b.seq});
+  live.forEach(function(b,k){b.slot=k;if(snap){var p=slotPos(k);b.x=p.x;b.y=p.y}});
+}
+function bumpCounter(){
+  shownStrings=Math.min(strings,shownStrings+1);$('strN').textContent=shownStrings;
+  var e=$('strings');e.classList.remove('bump');void e.offsetWidth;e.classList.add('bump');chime();
+}
+
+// ---------- ход ----------
+var hover=-1,flash=null,endKind=null;
+function busyNow(){return trayBeads.some(function(b){return b.state!=='sit'})}
+function tapCell(i){
+  if(over||paused||i<0||cells[i]<0)return;
+  if(busyNow())return;
+  ensureAudio();
+  if(!isOpen(i)){flash={i:i,t:performance.now()};dirty=true;thud();hintClosed();return}
+  if(load>=cap+extra){toast('Лоток полон');thud();return}
+  // Бусины берём по одной: десятая бусина цвета сразу собирает нитку вместе с теми, что ждут в лотке,
+  // и вся нитка летит к счётчику, не занимая места.
+  var c=cells[i],grp=group(i),now=performance.now(),taken=[];
+  var pend=trayBeads.filter(function(b){return b.c===c});
+  for(var k=0;k<grp.length&&load<cap+extra;k++){
+    var j=grp[k];cells[j]=-1;left--;tray[c]++;load++;
+    var p=cellCenter(j),bd={c:c,state:'fly',dest:'tray',seq:seqN++,x:p.x,y:p.y,sx:p.x,sy:p.y,slot:0};
+    taken.push(bd);pend.push(bd);
+    if(tray[c]===STRING){
+      tray[c]=0;load-=STRING;strings++;stringCols.push(c);
+      pend.forEach(function(q){q.dest='str';q.strIdx=taken.length});
+      pend[pend.length-1].bump=true;pend=[];
+    }
+  }
+  var n=taken.length,step=Math.min(14,900/n);
+  taken.forEach(function(bd,k){bd.t0=now+k*step;bd.dur=bd.dest==='str'?520:400+Math.random()*60;trayBeads.push(bd)});
+  // ждавшие в лотке уходят, когда прилетает бусина, замкнувшая их нитку
+  trayBeads.forEach(function(q){if(q.state==='sit'&&q.dest==='str'){q.state='leave';q.t0=now+(q.strIdx-1)*step+250;q.dur=480;q.sx=q.x;q.sy=q.y}});
+  rattle(n,step);
+  touched=true;assignSlots(false);redrawBoard();save();
+  if(firstTip){firstTip=false;tipFor()}
+  if(!left)endLater('won');
+  else if(load>=cap+extra)endLater('lost');
+}
+function endLater(kind){over=kind;endKind=kind}
+
+// ---------- кадр ----------
+var last=performance.now();
+function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2}
+function arc(b,t,tx,ty,lift){
+  var e=ease(t),mx=(b.sx+tx)/2,my=Math.min(b.sy,ty)-Math.abs(b.sx-tx)*.25-lift;
+  b.x=(1-e)*(1-e)*b.sx+2*(1-e)*e*mx+e*e*tx;b.y=(1-e)*(1-e)*b.sy+2*(1-e)*e*my+e*e*ty;
+}
+function frame(now){
+  requestAnimationFrame(frame);
+  var dt=Math.min(.05,(now-last)/1000);last=now;
+  if(paused)return;
+  var anim=false,cp=null;
+  trayBeads.forEach(function(b){
+    if(b.state==='sit'){
+      var q=slotPos(b.slot),k=Math.min(1,dt*16);
+      if(Math.abs(q.x-b.x)+Math.abs(q.y-b.y)>.3){b.x+=(q.x-b.x)*k;b.y+=(q.y-b.y)*k;anim=true}else{b.x=q.x;b.y=q.y}
+      return;
+    }
+    anim=true;var t=(now-b.t0)/b.dur;if(t<0)return;
+    var toStr=b.state==='leave'||b.dest==='str';
+    if(toStr&&!cp)cp=counterPos();
+    var tp=toStr?cp:slotPos(b.slot);
+    if(t>=1){
+      if(toStr){b.gone=true;if(b.bump)bumpCounter()}
+      else{b.state='sit';b.x=tp.x;b.y=tp.y;tick()}
+      return;
+    }
+    arc(b,t,tp.x,tp.y,toStr?60:30);
+    b.k=toStr?1-ease(t)*.55:1;
+  });
+  if(trayBeads.some(function(b){return b.gone})){trayBeads=trayBeads.filter(function(b){return !b.gone});assignSlots(false)}
+  if(flash&&now-flash.t>450)flash=null;
+  if(anim||flash)dirty=true;
+  if(endKind&&!anim)showEnd();
+  if(!dirty)return;dirty=false;
+  draw(now);
+}
+function draw(now){
+  g.setTransform(DPR,0,0,DPR,0,0);
+  g.clearRect(0,0,VW,VH);
+  if(!boardCache)drawBoardCache();
+  var pad=boardCache.pad;
+  g.drawImage(boardCache.c,board.x-pad,board.y-pad,boardCache.c.width/DPR,boardCache.c.height/DPR);
+  var s=board.s;
+  if(hover>=0&&cells[hover]>=0&&!over){
+    var open=isOpen(hover);
+    if(open){
+      var grp=group(hover),free=cap+extra-load;
+      g.fillStyle='rgba(255,255,255,.34)';
+      grp.slice(0,Math.max(0,free)).forEach(function(j){var p=cellCenter(j);g.beginPath();g.arc(p.x,p.y,s*.44,0,7);g.fill()});
+    }
+  }
+  if(flash){
+    var p=cellCenter(flash.i),t=(now-flash.t)/450;
+    g.strokeStyle='rgba(59,47,39,'+(1-t)+')';g.lineWidth=Math.max(2,s*.12);
+    g.beginPath();g.arc(p.x+Math.sin(t*30)*s*.12*(1-t),p.y,s*.55,0,7);g.stroke();
+  }
+  // лоток
+  var sl=trayR.slot,total=cap+extra;
+  g.fillStyle='#e3d2b4';rr(g,trayR.x,trayR.y,trayR.w,trayR.h,16);g.fill();
+  g.fillStyle='#d5c09c';rr(g,trayR.x,trayR.y+trayR.h-6,trayR.w,6,3);g.fill();
+  for(var k=0;k<total;k++){var q=slotPos(k);g.fillStyle='#d3bf9c';g.beginPath();g.arc(q.x,q.y,sl*.36,0,7);g.fill();
+    g.fillStyle='#c9b48f';g.beginPath();g.arc(q.x,q.y+sl*.05,sl*.3,0,Math.PI);g.fill()}
+  var load2=trayBeads.filter(function(b){return b.state==='sit'||b.dest==='tray'}).length;
+  if(load2>=total-2&&!over){g.strokeStyle='rgba(232,87,63,'+(.5+.3*Math.sin(now/180))+')';g.lineWidth=3;rr(g,trayR.x+1.5,trayR.y+1.5,trayR.w-3,trayR.h-3,15);g.stroke();dirty=true}
+  var bs=Math.min(sl*.9,Math.max(s,sl*.7));
+  trayBeads.forEach(function(b){
+    if(b.state==='fly'&&now<b.t0)return;
+    var t=Math.min(1,Math.max(0,(now-b.t0)/b.dur));
+    var sz=b.state==='sit'?bs:b.state==='leave'?bs*(b.k||1):b.dest==='str'?s*(b.k||1):s+(bs-s)*t;
+    g.drawImage(bead(pic.pal[b.c],Math.round(sz),false),b.x-sz/2,b.y-sz/2,sz,sz);
+  });
+}
+
+// ---------- конец картины ----------
+var ov=$('ov');
+function showEnd(){
+  var kind=endKind;endKind=null;
+  var btns=$('ovBtns');btns.innerHTML='';
+  drawArt(kind);
+  if(kind==='won'){
+    var done=level;level++;saveRaw();
+    fanfare();
+    $('ovT').textContent=pic.name;
+    $('ovS').textContent=strings?'Из картины вышло '+strings+' '+plural(strings,'нитка','нитки','ниток')+' бус.':'Картина разобрана.';
+    btns.appendChild(mkBtn('Следующая картина','main',next));
+  }else{
+    sad();
+    $('ovT').textContent='Лоток полон';
+    $('ovS').textContent='Ни один цвет не набрал десяти бусин, нитку собрать не из чего. Добавьте места или начните картину заново.';
+    var m=mkBtn('','main',function(){addMore(m)});
+    m.innerHTML=$('moreBtn').innerHTML;
+    btns.appendChild(m);
+    btns.appendChild(mkBtn('Начать заново','',function(){restart()}));
+  }
+  ov.classList.add('show');
+}
+function plural(n,a,b,c){var m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<12||h>14)?b:c}
+function mkBtn(t,cls,fn){var b=document.createElement('button');b.className='btn '+cls;b.textContent=t;b.addEventListener('click',fn);return b}
+function drawArt(kind){
+  var c=$('ovArt'),x=c.getContext('2d'),N=c.width,R=N*.44;
+  x.clearRect(0,0,N,N);
+  // картина целиком в середине, вокруг — бусы из собранных ниток
+  var f=kind==='won'?.56:.9,s=Math.min(N*f/W,N*f/Hh),ox=(N-s*W)/2,oy=(N-s*Hh)/2;
+  for(var i=0;i<orig.length;i++){if(orig[i]<0)continue;
+    var on=kind==='won'||cells[i]>=0;
+    x.drawImage(bead(pic.pal[orig[i]],s/DPR,!on),ox+(i%W)*s,oy+((i/W)|0)*s,s,s)}
+  if(kind!=='won')return;
+  var cols=stringCols.length?stringCols:[0],M=Math.max(24,Math.min(60,cols.length*3)),bsz=Math.min(26,2*Math.PI*R/M*1.05);
+  x.strokeStyle='#3b2f27';x.lineWidth=2;x.beginPath();x.arc(N/2,N/2,R,0,7);x.stroke();
+  for(var k=0;k<M;k++){var a=-Math.PI/2+k/M*Math.PI*2,col=pic.pal[cols[Math.floor(k/M*cols.length)]];
+    x.drawImage(bead(col,bsz/DPR,false),N/2+Math.cos(a)*R-bsz/2,N/2+Math.sin(a)*R-bsz/2,bsz,bsz)}
+}
+function next(){
+  if(next.busy)return;next.busy=true;
+  var p=sdk?sdk.ads.fullscreen():Promise.resolve({shown:false});
+  p.catch(function(){}).then(function(){next.busy=false;startLevel(level);save()});
+}
+function restart(){if(!pic)return;ov.classList.remove('show');startLevel(level);touched=true;save()}
+
+// ---------- места в лотке за монетки или рекламу ----------
+var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+function drawCost(){
+  var host=onGamely();
+  document.querySelector('#moreBtn .cost').innerHTML=host?'<span class="price">'+GCOIN+MORE_COST+'</span>':'<span class="ad">▶</span>';
+  $('moreBtn').title=host?'Ещё 10 мест в лотке за '+MORE_COST+' монеток':'Ещё 10 мест в лотке за просмотр рекламы';
+}
+function addMore(btn){
+  if(!pic||btn.disabled||left===0)return;
+  btn.disabled=true;ensureAudio();
+  var byAd=function(){
+    var p=sdk?sdk.ads.rewarded():Promise.resolve({rewarded:true});
+    return p.catch(function(){return {rewarded:false}}).then(function(r){
+      if(r&&r.rewarded===true)return true;toast('Реклама не досмотрена — места не добавлены');return false;
+    });
+  };
+  var p=onGamely()?sdk.coins.spend(MORE_COST,'Ещё 10 мест в лотке «Бусинок»').catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;var why=r&&r.reason;
+    if(why==='unavailable')return byAd();
+    if(why!=='cancelled')toast(COIN_MSG[why]||COIN_MSG.unavailable);return false;
+  }):byAd();
+  p.catch(function(){return false}).then(function(ok){
+    btn.disabled=false;if(!ok)return;
+    extra+=MORE;over=null;endKind=null;ov.classList.remove('show');touched=true;
+    layout();assignSlots(true);save();chime();toast('В лотке стало на 10 мест больше');
+  });
+}
+
+// ---------- подсказки ----------
+var firstTip=true,closedTips=0;
+function tipFor(){
+  var t=$('tip');
+  if(level<=2&&firstTip)t.textContent='Нажмите на бусину с краю — улетит вся её группа. Десять бусин одного цвета собираются в нитку.';
+  else if(level===1&&strings===0)t.textContent='Если лоток заполнится, а нитку собрать не из чего, картина не разобрана.';
+  else t.textContent='';
+}
+function hintClosed(){if(closedTips++<3)toast('Эту бусину пока не достать — берите с края или рядом с пустым местом')}
+var toastEl=$('toast'),tt=null;
+function toast(s){toastEl.textContent=s;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},2300)}
+
+// ---------- сохранение через SDK ----------
+// sdk присваиваем только после чтения сохранения, иначе первое действие затрёт старый прогресс.
+function saveRaw(){
+  if(!sdk)return;
+  var game=(!over||over==='lost')&&left>0?{lvl:level,removed:cells.map(function(c,i){return orig[i]>=0&&c<0?'1':'0'}).join(''),tray:tray,extra:extra,strings:strings,sc:stringCols}:null;
+  sdk.data.set({v:1,level:level,mute:mute,game:game}).catch(function(){});
+}
+function save(){if(over!=='won')saveRaw()}
+function validGame(d,l){
+  var gm=d.game;if(!gm||typeof gm!=='object'||gm.lvl!==l)return null;
+  var p=picFor(l);
+  if(typeof gm.removed!=='string'||gm.removed.length!==p.px.length||!/^[01]*$/.test(gm.removed))return null;
+  if(!Array.isArray(gm.tray)||gm.tray.length!==p.pal.length||!Array.isArray(gm.sc))return null;
+  if(!(gm.extra>=0&&gm.extra<=500&&gm.extra%MORE===0)||gm.strings!==gm.sc.length)return null;
+  var per=p.pal.map(function(){return 0});
+  for(var i=0;i<p.px.length;i++)if(gm.removed.charAt(i)==='1'){if(p.px.charAt(i)==='.')return null;per[p.px.charCodeAt(i)-97]++}
+  gm.sc.forEach(function(c){if(per[c]!=null)per[c]-=STRING});
+  var ok=per.every(function(n,c){return gm.tray[c]===n&&n>=0&&n<STRING});
+  return ok?gm:null;
+}
+function applySave(d){
+  if(!d||typeof d!=='object'||d.v!==1)return;
+  if(typeof d.mute==='boolean'){mute=d.mute;drawMute()}
+  var l=typeof d.level==='number'&&isFinite(d.level)?Math.max(1,Math.min(99999,Math.floor(d.level))):1;
+  if(touched&&l<=level)return;
+  var gm=validGame(d,l);
+  if(gm||l!==level)startLevel(l,gm);
+}
+
+// ---------- звук ----------
+var ac=null;
+function ensureAudio(){if(ac||mute)return;try{var A=window.AudioContext||window.webkitAudioContext;if(A)ac=new A()}catch(e){}}
+function tone(f,dur,type,vol,delay,glide){
+  if(mute||!ac||paused)return;
+  try{
+    var t=ac.currentTime+(delay||0),o=ac.createOscillator(),gn=ac.createGain();
+    o.type=type||'sine';o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*(glide||1.2),t+dur);
+    gn.gain.setValueAtTime(0,t);gn.gain.linearRampToValueAtTime(vol||.08,t+.006);gn.gain.exponentialRampToValueAtTime(.0001,t+dur+.05);
+    o.connect(gn);gn.connect(ac.destination);o.start(t);o.stop(t+dur+.08);
+  }catch(e){}
+}
+var lastTick=0;
+function tick(){var n=performance.now();if(n-lastTick<28)return;lastTick=n;tone(1800+Math.random()*1600,.03,'triangle',.05,0,.8)}
+function rattle(n,step){for(var k=0;k<Math.min(n,10);k++)tone(900+Math.random()*900,.025,'square',.022,k*step/1000*Math.max(1,n/10),.7)}
+function chime(){[784,988,1319].forEach(function(f,i){tone(f,.12,'triangle',.08,i*.06)})}
+function fanfare(){[523,659,784,1047,1319].forEach(function(f,i){tone(f,.16,'triangle',.11,i*.09)})}
+function thud(){tone(180,.12,'sine',.12,0,.6)}
+function sad(){[392,330,262].forEach(function(f,i){tone(f,.2,'triangle',.1,i*.14,.9)})}
+var muteBtn=$('muteBtn');
+function drawMute(){
+  muteBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>'+(mute?'<path d="M17 9l5 6M22 9l-5 6"/>':'<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>')+'</svg>';
+  muteBtn.setAttribute('aria-label',mute?'Включить звук':'Выключить звук');
+}
+muteBtn.addEventListener('click',function(){mute=!mute;drawMute();if(!mute)ensureAudio();saveRaw();this.blur()});
+
+// ---------- ввод ----------
+function cellAt(cx,cy){
+  var x=Math.floor((cx-board.x)/board.s),y=Math.floor((cy-board.y)/board.s);
+  if(x<0||y<0||x>=W||y>=Hh)return -1;return y*W+x;
+}
+cv.addEventListener('pointerdown',function(e){if(e.button>0)return;tapCell(cellAt(e.clientX,e.clientY))});
+cv.addEventListener('pointermove',function(e){if(e.pointerType!=='mouse')return;var h=cellAt(e.clientX,e.clientY);if(h!==hover){hover=h;dirty=true;cv.style.cursor=h>=0&&cells[h]>=0&&isOpen(h)?'pointer':''}});
+cv.addEventListener('pointerleave',function(){hover=-1;dirty=true});
+$('restartBtn').addEventListener('click',function(){restart();this.blur()});
+$('moreBtn').addEventListener('click',function(){addMore(this);this.blur()});
+window.addEventListener('keydown',function(e){
+  if(ov.classList.contains('show')&&(e.code==='Enter'||e.code==='Space')){e.preventDefault();var b=$('ovBtns').firstChild;if(b)b.click();return}
+  if(e.code==='KeyR')restart();
+});
+document.addEventListener('touchmove',function(e){e.preventDefault()},{passive:false});
+document.addEventListener('contextmenu',function(e){e.preventDefault()});
+window.addEventListener('resize',function(){layout();assignSlots(true)});
+
+drawMute();drawCost();
+startLevel(1);
+requestAnimationFrame(frame);
+if(window.Gamely)Gamely.init().then(function(s){
+  return s.data.get().catch(function(){return null}).then(function(d){
+    sdk=s;drawCost();
+    applySave(d);
+    if(touched)save();
+    s.on('pause',function(){paused=true;if(ac&&ac.suspend)ac.suspend().catch(function(){})});
+    s.on('resume',function(){paused=false;dirty=true;if(ac&&ac.resume)ac.resume().catch(function(){})});
+    s.game.ready();
+  });
+}).catch(function(){});
+try{window.focus()}catch(e){}
+// Для автопроверки: состояние и ходы.
+window.__game={get level(){return level},get left(){return left},get load(){return load},get cap(){return cap+extra},get over(){return over},get strings(){return strings},
+  tap:function(i){tapCell(i)},go:function(l){startLevel(l)},open:function(i){return cells[i]>=0&&isOpen(i)},cells:function(){return cells.slice()},w:function(){return W}};
+})();
+</script>
+</body>
+</html>
