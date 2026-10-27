@@ -16,6 +16,7 @@ import { createAdmin, migrateAdmin } from './admin.js';
 import { createRewards, migrateRewards } from './rewards.js';
 import { createSupport, migrateSupport } from './support.js';
 import { createShop, migrateShop, LOOK_COLS } from './shop.js';
+import { createPartners, migratePartners } from './partners.js';
 import { slugify } from './slug.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
@@ -65,7 +66,7 @@ const OG_FILES = ['og.jpg', 'og.png'];
 const RASTER_RE = /\.(png|jpe?g|webp)$/i;
 // Страницы, которые поисковикам не нужны.
 // Префиксы: закрывают и чистые адреса (/login), и старые (/login.html).
-const NOINDEX = ['/api/', '/preview/', '/preview-next/', '/test-run/', '/cabinet', '/admin', '/account', '/login', '/reset', '/verify'];
+const NOINDEX = ['/api/', '/preview/', '/preview-next/', '/test-run/', '/cabinet', '/admin', '/account', '/login', '/reset', '/verify', '/partner', '/overlay', '/p/'];
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.htm': 'text/html; charset=utf-8',
@@ -121,6 +122,7 @@ export function createApp({
   migrateRewards(db);
   migrateSupport(db);
   migrateShop(db);
+  migratePartners(db);
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
@@ -283,6 +285,10 @@ export function createApp({
     studioEmail: STUDIO_EMAIL, avatars, economy,
   });
   const shop = createShop({ db, now, send, readJson, HttpError, requireUser, economy, avatars });
+  const partners = createPartners({
+    db, now, dayOf: (t) => stats.dayOf(t), send, readJson, HttpError, requireUser, requireOwner, cookies, secureCookies, economy,
+    logAction, siteUrl,
+  });
   if (seedDemoGames) seedDemo();
   for (const g of q.unslugged.all()) assignSlug(g.id, g.title);
 
@@ -508,7 +514,7 @@ export function createApp({
       id: u.id, email: u.email, name: u.name, isAdmin: isAdmin(u), role: roleOf(u), canModerate: isModerator(u),
       developer: developerStatus(u), canPublish: canPublish(u),
       emailVerified: !!u.email_verified_at, coins: economy.balance(u.id) ?? u.coins ?? 0, dailyBonus: economy.dailyAvailable(u.id), news,
-      ...avatars.info(u), ...shop.look(u), noAdsUntil: support.noAdsUntil(u),
+      ...avatars.info(u), ...shop.look(u), noAdsUntil: support.noAdsUntil(u), partner: partners.isPartner(u.id),
     };
   };
 
@@ -559,7 +565,7 @@ export function createApp({
   // ---------- API ----------
 
   async function register(req, res) {
-    const { email: rawEmail, password, name: rawName, ticket, website } = await readJson(req);
+    const { email: rawEmail, password, name: rawName, ticket, website, promo } = await readJson(req);
     const email = String(rawEmail || '').trim().toLowerCase();
     const name = String(rawName || '').trim();
     // website — поле-ловушка: человек его не видит, а боты заполняют все поля подряд.
@@ -578,12 +584,14 @@ export function createApp({
     if (name.length < 2 || name.length > 40) throw new HttpError(400, 'Имя: от 2 до 40 символов');
     if (NAME_SPAM_RE.test(name)) throw new HttpError(400, 'В имени не должно быть ссылок и адресов');
     if (q.userByEmail.get(email)) throw new HttpError(409, 'Этот email уже зарегистрирован');
+    const promoPartner = partners.checkPromo(promo); // промокод блогера: неверный — ошибка до создания аккаунта
     if (registerGuard) { registerHourLimiter.fail(ip); registerDayLimiter.fail(ip); }
 
     const { lastInsertRowid } = q.insertUser.run(email, name, await hashPassword(password), Date.now());
     const id = Number(lastInsertRowid);
     economy.welcome(id);
     rewards.onRegister(req, id);
+    partners.onRegister(req, id, promoPartner);
     const user = q.userById.get(id);
     adoptGuestSaves(req, user.id);
     sendVerification(user);
@@ -1472,7 +1480,7 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m) || partners.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);

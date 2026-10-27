@@ -4,15 +4,38 @@
     {
       "name": "igrodrom",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["--disable-warning=ExperimentalWarning", "server/index.js"],
+      "runtimeArgs": [
+        "--disable-warning=ExperimentalWarning",
+        "server/index.js"
+      ],
       "port": 3000
     },
     {
       "name": "igrodrom-owner",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["--disable-warning=ExperimentalWarning", "server/index.js"],
-      "env": { "ADMIN_EMAILS": "owner@example.test", "DATA_DIR": "data-preview" },
+      "runtimeArgs": [
+        "--disable-warning=ExperimentalWarning",
+        "server/index.js"
+      ],
+      "env": {
+        "ADMIN_EMAILS": "owner@example.test",
+        "DATA_DIR": "data-preview"
+      },
       "port": 3010
+    },
+    {
+      "name": "igrodrom-partners",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--disable-warning=ExperimentalWarning",
+        "server/index.js"
+      ],
+      "env": {
+        "ADMIN_EMAILS": "partners-owner@example.test",
+        "DATA_DIR": "data-partners",
+        "PORT": "3020"
+      },
+      "port": 3020
     }
   ]
 }

@@ -31,6 +31,7 @@
     <button data-pane="shop">🏪 Витрина</button>
     <button data-pane="invites">🤝 Приглашения</button>
     <button data-pane="achievements">🏅 Достижения</button>
+    <button data-pane="partners" class="owner-only">🎥 Блогеры</button>
     <button data-pane="log">📜 Журнал</button>
     <button data-pane="team" class="owner-only">🛡️ Команда</button>
   </nav>
@@ -153,6 +154,36 @@
       <div class="rows" id="tPast"></div>
     </section>
 
+    <section class="pane hidden" id="pane-partners">
+      <h1 class="adm-title">Блогеры</h1>
+      <p class="mut" id="ptRules"></p>
+      <div class="kpis" id="ptKpis"></div>
+      <div class="panel table-panel"><table class="tbl" id="ptTable"></table></div>
+      <div id="ptCard"></div>
+      <form class="panel t-form pt-form" id="ptForm">
+        <h3 id="ptFormTitle">Добавить блогера</h3>
+        <input type="hidden" id="ptId">
+        <label for="ptName">Имя или канал</label><input id="ptName" maxlength="60" required>
+        <div class="pt-two">
+          <div><label for="ptCode">Код ссылки</label><input id="ptCode" maxlength="24" pattern="[a-z0-9_-]{2,24}" placeholder="obbi" required>
+            <p class="mut" id="ptLinkHint">латиница — ссылка будет playgamely.ru/p/код</p></div>
+          <div><label for="ptPromo">Промокод</label><input id="ptPromo" maxlength="24" placeholder="ОББИ">
+            <p class="mut">можно по-русски; пусто — как код ссылки</p></div>
+        </div>
+        <div class="pt-two">
+          <div><label for="ptRate">Ставка, ₽ за засчитанного игрока</label><input id="ptRate" type="number" min="0" max="10000" step="1" value="0" required></div>
+          <div><label for="ptTarget">Куда ведёт ссылка</label><select id="ptTarget"><option value="">Главная</option></select></div>
+        </div>
+        <label for="ptEmail">Почта его аккаунта на сайте <span class="mut">— откроет кабинет блогера</span></label>
+        <input id="ptEmail" type="email" placeholder="можно добавить позже">
+        <label for="ptContact">Контакт <span class="mut">— видно только здесь</span></label>
+        <input id="ptContact" maxlength="200" placeholder="@telegram, ссылка на канал">
+        <label class="pt-check hidden" id="ptActiveRow"><input type="checkbox" id="ptActive" checked> Ссылка и промокод работают</label>
+        <div class="pt-acts"><button class="btn primary" id="ptSave">Добавить</button><button class="btn hidden" type="button" id="ptCancel">Отмена</button></div>
+        <div class="err-text" id="ptErr"></div>
+      </form>
+    </section>
+
     <section class="pane hidden" id="pane-log">
       <h1 class="adm-title">Журнал решений</h1>
       <p class="mut">Последние 200 действий команды: кто, что и почему.</p>
@@ -204,7 +235,7 @@ async function ask(title, text, placeholder = 'Причина') {
 }
 
 // ---------- разделы ----------
-const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, log: loadLog, team: loadTeam };
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, log: loadLog, team: loadTeam };
 function openPane(name) {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
@@ -223,7 +254,7 @@ const spark = (values) => {
 const kpi = (label, value, sub = '', series = null) => `<div class="kpi"><span>${label}</span><b>${value}</b>${sub ? `<small class="mut">${sub}</small>` : ''}${series ? spark(series) : ''}</div>`;
 const FLOW = {
   welcome: 'Подарок новичку', daily: 'Бонус за вход', grant: 'Выдал владелец', achievement: 'Достижения', tournament: 'Турнир недели',
-  referral: 'Приглашения', purchase: 'Покупка монеток', spend: 'Траты в играх', shop: 'Витрина', thanks: 'Спасибо авторам', no_ads: 'День без рекламы',
+  referral: 'Приглашения', partner: 'Промокоды блогеров', purchase: 'Покупка монеток', spend: 'Траты в играх', shop: 'Витрина', thanks: 'Спасибо авторам', no_ads: 'День без рекламы',
 };
 let ov = null;
 let actMode = 'active';
@@ -673,6 +704,97 @@ async function loadAchievementStats() {
   }).join('');
 }
 
+// ---------- блогеры ----------
+// Партнёрская программа (server/partners.js): ссылка /p/<код>, промокод, ставка за засчитанного игрока, выплаты.
+const PT_STATUS = { pending: ['ещё играет', 'pending'], counted: ['засчитан', 'approved'], refused: ['не засчитан', 'rejected'] };
+let ptList = [];
+let ptOpen = null;
+let ptGames = null;
+async function loadPartners() {
+  const d = await api('GET', '/api/admin/partners');
+  ptList = d.partners;
+  $('ptRules').textContent = `Новичок по ссылке или промокоду сразу получает ${d.bonus} монеток. Блогеру игрок засчитывается, когда сыграл в ${d.rules.games} разные игры и заходил в ${d.rules.days} разных дня; ставка фиксируется в момент засчёта. Деньги сайт не переводит — выплату отметьте здесь после перевода.`;
+  const sum = (k) => ptList.reduce((n, p) => n + p[k], 0);
+  $('ptKpis').innerHTML = [
+    kpi('Блогеров', fmt(ptList.filter((p) => p.active).length), ptList.some((p) => !p.active) ? `выключено: ${ptList.filter((p) => !p.active).length}` : ''),
+    kpi('Регистрации', fmt(sum('regs')), `переходов ${fmt(sum('clicks'))}`),
+    kpi('Засчитаны', fmt(sum('counted')), `ещё играют: ${fmt(sum('pending'))}`),
+    kpi('К выплате', rub(sum('due')), `начислено ${rub(sum('earned'))}, выплачено ${rub(sum('paid'))}`),
+  ].join('');
+  $('ptTable').innerHTML = ptList.length ? `<thead><tr><th>Блогер</th><th>Промокод</th><th class="n">Ставка</th><th class="n">Переходы</th><th class="n">Рег.</th><th class="n">Засчитаны</th><th class="n">К выплате</th></tr></thead><tbody>${ptList.map((p) =>
+    `<tr class="click" data-pt="${p.id}"><td><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="badge rejected">выключен</span>'}<div class="mut">/p/${esc(p.code)}${p.contact ? ` · ${esc(p.contact)}` : ''}</div></td>
+      <td>${esc(p.promo)}</td><td class="n">${rub(p.rate)}</td><td class="n">${fmt(p.clicks)}</td><td class="n">${fmt(p.regs)}</td>
+      <td class="n">${fmt(p.counted)}${p.pending ? ` <span class="mut">+${fmt(p.pending)}</span>` : ''}</td><td class="n">${rub(p.due)}</td></tr>`).join('')}</tbody>`
+    : '<tbody><tr><td class="mut">Блогеров пока нет — добавьте первого формой ниже.</td></tr></tbody>';
+  if (!ptGames) {
+    ptGames = (await api('GET', '/api/games')).games.filter((g) => g.slug).sort((a, b) => a.title.localeCompare(b.title, 'ru'));
+    $('ptTarget').innerHTML = '<option value="">Главная</option>' + ptGames.map((g) => `<option value="${esc(g.slug)}">${esc(g.title)}</option>`).join('');
+  }
+  if (ptOpen) openPartner(ptOpen);
+}
+async function openPartner(id) {
+  ptOpen = id;
+  const d = await api('GET', `/api/admin/partners/${id}`);
+  const p = d.partner, t = d.totals;
+  $('ptCard').innerHTML = `<div class="panel pt-card">
+    <div class="chart-head"><h3>${esc(p.name)}</h3><div class="acts"><button class="btn sm" data-pt-edit="${p.id}">Изменить</button><button class="btn sm" data-pt-close>Закрыть</button></div></div>
+    <p class="mut">Ссылка ${esc(d.link)}${p.target ? ` → «${esc(p.target.title)}»` : ''} · промокод ${esc(p.promo)} · ${rub(p.rate)} за игрока ·
+      кабинет: ${p.account ? `<a href="#users" data-user="${p.account.id}">${esc(p.account.name)}</a>` : 'не привязан'}</p>
+    <div class="kpis">${kpi('Переходы', fmt(t.clicks))}${kpi('Регистрации', fmt(t.regs), t.refused ? `не засчитаны: ${fmt(t.refused)}` : '')}${kpi('Засчитаны', fmt(t.counted), `ещё играют: ${fmt(t.pending)}`)}${kpi('К выплате', rub(t.due), `начислено ${rub(t.earned)}, выплачено ${rub(t.paid)}`)}</div>
+    <form class="team-add" id="ptPay"><input id="ptPayAmount" type="number" step="1" placeholder="Сумма, ₽" required aria-label="Сумма выплаты">
+      <input id="ptPayNote" maxlength="200" placeholder="Комментарий: способ, дата, чек" aria-label="Комментарий"><button class="btn primary">Отметить выплату</button></form>
+    ${d.payouts.length ? `<table class="tbl pt-pays"><tbody>${d.payouts.map((x) => `<tr><td>${when(x.created_at)}</td><td>${esc(x.note) || '<span class="mut">—</span>'}</td><td class="n">${rub(x.amount)}</td></tr>`).join('')}</tbody></table>` : ''}
+    <h3 style="margin-top:18px">Игроки</h3>
+    ${d.players.length ? `<table class="tbl"><thead><tr><th>Игрок</th><th>Откуда</th><th class="n">Игры</th><th class="n">Дни</th><th>Статус</th><th>Когда</th></tr></thead><tbody>${d.players.map((r) => {
+      const [label, cls] = PT_STATUS[r.status];
+      return `<tr><td><a href="#users" data-user="${r.user_id}">${esc(r.name)}</a></td><td>${r.via === 'promo' ? 'промокод' : 'ссылка'}</td>
+        <td class="n">${fmt(r.games)}</td><td class="n">${fmt(r.days)}</td><td><span class="badge ${cls}">${label}</span>${r.status === 'counted' ? ` <span class="mut">${rub(r.rate)}</span>` : ''}</td><td>${when(r.created_at)}</td></tr>`;
+    }).join('')}</tbody></table>` : '<p class="mut">По ссылке и промокоду пока никто не зарегистрировался.</p>'}
+  </div>`;
+  $('ptPay').onsubmit = async (e) => {
+    e.preventDefault();
+    const amount = Number($('ptPayAmount').value);
+    if (!confirm(`Отметить выплату ${rub(amount)} блогеру «${p.name}»? Сами деньги переведите отдельно.`)) return;
+    try { await api('POST', `/api/admin/partners/${id}/payouts`, { amount, note: $('ptPayNote').value }); toast('Выплата отмечена'); loadPartners(); }
+    catch (err) { toast(err.message, true); }
+  };
+}
+function editPartner(p) {
+  $('ptId').value = p ? p.id : '';
+  $('ptName').value = p?.name || ''; $('ptCode').value = p?.code || ''; $('ptPromo').value = p?.promo || '';
+  $('ptRate').value = p?.rate ?? 0; $('ptTarget').value = p?.target || ''; $('ptEmail').value = p?.account?.email || '';
+  $('ptContact').value = p?.contact || ''; $('ptActive').checked = p ? p.active : true;
+  $('ptActiveRow').classList.toggle('hidden', !p); $('ptCancel').classList.toggle('hidden', !p);
+  $('ptFormTitle').textContent = p ? `Изменить: ${p.name}` : 'Добавить блогера';
+  $('ptSave').textContent = p ? 'Сохранить' : 'Добавить';
+  $('ptErr').textContent = '';
+  if (p) $('ptForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('ptTable').onclick = (e) => { const tr = e.target.closest('[data-pt]'); if (tr) openPartner(Number(tr.dataset.pt)).then(() => $('ptCard').scrollIntoView({ behavior: 'smooth', block: 'start' })); };
+$('ptCard').onclick = (e) => {
+  const u = e.target.closest('[data-user]');
+  if (u) { e.preventDefault(); return openUser(Number(u.dataset.user)); }
+  if (e.target.closest('[data-pt-close]')) { ptOpen = null; $('ptCard').innerHTML = ''; return; }
+  const ed = e.target.closest('[data-pt-edit]');
+  if (ed) editPartner(ptList.find((p) => p.id === Number(ed.dataset.ptEdit)));
+};
+$('ptCancel').onclick = () => editPartner(null);
+$('ptCode').oninput = () => { $('ptLinkHint').textContent = `ссылка будет playgamely.ru/p/${$('ptCode').value || 'код'}`; };
+$('ptForm').onsubmit = async (e) => {
+  e.preventDefault();
+  $('ptErr').textContent = '';
+  const id = $('ptId').value;
+  const body = { name: $('ptName').value, code: $('ptCode').value, promo: $('ptPromo').value || $('ptCode').value, rate: Number($('ptRate').value),
+    target: $('ptTarget').value, email: $('ptEmail').value, contact: $('ptContact').value, ...(id && { active: $('ptActive').checked }) };
+  try {
+    const d = await api(id ? 'PUT' : 'POST', id ? `/api/admin/partners/${id}` : '/api/admin/partners', body);
+    toast(id ? 'Сохранено' : `Блогер добавлен: ${d.link}`);
+    editPartner(null);
+    ptOpen = d.partner.id;
+    loadPartners();
+  } catch (err) { $('ptErr').textContent = err.message; }
+};
+
 // ---------- журнал ----------
 const ACTIONS = {
   // Без глаголов прошедшего времени: пол модератора мы не знаем.
@@ -684,6 +806,7 @@ const ACTIONS = {
   'review.delete': 'удаление отзыва', 'avatar.approve': 'одобрение аватарки', 'avatar.reject': 'отказ в аватарке', 'avatar.reset': 'сброс аватарки',
   'user.block': 'блокировка', 'user.unblock': 'разблокировка', 'coins.grant': 'начисление монеток', 'coins.take': 'списание монеток',
   'tournament.set': 'турнир недели', 'tournament.clear': 'отмена турнира недели',
+  'partner.create': 'новый блогер', 'partner.edit': 'изменение блогера', 'partner.payout': 'выплата блогеру',
 };
 async function loadLog() {
   const { entries } = await api('GET', '/api/admin/log?limit=200');
@@ -732,7 +855,7 @@ Igr.me().then((user) => {
   document.querySelectorAll('.owner-only').forEach((el) => el.classList.toggle('hidden', !user.isAdmin));
   $('adm').hidden = false;
   const start = location.hash.slice(1);
-  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team'].includes(start)) ? start : 'overview');
+  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners'].includes(start)) ? start : 'overview');
   if (start && start !== 'overview') api('GET', '/api/admin/overview').then((o) => {
     $('cntGames').textContent = o.queues.games || ''; $('cntDevs').textContent = o.queues.developers || ''; $('cntAvatars').textContent = o.queues.avatars || '';
   }).catch(() => {});

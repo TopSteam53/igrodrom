@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Кабинет блогера — Gamely</title>
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<script src="theme.js"></script>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><div class="w top-in">
+  <a class="logo" href="index.html" aria-label="Gamely, на главную"><svg class="logo-mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="#FFC531"/><path d="M22.6 9.4A9 9 0 1 0 25 16" fill="none" stroke="#1C2140" stroke-width="4.2" stroke-linecap="round"/><path d="M14.6 12.2 21.2 16l-6.6 3.8z" fill="#1C2140" stroke="#1C2140" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Gamely</span></a>
+  <form class="search" id="searchForm" action="index.html" role="search">
+    <input id="q" name="q" type="search" placeholder="Найти игру…" autocomplete="off" aria-label="Поиск игр">
+  </form>
+  <a class="btn" id="login" href="login.html">Войти</a>
+</div></header>
+
+<main class="w partner-page">
+  <h1 class="profile-name" style="margin:28px 0 6px">Кабинет блогера</h1>
+  <div id="root"><div class="empty"><p>Загружаем…</p></div></div>
+</main>
+
+<footer><div class="w">
+  <nav><a href="index.html">Каталог игр</a><a href="developers.html">Разработчикам</a><a href="terms.html">Правила</a><a href="privacy.html">Конфиденциальность</a><a href="contacts.html">Контакты</a></nav>
+  <div>© Gamely</div>
+</div></footer>
+
+<script src="app.js"></script>
+<script src="partner-kit.js"></script>
+<script>
+const { $, esc, fmt, plural } = Igr;
+const rub = (n) => `${fmt(n)} ₽`;
+const date = (t) => new Date(t).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+const STATUS = { pending: ['ещё играет', 'pending'], counted: ['засчитан', 'approved'], refused: ['не засчитан', 'rejected'] };
+const players = (n) => `${fmt(n)} ${plural(n, ['игрок', 'игрока', 'игроков'])}`;
+
+function copyBox(label, value, hint) {
+  return `<div class="pt-copy"><span class="pt-label">${label}</span>
+    <div class="pt-copy-row"><code>${esc(value)}</code><button class="btn sm" type="button" data-copy="${esc(value)}">Скопировать</button></div>
+    ${hint ? `<p class="mut">${hint}</p>` : ''}</div>`;
+}
+
+function render(d) {
+  const t = d.totals, p = d.partner;
+  const active = d.days.filter((x) => x.clicks || x.regs || x.counted).reverse();
+  $('root').innerHTML = `
+    <p class="mut" style="margin:0 0 18px;max-width:64ch">${esc(p.name)} · ставка ${rub(p.rate)} за засчитанного игрока.
+      Игрок засчитывается, когда сыграет в ${d.rules.games} разные игры и зайдёт на сайт в ${d.rules.days} разных дня — пустые регистрации не в счёт.</p>
+    ${p.active ? '' : '<p class="err-text">Партнёрство приостановлено: ссылка и промокод сейчас не работают.</p>'}
+
+    <div class="panel pt-links">
+      ${copyBox('Ваша ссылка', d.link, p.target ? `Ведёт сразу в игру «${esc(p.target.title)}».` : 'Ведёт на главную Gamely.')}
+      ${copyBox('Промокод', p.promo, `Зритель вводит его при регистрации и сразу получает ${fmt(d.bonus)} монеток. По ссылке промокод не нужен.`)}
+    </div>
+
+    <div class="kpis" style="margin-top:16px">
+      <div class="kpi"><span>Переходы по ссылке</span><b>${fmt(t.clicks)}</b><small class="mut">новые браузеры</small></div>
+      <div class="kpi"><span>Регистрации</span><b>${fmt(t.regs)}</b><small class="mut">по ссылке и промокоду</small></div>
+      <div class="kpi"><span>Засчитаны</span><b>${fmt(t.counted)}</b><small class="mut">ещё играют: ${fmt(t.pending)}</small></div>
+      <div class="kpi"><span>К выплате</span><b>${rub(t.due)}</b><small class="mut">начислено ${rub(t.earned)}, выплачено ${rub(t.paid)}</small></div>
+    </div>
+
+    <div class="pt-cols">
+      <div class="panel table-panel"><h3>По дням</h3>${active.length ? `<table class="tbl"><thead><tr><th>День</th><th class="n">Переходы</th><th class="n">Регистрации</th><th class="n">Засчитаны</th></tr></thead>
+        <tbody>${active.map((x) => `<tr><td>${new Date(`${x.day}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' })}</td><td class="n">${fmt(x.clicks)}</td><td class="n">${fmt(x.regs)}</td><td class="n">${fmt(x.counted)}</td></tr>`).join('')}</tbody></table>`
+        : '<p class="mut">За 30 дней по ссылке ещё никто не приходил.</p>'}</div>
+      <div class="panel table-panel"><h3>Последние игроки</h3>${d.players.length ? `<table class="tbl"><thead><tr><th>Игрок</th><th class="n">Игры</th><th class="n">Дни</th><th>Статус</th></tr></thead>
+        <tbody>${d.players.map((r) => { const [label, cls] = STATUS[r.status]; return `<tr><td>${esc(r.name)} <span class="mut">${r.via === 'promo' ? 'промокод' : 'ссылка'}, ${date(r.created_at)}</span></td>
+          <td class="n">${Math.min(r.games, 99)}/${d.rules.games}</td><td class="n">${Math.min(r.days, 99)}/${d.rules.days}</td><td><span class="badge ${cls}">${label}</span></td></tr>`; }).join('')}</tbody></table>`
+        : '<p class="mut">Пока никого.</p>'}</div>
+    </div>
+
+    ${d.payouts.length ? `<div class="panel table-panel" style="margin-top:16px"><h3>Выплаты</h3><table class="tbl"><tbody>${d.payouts.map((x) =>
+      `<tr><td>${date(x.created_at)}</td><td>${esc(x.note) || '<span class="mut">—</span>'}</td><td class="n">${rub(x.amount)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+
+    <section class="sec">
+      <div class="sec-head"><h2>Баннеры для видео</h2></div>
+      <p class="mut" style="margin:0 0 14px;max-width:64ch">С вашим промокодом — скачайте и вставьте в видео. Интеграция — это реклама: перед публикацией
+        возьмите у нас erid и поставьте пометку «Реклама» с названием рекламодателя — без этого по закону нельзя.</p>
+      <div class="pt-kit" id="kit"></div>
+      <div class="panel pt-obs">
+        <h3>Плашка для стрима</h3>
+        <p class="mut">В OBS: «Источники» → «+» → «Браузер», вставьте ссылку, ширина 1920, высота 1080. Плашка сама выезжает и показывает промокод.</p>
+        ${copyBox('Ссылка для OBS', d.overlay)}
+      </div>
+    </section>`;
+  drawKit(d);
+}
+
+// Обложки для баннеров: игра из ссылки — первой, потом популярные с картинкой (не SVG-заглушки).
+async function coverUrls(d) {
+  const { games } = await fetch('/api/games').then((r) => r.json());
+  const art = games.filter((g) => g.cover && !g.cover.endsWith('.svg'));
+  const first = d.partner.target && art.find((g) => g.slug === d.partner.target.slug);
+  return [first, ...art.filter((g) => g !== first)].filter(Boolean).slice(0, 3).map((g) => `/play/${g.id}/${g.cover}`);
+}
+
+async function drawKit(d) {
+  const data = { promo: d.partner.promo, bonus: d.bonus, covers: await PartnerKit.covers(await coverUrls(d).catch(() => [])) };
+  $('kit').innerHTML = Object.entries(PartnerKit.KINDS).map(([k, v]) => `<div class="panel pt-item">
+    <div class="pt-prev ${k === 'overlay' || k === 'plate' ? 'checker' : ''}" id="prev-${k}"></div>
+    <b>${v.title}</b><span class="mut">${v.sub}</span>
+    <button class="btn sm" type="button" data-dl="${k}">Скачать PNG</button></div>`).join('');
+  for (const k of Object.keys(PartnerKit.KINDS)) {
+    const c = await PartnerKit.render(k, data);
+    $(`prev-${k}`).append(c);
+  }
+  $('kit').onclick = (e) => {
+    const k = e.target.dataset.dl;
+    if (!k) return;
+    $(`prev-${k}`).querySelector('canvas').toBlob((blob) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `gamely-${k}-${d.partner.promo.toLowerCase()}.png`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, 'image/png');
+  };
+}
+
+document.addEventListener('click', async (e) => {
+  const v = e.target.dataset?.copy;
+  if (!v) return;
+  try { await navigator.clipboard.writeText(v); Igr.toast('Скопировано'); } catch { Igr.toast(v); }
+});
+
+Igr.me().then(async (user) => {
+  if (!user) { location.replace('login.html?next=partner.html'); return; }
+  const r = await fetch('/api/partner/me');
+  if (r.status === 404) {
+    $('root').innerHTML = `<div class="empty"><p>Это кабинет блогеров, которые рассказывают о Gamely в видео и на стримах:
+      своя ссылка, промокод, статистика и баннеры. Хотите так же — напишите нам.</p><a class="btn" href="contacts.html">Контакты</a></div>`;
+    return;
+  }
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error);
+  render(d);
+}).catch(() => { $('root').innerHTML = '<div class="empty"><p>Кабинет доступен в полной версии сайта.</p></div>'; });
+Igr.initHeader();
+</script>
+</body>
+</html>

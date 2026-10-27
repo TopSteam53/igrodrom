@@ -901,3 +901,29 @@ svg.fxl.over{z-index:2}
 .tbl tr.grp th{padding-top:18px;font:700 15px var(--display);color:var(--ink)}
 #shTabs{margin:4px 0 12px}
 @media(max-width:900px){.ov-grid{grid-template-columns:1fr}}
+
+/* ---------- кабинет блогера (/partner) ---------- */
+.partner-page{padding-bottom:40px}
+.pt-links{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.pt-label{display:block;color:var(--ink-2);font-size:14px;margin-bottom:6px}
+.pt-copy-row{display:flex;gap:8px;align-items:center}
+.pt-copy-row code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--paper);border-radius:10px;padding:8px 12px;font:600 15px var(--text)}
+.pt-copy .mut{margin:6px 0 0;font-size:14px}
+.kpi small{display:block;margin-top:2px;font-size:13px}
+.pt-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px}
+.pt-cols h3,.pt-obs h3{margin:8px 0 6px}
+.pt-kit{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.pt-item{display:flex;flex-direction:column;gap:4px;padding:14px}
+.pt-item .mut{font-size:14px}.pt-item .btn{align-self:flex-start;margin-top:8px}
+.pt-prev{position:relative;border-radius:12px;overflow:hidden;margin-bottom:8px;background:#0f1228;aspect-ratio:16/9}
+.pt-prev canvas{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain}
+/* Прозрачные баннеры — на «шахматке», чтобы было видно, где пусто. */
+.pt-prev.checker{background:repeating-conic-gradient(#3a3f66 0 25%,#2a2f52 0 50%) 0 0/16px 16px}
+.pt-obs{margin-top:16px}
+@media(max-width:760px){.pt-links,.pt-cols{grid-template-columns:1fr}}
+.pt-form{max-width:640px}.pt-form label .mut{font-weight:400}
+.pt-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.pt-two .mut{margin:4px 0 0;font-size:13px}
+.pt-check{display:flex;align-items:center;gap:8px;margin-top:12px}.pt-check input{width:auto}
+.pt-acts{display:flex;gap:10px;margin-top:14px}
+.pt-card{margin:16px 0}.pt-card .team-add{max-width:none;margin:4px 0 10px}.pt-pays{margin-bottom:6px}
+@media(max-width:600px){.pt-two{grid-template-columns:1fr}}

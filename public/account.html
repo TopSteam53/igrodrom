@@ -28,6 +28,7 @@
     </div>
     <div class="me-acts">
       <a class="btn hidden" id="adminLink" href="admin.html">Админка</a>
+      <a class="btn hidden" id="partnerLink" href="partner.html">Кабинет блогера</a>
       <button class="btn" id="logout">Выйти</button>
     </div>
   </section>
@@ -196,6 +197,7 @@ function renderUser() {
     user.canPublish && '<span class="badge role">разработчик</span>',
   ].filter(Boolean).join('');
   $('adminLink').classList.toggle('hidden', !user.canModerate);
+  $('partnerLink').classList.toggle('hidden', !user.partner);
   const note = $('avaNote');
   note.classList.toggle('hidden', !user.avatarPending && !user.avatarNote);
   note.innerHTML = user.avatarPending

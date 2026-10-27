@@ -104,7 +104,7 @@ export function createAdmin({
         today: sum(t - DAY), month: sum(t - 30 * DAY), all: sum(0),
         circulation: count('SELECT COALESCE(SUM(coins), 0) AS n FROM users'),
         spent_month: -count("SELECT COALESCE(SUM(delta), 0) AS n FROM coin_ledger WHERE kind = 'spend' AND created_at >= ?", t - 30 * DAY),
-        given_month: count("SELECT COALESCE(SUM(delta), 0) AS n FROM coin_ledger WHERE kind IN ('welcome', 'daily', 'grant', 'achievement', 'tournament', 'referral') AND delta > 0 AND created_at >= ?", t - 30 * DAY),
+        given_month: count("SELECT COALESCE(SUM(delta), 0) AS n FROM coin_ledger WHERE kind IN ('welcome', 'daily', 'grant', 'achievement', 'tournament', 'referral', 'partner') AND delta > 0 AND created_at >= ?", t - 30 * DAY),
         // Откуда монетки приходят и куда уходят за 30 дней — по видам записей журнала.
         flows: db.prepare(`SELECT kind, COALESCE(SUM(CASE WHEN delta > 0 THEN delta END), 0) AS income, COALESCE(-SUM(CASE WHEN delta < 0 THEN delta END), 0) AS outcome,
                                   COUNT(*) AS n FROM coin_ledger WHERE created_at >= ? GROUP BY kind ORDER BY income + outcome DESC`).all(t - 30 * DAY),

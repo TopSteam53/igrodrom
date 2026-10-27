@@ -29,7 +29,10 @@
     <label for="email">Email</label><input id="email" type="email" required autocomplete="email">
     <label for="password">Пароль</label><input id="password" type="password" required minlength="8" autocomplete="current-password">
     <p class="mut hidden" id="passHint">Не короче 8 символов.</p>
-    <p class="mut hidden" id="inviteHint" style="margin:6px 0 0">Вы пришли по приглашению друга: после подтверждения почты получите ещё 20 монеток.</p>
+    <div id="promoField" class="hidden"><label for="promo">Промокод <span class="mut">— если есть</span></label>
+      <input id="promo" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+    <p class="mut hidden" id="partnerHint" style="margin:6px 0 0">Вы пришли по ссылке блогера: сразу после регистрации — 100 монеток в подарок.</p>
+    <p class="mut hidden" id="inviteHint" style="margin:6px 0 0">Вы пришли по приглашению друга: сыграйте в две разные игры — и получите ещё 50 монеток.</p>
     <p class="mut" id="forgot" style="margin:6px 0 0"><a href="reset.html" style="color:var(--link)">Забыли пароль?</a></p>
     <div class="err-text" id="err" role="alert"></div>
     <button class="btn primary" id="submit" style="width:100%;margin-top:6px">Войти</button>
@@ -47,6 +50,8 @@
 const { $, me, safeNext } = Igr;
 const next = safeNext(new URLSearchParams(location.search).get('next'));
 let mode = 'login';
+// Пришли по ссылке блогера /p/<код> — сервер поставил cookie pref; промокод тогда не обязателен.
+const fromPartner = /(?:^|;\s*)pref=[a-z0-9_-]{2,24}(?:;|$)/.test(document.cookie);
 
 function setMode(m) {
   mode = m;
@@ -56,6 +61,8 @@ function setMode(m) {
   $('name').required = reg;
   $('passHint').classList.toggle('hidden', !reg);
   $('inviteHint').classList.toggle('hidden', !reg || !Igr.invited());
+  $('promoField').classList.toggle('hidden', !reg);
+  $('partnerHint').classList.toggle('hidden', !reg || !fromPartner);
   $('forgot').classList.toggle('hidden', reg);
   $('title').textContent = reg ? 'Регистрация' : 'Вход';
   $('submit').textContent = reg ? 'Создать аккаунт' : 'Войти';
@@ -74,7 +81,7 @@ function getTicket() {
 // Если форму заполнил менеджер паролей за секунду — просто чуть подождём, а не покажем ошибку.
 const ticketReady = () => new Promise((ok) => setTimeout(ok, Math.max(0, 3200 - (Date.now() - ticketAt))));
 document.querySelector('.tabs').onclick = (e) => { if (e.target.dataset.mode) setMode(e.target.dataset.mode); };
-if (new URLSearchParams(location.search).get('mode') === 'register') setMode('register');
+if (new URLSearchParams(location.search).get('mode') === 'register' || fromPartner) setMode('register');
 
 $('form').onsubmit = async (e) => {
   e.preventDefault();
@@ -84,7 +91,7 @@ $('form').onsubmit = async (e) => {
     if (mode === 'register') {
       if (!ticket) await getTicket();
       await ticketReady();
-      Object.assign(body, { name: $('name').value, ticket, website: $('website').value });
+      Object.assign(body, { name: $('name').value, ticket, website: $('website').value, promo: $('promo').value });
     }
     const r = await fetch(`/api/${mode}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const data = await r.json().catch(() => ({}));
