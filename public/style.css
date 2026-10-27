@@ -927,3 +927,13 @@ svg.fxl.over{z-index:2}
 .pt-acts{display:flex;gap:10px;margin-top:14px}
 .pt-card{margin:16px 0}.pt-card .team-add{max-width:none;margin:4px 0 10px}.pt-pays{margin-bottom:6px}
 @media(max-width:600px){.pt-two{grid-template-columns:1fr}}
+
+/* Шапка на телефоне: подпись раздела («Админка», «Кабинет разработчика») не влезает и роняет аватарку на вторую строку —
+   прячем её, кнопки прижимаем вправо одной строкой. */
+@media(max-width:640px){
+  .top-in>.mut{display:none}
+  .top-in>.logo{margin-right:auto}
+  .top-in>*:not(.logo){margin-left:0}
+}
+/* Узкий телефон: в шапке с кнопкой «Кабинет»/«Админка» оставляем от логотипа только значок. */
+@media(max-width:400px){.top-in{gap:8px}.top-in:has(>.btn:not(#login):not(.hidden):not(.theme-btn))>.logo>span{display:none}}
