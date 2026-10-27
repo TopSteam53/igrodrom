@@ -165,3 +165,43 @@ test('лимит подписчиков: заполненное задание �
   await b('POST', '/api/register', { email: 'b@test.ru', password: 'secret123', name: 'Второй' });
   assert.equal((await b('GET', '/api/tasks')).data.tasks.some((t) => t.id === id), false);
 });
+
+test('режим poll: сервер сам забирает обновления бота (вебхук до сервера не доходит)', async () => {
+  const queue = [];
+  let deleted = false;
+  const pollFetch = async (url, opts) => {
+    const method = String(url).split('/').pop();
+    if (method === 'getUpdates') {
+      if (!queue.length) await new Promise((r) => setTimeout(r, 30));
+      return new Response(JSON.stringify({ ok: true, result: queue.splice(0) }));
+    }
+    if (method === 'deleteWebhook') deleted = true;
+    return fakeFetch(url, opts);
+  };
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-tgpoll-'));
+  const app = createApp({
+    dataDir: dir, publicDir, adminEmails: ['owner@test.ru'], now: () => clock, previewSecret: SECRET, fetchImpl: pollFetch,
+    telegram: { token: '1:test', username: 'gamely_test_bot', api: 'http://tg.test', enabled: true, mode: 'poll' },
+  });
+  await new Promise((r) => app.listen(0, '127.0.0.1', r));
+  const saved = base;
+  base = `http://127.0.0.1:${app.address().port}`;
+  try {
+    const boss = browser();
+    await boss('POST', '/api/register', { email: 'owner@test.ru', password: 'secret123', name: 'Владелец' });
+    const id = (await boss('POST', '/api/admin/tasks', { chat: '@poll_channel', title: 'Канал', reward: 50 })).data.id;
+    const p = browser();
+    await p('POST', '/api/register', { email: 'poll@test.ru', password: 'secret123', name: 'Игрок' });
+    const before = await coins(p);
+    members.add('@poll_channel:555');
+    queue.push({ update_id: 1, message: { chat: { id: 555, type: 'private' }, from: { id: 555, first_name: 'Т' }, text: `/start ${codeOf((await p('GET', '/api/tasks')).data.bot_url)}` } });
+    for (let i = 0; i < 40 && (await coins(p)) === before; i++) await new Promise((r) => setTimeout(r, 50));
+    assert.equal(await coins(p), before + 50);
+    assert.equal(deleted, true);
+    assert.equal((await p('GET', '/api/tasks')).data.tasks.find((t) => t.id === id).status, 'paid');
+  } finally {
+    base = saved;
+    await new Promise((r) => app.close(r));
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

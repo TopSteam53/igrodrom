@@ -22,6 +22,9 @@ export function telegramFromEnv(env = process.env) {
   return {
     token, username, enabled: !!(token && username),
     api: String(env.TG_API || 'https://api.telegram.org').trim().replace(/\/+$/, ''),
+    // Наш сервер Telegram не видит в обе стороны: вебхук до него не доходит, поэтому по умолчанию сервер сам
+    // забирает обновления (getUpdates через прокси). webhook — если сервер Telegram доступен.
+    mode: env.TG_MODE === 'webhook' ? 'webhook' : 'poll',
   };
 }
 
@@ -103,13 +106,22 @@ export function createTgTasks({ db, now, send, readJson, HttpError, requireUser,
   };
 
   // ---------- Bot API через прокси ----------
-  async function call(method, body) {
-    const res = await fetchImpl(`${tg.api}/bot${tg.token}/${method}`, {
-      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}), signal: AbortSignal.timeout(15000),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!data.ok) throw new Error(`Telegram ${method}: ${data.description || res.status}`);
-    return data.result;
+  // Первое соединение с прокси иногда виснет (часть адресов Cloudflare из России режется) — сетевые ошибки повторяем.
+  async function call(method, body, { timeout = 15000, tries = 3 } = {}) {
+    for (let i = 1; ; i++) {
+      let res;
+      try {
+        res = await fetchImpl(`${tg.api}/bot${tg.token}/${method}`, {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}), signal: AbortSignal.timeout(timeout),
+        });
+      } catch (err) {
+        if (i >= tries) throw err;
+        continue;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!data.ok) throw new Error(`Telegram ${method}: ${data.description || res.status}`);
+      return data.result;
+    }
   }
   // true / false — подписан или нет; null — Telegram не ответил (бот не админ, канал не найден, сеть): никого не наказываем.
   async function isMember(chat, tgId) {
@@ -121,12 +133,6 @@ export function createTgTasks({ db, now, send, readJson, HttpError, requireUser,
     chat_id: chatId, text, disable_web_page_preview: true,
     ...(buttons && { reply_markup: { inline_keyboard: buttons } }),
   }).catch(() => {});
-
-  // Вебхук ставим при запуске: адрес и секрет могли поменяться.
-  if (tg.enabled) {
-    call('setWebhook', { url: `${siteUrl}/api/tg/webhook`, secret_token: hookSecret, allowed_updates: ['message', 'callback_query'] })
-      .catch((err) => console.error('Telegram: вебхук не поставлен —', err.message));
-  }
 
   function botUrl(userId) {
     const fresh = q.codeOf.get(userId, now() - CODE_TTL / 2);
@@ -249,6 +255,33 @@ export function createTgTasks({ db, now, send, readJson, HttpError, requireUser,
     if (!tg.enabled || req.headers['x-telegram-bot-api-secret-token'] !== hookSecret) throw new HttpError(403, 'Нет доступа');
     const upd = await readJson(req);
     send(res, 200, { ok: true }); // Telegram ждёт быстрый ответ, остальное — после
+    await handleUpdate(upd);
+  }
+
+  // Режим poll: длинный опрос getUpdates (25 с) через прокси. Ошибка сети — пауза и снова; offset подтверждает обработанное.
+  let polling = tg.enabled && tg.mode === 'poll';
+  async function poll() {
+    let offset = 0;
+    await call('deleteWebhook', {}).catch(() => {});
+    while (polling) {
+      try {
+        const updates = await call('getUpdates', { offset, timeout: 25, allowed_updates: ['message', 'callback_query'] }, { timeout: 40000, tries: 1 });
+        for (const upd of updates) {
+          offset = upd.update_id + 1;
+          await handleUpdate(upd);
+        }
+      } catch (err) {
+        if (polling) await new Promise((r) => setTimeout(r, /Conflict/.test(err.message) ? 30000 : 5000).unref?.());
+      }
+    }
+  }
+  if (polling) poll();
+  else if (tg.enabled) {
+    call('setWebhook', { url: `${siteUrl}/api/tg/webhook`, secret_token: hookSecret, allowed_updates: ['message', 'callback_query'] })
+      .catch((err) => console.error('Telegram: вебхук не поставлен —', err.message));
+  }
+
+  async function handleUpdate(upd) {
     try {
       const msg = upd.message;
       if (msg?.chat?.type === 'private' && typeof msg.text === 'string' && msg.from) {
@@ -318,7 +351,7 @@ export function createTgTasks({ db, now, send, readJson, HttpError, requireUser,
   }
 
   return {
-    stop: () => clearInterval(timer),
+    stop: () => { clearInterval(timer); polling = false; },
     route(p, m) {
       let mm;
       if (p === '/api/tasks' && m === 'GET') return list;

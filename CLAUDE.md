@@ -23,7 +23,7 @@
 - Бэкапы: `scripts/backup.sh` по cron в 04:30 → `/var/backups/igrodrom` (14 дней). Копии вне сервера пока не настроены.
 
 ## Стек и запуск
-Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm start` → localhost:3000, `npm test` (140 тестов),
+Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm start` → localhost:3000, `npm test` (141 тест),
 `npm run build:sdk` и `npm run build:catalog` после правок SDK/каталога (тесты ругаются, если устарело).
 Подробности: README.md, дизайн: DESIGN.md, настройки: `.env.example`.
 
@@ -100,7 +100,7 @@ Node.js ≥ 22.13, без зависимостей (`http`, `node:sqlite`). `npm
   Игрок привязывает Telegram через бота Gamely (`t.me/<бот>?start=<код>`, один Telegram — один аккаунт), 7 дней подписка
   перепроверяется раз в 12 ч, отписался — награда списывается. Карточки: профиль (#tasks), главная, заставка вместо рекламы
   за награду (`public/ads.js`). Админка → «Задания»: каналы (свой и чужие с рекламодателем и erid), лимит, «Бот» — проверка,
-  что бот админ канала. Бот получает обновления вебхуком `/api/tg/webhook` (секрет из previewSecret), запросы к Telegram —
+  что бот админ канала. Telegram до нашего сервера не достучится, поэтому сервер сам забирает обновления getUpdates через прокси (TG_MODE=webhook — вебхук `/api/tg/webhook`), запросы к Telegram —
   через прокси Cloudflare (`TG_API`, `scripts/promo/tg-worker.js`, переменная BOT_IDS). Ключи на сервер кладёт пользователь:
   `ssh -t … /root/set-telegram.sh`. Без TG_BOT_TOKEN/TG_BOT_USERNAME заданий не видно.
 - Реклама через `.env` (`ADS_PROVIDER`: none/test/yandex/vk/google), ads.txt, счётчик показов, страницы
