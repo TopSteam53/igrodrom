@@ -17,6 +17,7 @@ import { createRewards, migrateRewards } from './rewards.js';
 import { createSupport, migrateSupport } from './support.js';
 import { createShop, migrateShop, LOOK_COLS } from './shop.js';
 import { createPartners, migratePartners } from './partners.js';
+import { createSources, migrateSources } from './sources.js';
 import { slugify } from './slug.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
@@ -123,6 +124,7 @@ export function createApp({
   migrateSupport(db);
   migrateShop(db);
   migratePartners(db);
+  migrateSources(db);
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
@@ -288,6 +290,10 @@ export function createApp({
   const partners = createPartners({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, HttpError, requireUser, requireOwner, cookies, secureCookies, economy,
     logAction, siteUrl,
+  });
+  const sources = createSources({
+    db, now, dayOf: (t) => stats.dayOf(t), send, readJson, requireOwner, currentUser: (req) => currentUser(req), isModerator,
+    isBot: (ua) => stats.isBot(ua), visitorOf: (req) => visitorOf(req), cookies, sha256, secureCookies,
   });
   if (seedDemoGames) seedDemo();
   for (const g of q.unslugged.all()) assignSlug(g.id, g.title);
@@ -592,6 +598,7 @@ export function createApp({
     economy.welcome(id);
     rewards.onRegister(req, id);
     partners.onRegister(req, id, promoPartner);
+    sources.onRegister(req, id);
     const user = q.userById.get(id);
     adoptGuestSaves(req, user.id);
     sendVerification(user);
@@ -1480,10 +1487,11 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m) || partners.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m) || partners.route(p, m) || sources.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);
+      sources.markStaff(req, u);
       return send(res, 200, { user: u ? publicUser(u) : null });
     }
     if ((p === '/api/categories' || p === '/api/genres') && m === 'GET') {

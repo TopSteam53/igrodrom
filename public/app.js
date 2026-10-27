@@ -121,6 +121,7 @@
     const login = $('login');
     if (login && window.IgrTheme) login.before(IgrTheme.button());
     metrika();
+    visitSource();
     if (login) login.href = `login.html?next=${encodeURIComponent(here())}`;
     me().then((user) => {
       if (user && login) {
@@ -491,6 +492,15 @@
         else el.textContent = value;
       }
     });
+  }
+
+  // Заход по рекламной ссылке с utm-метками (VK Реклама добавляет их сама) — для раздела «Источники» в админке.
+  function visitSource() {
+    const p = new URLSearchParams(location.search);
+    const source = p.get('utm_source');
+    if (!source) return;
+    fetch('/api/visit', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ source, campaign: p.get('utm_campaign') || '' }) }).catch(() => {});
   }
 
   // Яндекс Метрика — если номер счётчика задан в .env (METRIKA_ID).

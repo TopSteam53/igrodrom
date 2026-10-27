@@ -32,6 +32,7 @@
     <button data-pane="invites">🤝 Приглашения</button>
     <button data-pane="achievements">🏅 Достижения</button>
     <button data-pane="partners" class="owner-only">🎥 Блогеры</button>
+    <button data-pane="sources" class="owner-only">Источники</button>
     <button data-pane="log">📜 Журнал</button>
     <button data-pane="team" class="owner-only">🛡️ Команда</button>
   </nav>
@@ -184,6 +185,18 @@
       </form>
     </section>
 
+    <section class="pane hidden" id="pane-sources">
+      <h1 class="adm-title">Источники</h1>
+      <p class="mut">Переходы по ссылкам с utm-метками, например из VK Рекламы. Заходы владельца и модераторов не считаются.
+        «Играли» — запустили хотя бы одну игру, «вернулись» — играли в другой день после прихода.</p>
+      <div class="lb-boards" id="srcDays" role="tablist" aria-label="Период">
+        <button class="tab" data-days="7">7 дней</button><button class="tab on" data-days="30">30 дней</button><button class="tab" data-days="90">90 дней</button>
+      </div>
+      <div class="kpis" id="srcKpis"></div>
+      <div class="panel chart-panel"><div class="chart-head"><div class="chart-title">Новые переходы по дням</div></div><div class="chart" id="srcChart"></div></div>
+      <div class="panel table-panel"><table class="tbl" id="srcTable"></table></div>
+    </section>
+
     <section class="pane hidden" id="pane-log">
       <h1 class="adm-title">Журнал решений</h1>
       <p class="mut">Последние 200 действий команды: кто, что и почему.</p>
@@ -235,7 +248,7 @@ async function ask(title, text, placeholder = 'Причина') {
 }
 
 // ---------- разделы ----------
-const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, log: loadLog, team: loadTeam };
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, sources: loadSources, log: loadLog, team: loadTeam };
 function openPane(name) {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
@@ -680,6 +693,32 @@ for (const id of ['invTop', 'invRecent']) {
   $(id).onclick = (e) => { const a = e.target.closest('[data-user]'); if (a) { e.preventDefault(); openUser(Number(a.dataset.user)); } };
 }
 
+// ---------- источники ----------
+// Метки VK Рекламы: utm_source=vk_ads, utm_campaign — номер кампании в кабинете VK.
+const SOURCE_NAME = { vk_ads: 'VK Реклама', vk: 'ВКонтакте', yandex: 'Яндекс', tg: 'Telegram', telegram: 'Telegram' };
+const pct = (n, of) => of ? `${Math.round((n / of) * 100)}%` : '—';
+let srcDays = 30;
+async function loadSources() {
+  for (const b of document.querySelectorAll('#srcDays [data-days]')) b.classList.toggle('on', Number(b.dataset.days) === srcDays);
+  const d = await api('GET', `/api/admin/sources?days=${srcDays}`);
+  const sum = (k) => d.rows.reduce((n, r) => n + r[k], 0);
+  const visitors = sum('visitors'), played = sum('played');
+  $('srcKpis').innerHTML = [
+    kpi('Пришли по ссылкам', fmt(visitors), `за ${srcDays} дней`),
+    kpi('Играли', fmt(played), `${pct(played, visitors)} пришедших`),
+    kpi('Вернулись', fmt(sum('came_back')), `${pct(sum('came_back'), played)} игравших`),
+    kpi('Зарегистрировались', fmt(sum('regs')), `из них играли — ${fmt(sum('reg_played'))}`),
+  ].join('');
+  drawBars($('srcChart'), d.daily.map((x) => ({ label: x.day, value: x.n })), 'переходов');
+  $('srcTable').innerHTML = d.rows.length ? `<thead><tr><th>Источник</th><th>Кампания</th><th class="n">Пришли</th><th class="n">Играли</th>
+    <th class="n">Вернулись</th><th class="n">Регистрации</th><th>Последний переход</th></tr></thead><tbody>${d.rows.map((r) =>
+    `<tr><td>${esc(SOURCE_NAME[r.source] || r.source)}</td><td class="mut">${esc(r.campaign || '—')}</td><td class="n">${fmt(r.visitors)}</td>
+      <td class="n">${fmt(r.played)} <small class="mut">${pct(r.played, r.visitors)}</small></td><td class="n">${fmt(r.came_back)}</td>
+      <td class="n">${fmt(r.regs)}</td><td>${date(`${r.last_day}T12:00:00Z`)}</td></tr>`).join('')}</tbody>`
+    : '<tbody><tr><td class="mut">По ссылкам с метками пока никто не приходил.</td></tr></tbody>';
+}
+$('srcDays').onclick = (e) => { const b = e.target.closest('[data-days]'); if (b) { srcDays = Number(b.dataset.days); loadSources(); } };
+
 // ---------- достижения ----------
 const TIER_NAME = { bronze: 'бронза', silver: 'серебро', gold: 'золото' };
 async function loadAchievementStats() {
@@ -855,7 +894,7 @@ Igr.me().then((user) => {
   document.querySelectorAll('.owner-only').forEach((el) => el.classList.toggle('hidden', !user.isAdmin));
   $('adm').hidden = false;
   const start = location.hash.slice(1);
-  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners'].includes(start)) ? start : 'overview');
+  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners', 'sources'].includes(start)) ? start : 'overview');
   if (start && start !== 'overview') api('GET', '/api/admin/overview').then((o) => {
     $('cntGames').textContent = o.queues.games || ''; $('cntDevs').textContent = o.queues.developers || ''; $('cntAvatars').textContent = o.queues.avatars || '';
   }).catch(() => {});
