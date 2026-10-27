@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Коллаж</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:#232633;color:#f1ede4;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transparent}
+#cv{position:fixed;inset:0;width:100%;height:100%;display:block}
+#top{position:fixed;left:0;right:0;top:0;height:56px;display:flex;align-items:center;gap:10px;padding:0 14px;max-width:900px;margin:0 auto;pointer-events:none}
+#top>*{pointer-events:auto}
+#lvl{margin-right:auto;line-height:1.1}
+#lvl small{display:block;font-size:12px;font-weight:700;color:#a7a3b8;letter-spacing:.06em;text-transform:uppercase}
+#lvl b{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}
+.chip{display:flex;align-items:center;gap:6px;height:38px;padding:0 12px;border-radius:12px;background:#2e3242;box-shadow:inset 0 0 0 1.5px #434860;font-weight:800;font-size:16px;font-variant-numeric:tabular-nums;color:#e6e1d6}
+.chip svg{width:18px;height:18px}
+#muteBtn{width:38px;height:38px;border-radius:12px;background:#2e3242;box-shadow:inset 0 0 0 1.5px #434860;display:flex;align-items:center;justify-content:center;color:#e6e1d6}
+#muteBtn svg{width:20px;height:20px}
+#bar{position:fixed;left:0;right:0;bottom:0;height:72px;display:flex;align-items:center;justify-content:center;gap:10px;padding:0 10px 10px}
+.btn{height:48px;padding:0 16px;border-radius:14px;display:flex;align-items:center;gap:8px;font-weight:800;font-size:16px;color:#232633;background:#f1ede4;box-shadow:0 4px 0 #0f1118;transition:transform .08s,box-shadow .08s;white-space:nowrap}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #0f1118}
+.btn svg{width:20px;height:20px;flex:none}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn.main{background:#ffc531}
+.btn.on{background:#cfe3ff}
+.gcoin{width:18px;height:18px;flex:none}
+.price{display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+.ad{font-size:12px;font-weight:900;border-radius:6px;padding:2px 6px;background:rgba(35,38,51,.14)}
+@media (max-width:420px){.btn{padding:0 12px;font-size:15px}#restartBtn span{display:none}}
+#ov{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(15,17,24,.6);padding:16px}
+#ov.show{display:flex;animation:fade .25s}
+@keyframes fade{from{opacity:0}}
+.card{width:min(100%,360px);padding:24px 20px 20px;border-radius:22px;text-align:center;background:#f1ede4;color:#232633;box-shadow:0 8px 0 #0f1118;animation:pop .35s cubic-bezier(.3,1.5,.5,1)}
+@keyframes pop{from{transform:scale(.7);opacity:0}}
+#ovStars{display:flex;justify-content:center;gap:8px;margin-bottom:8px}
+#ovStars svg{width:46px;height:46px;animation:pop .45s cubic-bezier(.3,1.6,.5,1) backwards}
+#ovT{margin:0;font-size:26px;font-weight:900;line-height:1.15}
+#ovS{margin:8px 0 18px;color:#5e5a6e;font-size:15px;line-height:1.4}
+#ovBtns .btn{width:100%;justify-content:center}
+#toast{position:fixed;left:50%;top:64px;transform:translate(-50%,-8px);z-index:30;background:#f1ede4;color:#232633;padding:10px 16px;border-radius:12px;font-size:15px;font-weight:800;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#a7a3b8;font-weight:700;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="loading">Развешиваем картины…</div>
+<div id="top">
+  <div id="lvl"><small>Коллаж</small><b id="lvlN">1</b></div>
+  <div class="chip" title="Сделано ходов"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v13M7 17l-3-3M7 17l3-3M17 20V7M17 7l-3 3M17 7l3 3"/></svg><span id="moves">0</span></div>
+  <button id="muteBtn" aria-label="Звук"></button>
+</div>
+<div id="bar">
+  <button class="btn" id="restartBtn" title="Перемешать заново (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg><span>Заново</span></button>
+  <button class="btn" id="peekBtn" title="Пока нажата — видно, как должно быть (пробел)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Образец</span></button>
+  <button class="btn main" id="hintBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/></svg><span class="cost"></span></button>
+</div>
+<div id="ov"><div class="card"><div id="ovStars"></div><h2 id="ovT"></h2><p id="ovS"></p><div id="ovBtns"></div></div></div>
+<div id="toast"></div>
+<script src="scenes.js"></script>
+<script src="covers.js"></script>
+<script src="../../sdk/v1.js"></script>
+<script>
+(function(){
+'use strict';
+var SC=window.COLLAGE_SCENES,COVERS=window.COLLAGE_COVERS,RES=200,HINT_COST=3;
+var cv=document.getElementById('cv'),g=cv.getContext('2d');
+var $=function(id){return document.getElementById(id)};
+var sdk=null,paused=false,mute=false,touched=false;
+function rng(seed){return function(){seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function shuffle(a,r){for(var i=a.length-1;i>0;i--){var j=r()*(i+1)|0,t=a[i];a[i]=a[j];a[j]=t}return a}
+
+// ---------- уровень: доска делится на прямоугольники-картины ----------
+function boardFor(l){return l<=2?[4,4]:l<=5?[4,5]:l<=10?[4,6]:l<=16?[5,6]:l<=25?[5,7]:[6,7]}
+function partition(C,R,r){
+  var out=[];
+  (function split(x,y,w,h){
+    var fits=w<=4&&h<=4&&w*h<=12;
+    if(fits&&(w<4&&h<4||r()<(w*h<=8?.55:.3))){out.push({x:x,y:y,w:w,h:h});return}
+    var vert=w>4||(w>=4&&(h<4||r()<w/(w+h)));
+    if(vert){var k=2+Math.floor(r()*(w-3));split(x,y,k,h);split(x+k,y,w-k,h)}
+    else{var m=2+Math.floor(r()*(h-3));split(x,y,w,m);split(x,y+m,w,h-m)}
+  })(0,0,C,R);
+  return out;
+}
+var level=1,C=4,R=4,regions=[],pieces=[],pos=[],cellOf=[],sig=[],moves=0,optimal=0,done=false,doneRegions=[];
+function makeLevel(l){
+  var r=rng(l*7919+13),bs=boardFor(l);C=bs[0];R=bs[1];
+  regions=partition(C,R,r);
+  var kinds=shuffle(SC.list.slice(),r),covers=shuffle(COVERS.map(function(c,i){return i}),rng(Math.floor((l-1)/4)*31+5));
+  var ci=(l-1)%4*3,ki=0;
+  regions.forEach(function(rg,i){
+    if(rg.w/rg.h>=1.5&&r()<.6&&ci<covers.length){rg.src={cover:covers[ci++%covers.length]};rg.name=COVERS[rg.src.cover].name}
+    else{var k=kinds[ki++%kinds.length];rg.src={kind:k.kind,seed:l*101+i};rg.name=k.name}
+  });
+  pieces=[];
+  regions.forEach(function(rg,ri){for(var y=0;y<rg.h;y++)for(var x=0;x<rg.w;x++)pieces.push({r:ri,lx:x,ly:y,home:(rg.x+x)+(rg.y+y)*C})});
+}
+function homePiece(cell){for(var i=0;i<pieces.length;i++)if(pieces[i].home===cell)return i;return -1}
+var homeOf=[];
+function correct(cell){var p=pos[cell],q=homeOf[cell];return p===q||(pieces[p].r===pieces[q].r&&sig[p]===sig[q])}
+function regionDone(ri){var rg=regions[ri];for(var y=0;y<rg.h;y++)for(var x=0;x<rg.w;x++)if(!correct(rg.x+x+(rg.y+y)*C))return false;return true}
+function shufflePos(r){
+  var n=pieces.length;pos=pieces.map(function(_,i){return i});
+  shuffle(pos,r);
+  for(var guard=0;guard<200;guard++){
+    var bad=[];for(var c=0;c<n;c++)if(correct(c))bad.push(c);
+    if(!bad.length)break;
+    bad.forEach(function(c){var o=Math.floor(r()*n),t=pos[c];pos[c]=pos[o];pos[o]=t});
+  }
+}
+function cycles(){var seen=[],n=0;for(var i=0;i<pos.length;i++){if(seen[i])continue;n++;for(var j=i;!seen[j];j=pieces[pos[j]].home)seen[j]=1}return n}
+
+// ---------- картины: рисуем один раз в RES px на клетку ----------
+var pics=[],imgCache={};
+function loadImg(src){if(imgCache[src])return imgCache[src];imgCache[src]=new Promise(function(ok){var i=new Image();i.onload=function(){ok(i)};i.onerror=function(){ok(null)};i.src=src});return imgCache[src]}
+function renderPictures(){
+  return Promise.all(regions.map(function(rg){return rg.src.cover!=null?loadImg(COVERS[rg.src.cover].file):null})).then(function(imgs){
+    pics=regions.map(function(rg,i){
+      var c=document.createElement('canvas');c.width=rg.w*RES;c.height=rg.h*RES;var x=c.getContext('2d');
+      if(imgs[i]){var im=imgs[i],s=Math.max(c.width/im.width,c.height/im.height);x.imageSmoothingQuality='high';x.drawImage(im,(c.width-im.width*s)/2,(c.height-im.height*s)/2,im.width*s,im.height*s)}
+      else SC.draw(x,c.width,c.height,rg.src.kind!=null?rg.src.kind:'meadow',rg.src.seed||1);
+      return c;
+    });
+    // Кусочки, которые выглядят одинаково (ровное небо, тёмный фон), считаются взаимозаменяемыми.
+    sig=pieces.map(function(p){
+      var d=pics[p.r].getContext('2d').getImageData(p.lx*RES,p.ly*RES,RES,RES).data,s='';
+      for(var by=0;by<6;by++)for(var bx=0;bx<6;bx++){
+        var rr=0,gg=0,bb=0,n=0;
+        for(var y=by*RES/6;y<(by+1)*RES/6;y+=4)for(var xx=bx*RES/6;xx<(bx+1)*RES/6;xx+=4){var o=((y|0)*RES+(xx|0))*4;rr+=d[o];gg+=d[o+1];bb+=d[o+2];n++}
+        s+=String.fromCharCode(65+(rr/n>>4),65+(gg/n>>4),65+(bb/n>>4));
+      }
+      return s;
+    });
+  });
+}
+
+// ---------- старт картины ----------
+var anims={},intro=0,ready=false;
+function startLevel(l,saved){
+  level=l;makeLevel(l);done=false;moves=0;sel=-1;drag=null;anims={};ready=false;
+  homeOf=[];pieces.forEach(function(p,i){homeOf[p.home]=i});
+  $('lvlN').textContent=level;$('moves').textContent=0;ov.classList.remove('show');
+  layout();
+  return renderPictures().then(function(){
+    if(l!==level)return;
+    $('loading').style.display='none';
+    if(saved){pos=saved.pos.slice();moves=saved.moves}
+    else shufflePos(rng(l*31+(Date.now()&0xffff)));
+    optimal=pieces.length-cycles();
+    cellOf=[];pos.forEach(function(p,c){cellOf[p]=c});
+    doneRegions=regions.map(function(_,i){return regionDone(i)});
+    $('moves').textContent=moves;
+    ready=true;dirty=true;
+    // Сначала видно, как должно быть, потом кусочки разлетаются по местам.
+    if(!saved){
+      intro=performance.now()+1300;
+      pieces.forEach(function(p,i){var h=cellRect(p.home);anims[i]={x:h.x,y:h.y,t0:intro+((i*37)%pieces.length)*12,dur:520}});
+    }else intro=0;
+    if(saved&&doneRegions.every(Boolean))win();
+  });
+}
+
+// ---------- раскладка ----------
+var DPR=1,VW=0,VH=0,B={x:0,y:0,cs:60,gap:3};
+function layout(){
+  DPR=Math.min(2,window.devicePixelRatio||1);VW=window.innerWidth;VH=window.innerHeight;
+  cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR);
+  var top=60,bot=76,aw=Math.min(VW-20,900),ah=VH-top-bot-12;
+  var cs=Math.floor(Math.min(aw/C,ah/R,150));
+  B.cs=cs;B.gap=Math.max(2,Math.round(cs*.035));B.x=Math.round((VW-cs*C)/2);B.y=Math.round(top+6+(ah-cs*R)/2);
+  dirty=true;
+}
+function cellRect(c){return {x:B.x+(c%C)*B.cs,y:B.y+Math.floor(c/C)*B.cs}}
+function cellAt(x,y){var cx=Math.floor((x-B.x)/B.cs),cy=Math.floor((y-B.y)/B.cs);return cx<0||cy<0||cx>=C||cy>=R?-1:cx+cy*C}
+
+// ---------- рисование ----------
+var dirty=true,sel=-1,drag=null,peek=false,flashes=[];
+function drawPiece(p,x,y,size,insets){
+  var pc=pieces[p],s=B.cs,src=pics[pc.r];
+  var l=insets?insets[0]:0,t=insets?insets[1]:0,rr=insets?insets[2]:0,b=insets?insets[3]:0;
+  var k=RES/s;
+  g.drawImage(src,pc.lx*RES+l*k,pc.ly*RES+t*k,RES-(l+rr)*k,RES-(t+b)*k,x+l*size/s,y+t*size/s,(s-l-rr)*size/s,(s-t-b)*size/s);
+}
+function draw(now){
+  g.setTransform(DPR,0,0,DPR,0,0);g.clearRect(0,0,VW,VH);
+  if(!ready)return;
+  var s=B.cs,gp=B.gap/2;
+  g.fillStyle='#181a24';rrect(B.x-6,B.y-6,s*C+12,s*R+12,12);g.fill();
+  var showHome=peek||now<intro;
+  // готовые картины — целиком, в рамке
+  regions.forEach(function(rg,ri){
+    if(!doneRegions[ri]||showHome)return;
+    var x=B.x+rg.x*s+gp,y=B.y+rg.y*s+gp,w=rg.w*s-gp*2,h=rg.h*s-gp*2;
+    g.drawImage(pics[ri],x,y,w,h);
+    g.strokeStyle='#f1ede4';g.lineWidth=Math.max(2,s*.04);g.strokeRect(x+g.lineWidth/2,y+g.lineWidth/2,w-g.lineWidth,h-g.lineWidth);
+  });
+  for(var c=0;c<C*R;c++){
+    var p=showHome?homeOf[c]:pos[c],pc=pieces[p];
+    if(!showHome&&doneRegions[pc.r]&&correct(c))continue;
+    if(drag&&drag.p===p&&!showHome)continue;
+    var r=cellRect(showHome?pc.home:cellOf[p]),a=showHome?null:anims[p];
+    if(a&&now>=a.t0){var t=Math.min(1,(now-a.t0)/a.dur),e=1-Math.pow(1-t,3);r={x:a.x+(r.x-a.x)*e,y:a.y+(r.y-a.y)*e};if(t>=1)delete anims[p]}
+    else if(a){r={x:a.x,y:a.y}}
+    // закреплённые кусочки одной картины прилегают друг к другу без щелей
+    var ins=[gp,gp,gp,gp];
+    if(!showHome&&correct(c)){
+      var cx=c%C,cy=(c/C)|0,nb=[[cx-1,cy],[cx,cy-1],[cx+1,cy],[cx,cy+1]];
+      nb.forEach(function(n,k){if(n[0]<0||n[1]<0||n[0]>=C||n[1]>=R)return;var nc=n[0]+n[1]*C;if(pieces[pos[nc]].r===pc.r&&pieces[homeOf[nc]].r===pc.r&&correct(nc))ins[k]=0});
+    }
+    if(showHome)ins=[0,0,0,0];
+    drawPiece(p,r.x,r.y,s,ins);
+    if(c===sel&&!showHome){g.strokeStyle='#ffc531';g.lineWidth=3;g.strokeRect(r.x+gp+1.5,r.y+gp+1.5,s-gp*2-3,s-gp*2-3)}
+  }
+  if(drag&&!showHome){
+    var tc=cellAt(drag.x,drag.y);
+    if(tc>=0&&tc!==drag.from&&!correct(tc)){var tr=cellRect(tc);g.strokeStyle='#ffc531';g.lineWidth=3;g.strokeRect(tr.x+gp+1.5,tr.y+gp+1.5,s-gp*2-3,s-gp*2-3)}
+    var big=s*1.08;
+    g.save();g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=18;g.shadowOffsetY=8;
+    g.fillStyle='#000';g.fillRect(drag.x-drag.ox*1.08,drag.y-drag.oy*1.08,big,big);g.restore();
+    drawPiece(drag.p,drag.x-drag.ox*1.08,drag.y-drag.oy*1.08,big,null);
+  }
+  flashes=flashes.filter(function(f){return now-f.t0<700});
+  flashes.forEach(function(f){var rg=regions[f.r],t=(now-f.t0)/700;g.fillStyle='rgba(255,255,255,'+(.55*(1-t))+')';g.fillRect(B.x+rg.x*s,B.y+rg.y*s,rg.w*s,rg.h*s)});
+}
+function rrect(x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+function frame(now){
+  requestAnimationFrame(frame);
+  if(paused)return;
+  if(Object.keys(anims).length||flashes.length||(intro&&now<intro+900))dirty=true;
+  if(!dirty)return;dirty=false;draw(now);
+}
+
+// ---------- ходы ----------
+function swap(a,b,fromDrag){
+  if(a===b||correct(a)||correct(b))return;
+  var pa=pos[a],pb=pos[b],ra=cellRect(a),rb=cellRect(b),now=performance.now();
+  if(fromDrag){anims[pa]={x:drag.x-drag.ox,y:drag.y-drag.oy,t0:now,dur:140}}else anims[pa]={x:ra.x,y:ra.y,t0:now,dur:200};
+  anims[pb]={x:rb.x,y:rb.y,t0:now,dur:200};
+  pos[a]=pb;pos[b]=pa;cellOf[pb]=a;cellOf[pa]=b;
+  moves++;$('moves').textContent=moves;touched=true;
+  afterMove([a,b]);
+}
+function afterMove(cells){
+  var locked=cells.some(correct);
+  var newly=[];regions.forEach(function(_,i){if(!doneRegions[i]&&regionDone(i)){doneRegions[i]=true;newly.push(i)}});
+  if(newly.length){
+    newly.forEach(function(i){flashes.push({r:i,t0:performance.now()+150})});
+    arpeggio();toast((newly.length>1?'Картины ':'Картина ')+newly.map(function(i){return '«'+regions[i].name+'»'}).join(', ')+(newly.length>1?' собраны':' собрана'));
+  }else if(locked)ding();else click();
+  save();dirty=true;
+  if(doneRegions.every(Boolean))setTimeout(win,650);
+}
+function stars(){var n=pieces.length,extra=moves-optimal;return extra<=Math.ceil(n*.1)?3:extra<=Math.ceil(n*.4)?2:1}
+function win(){
+  if(done)return;done=true;
+  var st=stars(),doneL=level;level++;saveRaw();fanfare();
+  var star=function(on,i){return '<svg viewBox="0 0 24 24" style="animation-delay:'+(i*120)+'ms"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.2 1.3-6.6L2.5 9.3l6.6-.8z" fill="'+(on?'#ffc531':'none')+'" stroke="#232633" stroke-width="1.6" stroke-linejoin="round"/></svg>'};
+  $('ovStars').innerHTML=[0,1,2].map(function(i){return star(i<st,i)}).join('');
+  $('ovT').textContent='Коллаж '+doneL+' собран';
+  $('ovS').textContent='Ходов: '+moves+'. Меньше всего можно было за '+optimal+'.';
+  var b=$('ovBtns');b.innerHTML='';var nb=document.createElement('button');nb.className='btn main';nb.textContent='Следующий коллаж';nb.addEventListener('click',next);b.appendChild(nb);
+  setTimeout(function(){ov.classList.add('show')},200);
+}
+var ov=$('ov');
+function next(){
+  if(next.busy)return;next.busy=true;
+  var p=sdk?sdk.ads.fullscreen():Promise.resolve({shown:false});
+  p.catch(function(){}).then(function(){next.busy=false;startLevel(level).then(save)});
+}
+function restart(){if(!ready||done)return;touched=true;startLevel(level).then(save)}
+
+// ---------- подсказка: один кусочек встаёт на место ----------
+var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
+var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+function drawCost(){
+  var host=onGamely();
+  document.querySelector('#hintBtn .cost').innerHTML=host?'<span class="price">'+GCOIN+HINT_COST+'</span>':'<span class="ad">▶</span>';
+  $('hintBtn').title=host?'Поставить один кусочек на место за '+HINT_COST+' монетки':'Поставить один кусочек на место за просмотр рекламы';
+  $('hintBtn').setAttribute('aria-label','Подсказка');
+}
+function hint(){
+  var btn=$('hintBtn');if(!ready||done||btn.disabled)return;
+  var wrong=[];for(var c=0;c<C*R;c++)if(!correct(c))wrong.push(c);
+  if(!wrong.length)return;
+  btn.disabled=true;ensureAudio();
+  var byAd=function(){var p=sdk?sdk.ads.rewarded():Promise.resolve({rewarded:true});
+    return p.catch(function(){return {rewarded:false}}).then(function(r){if(r&&r.rewarded===true)return true;toast('Реклама не досмотрена — подсказки не будет');return false})};
+  var p=onGamely()?sdk.coins.spend(HINT_COST,'Подсказка в «Коллаже»').catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;var why=r&&r.reason;if(why==='unavailable')return byAd();if(why!=='cancelled')toast(COIN_MSG[why]||COIN_MSG.unavailable);return false}):byAd();
+  p.catch(function(){return false}).then(function(ok){
+    btn.disabled=false;if(!ok||done)return;
+    // клетка, куда ставим, — та, чей кусочек сейчас дальше всех от своего места
+    var c=wrong[Math.floor(Math.random()*wrong.length)],want=homeOf[c],from=cellOf[want];
+    if(correct(from)){for(var i=0;i<pieces.length;i++)if(pieces[i].r===pieces[want].r&&sig[i]===sig[want]&&!correct(cellOf[i])){from=cellOf[i];break}}
+    var m=moves;swap(from,c,false);moves=m;$('moves').textContent=moves;save();
+  });
+}
+
+// ---------- ввод ----------
+cv.addEventListener('pointerdown',function(e){
+  if(!ready||done||e.button>0||performance.now()<intro+300)return;
+  ensureAudio();
+  var c=cellAt(e.clientX,e.clientY);
+  if(c<0){sel=-1;dirty=true;return}
+  if(correct(c)){thud();return}
+  var r=cellRect(c);
+  drag={from:c,p:pos[c],x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,ox:e.clientX-r.x,oy:e.clientY-r.y,moved:false};
+  try{cv.setPointerCapture(e.pointerId)}catch(_){}
+  dirty=true;
+});
+cv.addEventListener('pointermove',function(e){
+  if(!drag)return;drag.x=e.clientX;drag.y=e.clientY;
+  if(Math.abs(drag.x-drag.sx)+Math.abs(drag.y-drag.sy)>8)drag.moved=true;
+  dirty=true;
+});
+function endDrag(e){
+  if(!drag)return;var d=drag;
+  if(!d.moved){
+    // касание без перетаскивания: выбрать кусочек, потом второй — поменять местами
+    drag=null;
+    if(sel<0){sel=d.from;tick()}else if(sel===d.from)sel=-1;else{var a=sel;sel=-1;swap(a,d.from,false)}
+    dirty=true;return;
+  }
+  var t=cellAt(d.x,d.y);
+  if(t>=0&&t!==d.from&&!correct(t)){sel=-1;swap(d.from,t,true)}
+  else{var now=performance.now();anims[d.p]={x:d.x-d.ox,y:d.y-d.oy,t0:now,dur:160}}
+  drag=null;dirty=true;
+}
+cv.addEventListener('pointerup',endDrag);
+cv.addEventListener('pointercancel',endDrag);
+function setPeek(v){if(!ready||done)return;peek=v;$('peekBtn').classList.toggle('on',v);dirty=true}
+var pk=$('peekBtn');
+pk.addEventListener('pointerdown',function(e){e.preventDefault();setPeek(true);try{pk.setPointerCapture(e.pointerId)}catch(_){}});
+['pointerup','pointercancel','pointerleave'].forEach(function(ev){pk.addEventListener(ev,function(){setPeek(false)})});
+$('restartBtn').addEventListener('click',function(){restart();this.blur()});
+$('hintBtn').addEventListener('click',function(){hint();this.blur()});
+window.addEventListener('keydown',function(e){
+  if(ov.classList.contains('show')){if(e.code==='Enter'||e.code==='Space'){e.preventDefault();next()}return}
+  if(e.code==='Space'){e.preventDefault();if(!e.repeat)setPeek(true)}
+  if(e.code==='KeyR')restart();
+});
+window.addEventListener('keyup',function(e){if(e.code==='Space')setPeek(false)});
+document.addEventListener('touchmove',function(e){e.preventDefault()},{passive:false});
+document.addEventListener('contextmenu',function(e){e.preventDefault()});
+window.addEventListener('resize',layout);
+
+// ---------- тосты ----------
+var toastEl=$('toast'),tt=null;
+function toast(s){toastEl.textContent=s;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},2200)}
+
+// ---------- сохранение через SDK ----------
+// sdk присваиваем только после чтения сохранения, иначе первое действие затрёт старый прогресс.
+function saveRaw(){
+  if(!sdk)return;
+  var game=!done&&ready?{lvl:level,pos:pos,moves:moves}:null;
+  sdk.data.set({v:1,level:level,mute:mute,game:game}).catch(function(){});
+}
+function save(){if(!done)saveRaw()}
+function validGame(gm,l){
+  if(!gm||typeof gm!=='object'||gm.lvl!==l||!Array.isArray(gm.pos)||!(gm.moves>=0&&gm.moves<100000))return null;
+  var bs=boardFor(l),n=bs[0]*bs[1];if(gm.pos.length!==n)return null;
+  var seen={};for(var i=0;i<n;i++){var v=gm.pos[i];if(v!==(v|0)||v<0||v>=n||seen[v])return null;seen[v]=1}
+  return gm;
+}
+function applySave(d){
+  if(!d||typeof d!=='object'||d.v!==1)return null;
+  if(typeof d.mute==='boolean'){mute=d.mute;drawMute()}
+  var l=typeof d.level==='number'&&isFinite(d.level)?Math.max(1,Math.min(99999,Math.floor(d.level))):1;
+  if(touched&&l<=level)return null;
+  var gm=validGame(d.game,l);
+  if(gm||l!==level)return startLevel(l,gm);
+  return null;
+}
+
+// ---------- звук ----------
+var ac=null;
+function ensureAudio(){if(ac||mute)return;try{var A=window.AudioContext||window.webkitAudioContext;if(A)ac=new A()}catch(e){}}
+function tone(f,dur,type,vol,delay,glide){
+  if(mute||!ac||paused)return;
+  try{var t=ac.currentTime+(delay||0),o=ac.createOscillator(),gn=ac.createGain();
+    o.type=type||'sine';o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*(glide||1.2),t+dur);
+    gn.gain.setValueAtTime(0,t);gn.gain.linearRampToValueAtTime(vol||.08,t+.006);gn.gain.exponentialRampToValueAtTime(.0001,t+dur+.05);
+    o.connect(gn);gn.connect(ac.destination);o.start(t);o.stop(t+dur+.08)}catch(e){}
+}
+function tick(){tone(1400,.03,'triangle',.05,0,.9)}
+function click(){tone(520,.05,'triangle',.07,0,.8);tone(780,.04,'triangle',.05,.04,.8)}
+function ding(){tone(880,.12,'sine',.1,0,1);tone(1320,.14,'sine',.07,.06,1)}
+function thud(){tone(170,.1,'sine',.1,0,.7)}
+function arpeggio(){[659,784,988,1319].forEach(function(f,i){tone(f,.14,'triangle',.09,i*.07)})}
+function fanfare(){[523,659,784,1047,1319].forEach(function(f,i){tone(f,.16,'triangle',.11,i*.09)})}
+var muteBtn=$('muteBtn');
+function drawMute(){
+  muteBtn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>'+(mute?'<path d="M17 9l5 6M22 9l-5 6"/>':'<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>')+'</svg>';
+  muteBtn.setAttribute('aria-label',mute?'Включить звук':'Выключить звук');
+}
+muteBtn.addEventListener('click',function(){mute=!mute;drawMute();if(!mute)ensureAudio();saveRaw();this.blur()});
+
+drawMute();drawCost();
+requestAnimationFrame(frame);
+var first=startLevel(1);
+if(window.Gamely)Gamely.init().then(function(s){
+  return s.data.get().catch(function(){return null}).then(function(d){
+    return first.then(function(){
+      sdk=s;drawCost();
+      var p=applySave(d);
+      return Promise.resolve(p).then(function(){if(touched)save()});
+    }).then(function(){
+      s.on('pause',function(){paused=true;if(ac&&ac.suspend)ac.suspend().catch(function(){})});
+      s.on('resume',function(){paused=false;dirty=true;if(ac&&ac.resume)ac.resume().catch(function(){})});
+      s.game.ready();
+    });
+  });
+}).catch(function(){});
+try{window.focus()}catch(e){}
+// Для автопроверки.
+window.__game={get level(){return level},get moves(){return moves},get done(){return done},get ready(){return ready},
+  go:function(l){return startLevel(l)},swap:function(a,b){swap(a,b,false)},
+  solveStep:function(){for(var c=0;c<C*R;c++)if(!correct(c)){var w=homeOf[c],f=cellOf[w];if(correct(f)){for(var i=0;i<pieces.length;i++)if(pieces[i].r===pieces[w].r&&sig[i]===sig[w]&&!correct(cellOf[i])){f=cellOf[i];break}}swap(f,c,false);return true}return false}};
+})();
+</script>
+</body>
+</html>
