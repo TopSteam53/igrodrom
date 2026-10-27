@@ -606,8 +606,7 @@ export function createRewards({
 
   function myInvite(req, res) {
     const user = requireUser(req);
-    const code = inviteCode(user.id);
-    send(res, 200, { code, url: `${siteUrl}/?invite=${code}`, reward: INVITE_COINS, friend_reward: INVITED_COINS, play_games: INVITE_GAMES });
+    send(res, 200, inviteInfo(user.id));
   }
 
   // Профиль: серия, достижения (заодно выдаются новые — уведомление о них придёт через /api/me/news), приглашения.

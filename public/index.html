@@ -197,16 +197,33 @@ async function loadTournament() {
 
 // ---------- позовите друзей: только вошедшим (гостю — плашка входа ниже) ----------
 async function loadInvitePromo() {
-  if (!(await Igr.me())) return;
-  let top;
-  try { top = await (await fetch('/api/invites/top')).json(); } catch { return; }
+  const user = await Igr.me();
+  if (!user) return;
+  let inv, top;
+  try { [inv, top] = await Promise.all([fetch('/api/me/invite').then((r) => r.json()), fetch('/api/invites/top').then((r) => r.json())]); } catch { return; }
+  const { fmt, coinsText, esc } = Igr;
   const leader = top.week.top[0];
-  $('inviteSec').innerHTML = `<div class="tour invite-promo">
-    <div><span class="tour-kicker">Позовите друзей</span><b class="tour-title">+${Igr.fmt(top.reward)} монеток за каждого друга</b>
-      <span class="tour-left">Другу — +${Igr.fmt(top.friend_reward)}. За 3, 5 и 10 друзей — рамка, значок и аватарка, которых нет в продаже.</span></div>
-    <p class="tour-empty">${leader ? `Лидер недели: ${Igr.nameHTML(leader)} — ${Igr.fmt(leader.friends)}. Приз за первое место — ${Igr.fmt(top.week.prizes[0])} монеток.`
-      : `Кто приведёт больше всех друзей за неделю — получит ${Igr.fmt(top.week.prizes[0])} монеток. Пока никого — приз может быть вашим.`}</p>
-    <div class="tour-acts"><a class="btn primary" href="/account#invite">Пригласить</a></div></div>`;
+  const goal = inv.items.at(-1).friends;
+  const next = inv.items.find((it) => inv.confirmed < it.friends);
+  const art = (it) => it.slot === 'frame' ? Igr.avatarHTML({ ...user, frame: it.key }, 56)
+    : it.slot === 'icon' ? `<span class="item-ico">${Igr.nameIconHTML(it.key)}</span>` : `<img src="${esc(it.image)}" width="56" height="56" alt="">`;
+  const kind = { frame: 'рамка', icon: 'значок', avatar: 'аватарка' };
+  $('inviteSec').innerHTML = `<div class="invp">
+    <div class="invp-main">
+      <span class="tour-kicker">Позовите друзей</span>
+      <b class="invp-title">+${esc(coinsText(inv.reward))} за каждого друга</b>
+      <p class="invp-sub">Друг получит ${esc(coinsText(inv.friend_reward))}, когда сыграет в ${inv.play_games} разные игры.
+        ${leader ? `Лидер недели — ${Igr.nameHTML(leader)}, ${fmt(leader.friends)}.` : `Кто позовёт больше всех за неделю — ещё ${esc(coinsText(top.week.prizes[0]))}.`}</p>
+      <div class="invp-acts">${Igr.shareHTML({ url: inv.url, text: `Играю в бесплатные игры на Gamely — заходи, по моей ссылке дадут ${coinsText(inv.friend_reward)}.` })}
+        <a class="btn sm" href="/account#invite">Мои приглашения</a></div>
+    </div>
+    <div class="invp-goals">
+      <div class="invp-head"><span>Только за друзей — не купить</span><span>${next ? `засчитано ${fmt(inv.confirmed)} из ${next.friends}` : 'всё открыто'}</span></div>
+      <span class="invp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${goal}" aria-valuenow="${Math.min(inv.confirmed, goal)}" aria-label="Засчитано друзей">
+        <i style="width:${Math.min(100, (inv.confirmed / goal) * 100)}%"></i></span>
+      <ol class="invp-steps">${inv.items.map((it) => `<li class="${inv.confirmed >= it.friends ? 'done' : ''}">
+        <span class="invp-art">${art(it)}</span><b>${esc(it.title)}</b><small>${kind[it.slot]} · ${it.friends} ${Igr.plural(it.friends, ['друг', 'друга', 'друзей'])}</small></li>`).join('')}</ol>
+    </div></div>`;
   $('inviteSec').classList.remove('hidden');
 }
 
