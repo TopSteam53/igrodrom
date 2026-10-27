@@ -74,6 +74,48 @@
     });
   }
 
+  // ---------- своя заставка ----------
+  // Реклама за награду, а у сети рекламы нет (решение пользователя 27.10.2026): 5 секунд показываем другую игру
+  // каталога, потом награда. Игрок не получает награду «просто так», а каталог рекламирует сам себя.
+  // Каталог не загрузился — награда сразу, как раньше.
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  let catalog = null;
+  async function houseAd() {
+    catalog ??= fetch('/api/games').then((r) => r.json()).then((d) => d.games || []).catch(() => []);
+    const here = decodeURIComponent(location.pathname.split('/game/')[1] || '');
+    const pool = (await catalog).filter((g) => g.cover && g.slug && g.slug !== here);
+    if (!pool.length) return true;
+    const g = pool[Math.floor(Math.random() * pool.length)];
+    return new Promise((resolve) => {
+      const SEC = 5;
+      const el = document.createElement('div');
+      el.className = 'ad-test ad-house';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-label', 'Игра из каталога Gamely');
+      el.innerHTML = `<div class="ad-test-card"><span class="ad-test-label">Gamely советует</span>
+        <a class="ad-house-cover" href="/game/${encodeURIComponent(g.slug)}" target="_blank" rel="noopener">
+          <img src="/play/${encodeURIComponent(g.id)}/${encodeURIComponent(g.cover)}" alt=""></a>
+        <p class="ad-test-title">${esc(g.title)}</p>
+        ${g.short_description ? `<p class="ad-test-sub">${esc(g.short_description)}</p>` : ''}
+        <div class="ad-house-acts"><a class="btn" href="/game/${encodeURIComponent(g.slug)}" target="_blank" rel="noopener">Открыть игру</a>
+          <button class="btn primary" type="button" disabled>Награда через ${SEC}</button></div></div>`;
+      document.body.append(el);
+      const btn = el.querySelector('button');
+      let left = SEC;
+      const tick = setInterval(() => {
+        left -= 1;
+        if (left > 0) { btn.textContent = `Награда через ${left}`; return; }
+        clearInterval(tick);
+        btn.disabled = false; btn.textContent = 'Получить награду';
+        btn.focus();
+      }, 1000);
+      const close = (watched) => { clearInterval(tick); el.remove(); removeEventListener('keydown', onKey); resolve(watched); };
+      const onKey = (e) => { if (e.key === 'Escape') close(left <= 0); };
+      addEventListener('keydown', onKey);
+      btn.onclick = () => close(true);
+    });
+  }
+
   // ---------- Рекламная сеть Яндекса ----------
   // Код блоков сверьте с кабинетом partner.yandex.ru: там показан точный вызов для каждого блока.
   function yandexRender(params) {
@@ -247,18 +289,23 @@
 
     /**
      * Реклама за награду — только по нажатию игрока. Возвращает { rewarded, shown }.
-     * Сеть без такого формата (или без рекламы вообще) награду выдаёт сразу: игра не должна ломаться.
+     * Сеть без такого формата (или без рекламы вообще): своя заставка с игрой каталога, потом награда.
      * Если реклама есть, но не догрузилась или игрок закрыл раньше — награды нет.
      */
     async rewarded(hooks = {}) {
       await ready;
       const p = PROVIDERS[config.provider];
-      if (!p || !p.rewarded || busy) return { rewarded: !busy, shown: false };
+      if (busy) return { rewarded: false, shown: false };
+      if (!p || !p.rewarded) {
+        busy = true;
+        hooks.open?.();
+        try { return { rewarded: await houseAd(), shown: false }; } finally { busy = false; }
+      }
       busy = true;
       hooks.open?.();
       try {
         const result = await p.rewarded().catch(() => false);
-        if (result === null) return { rewarded: true, shown: false };
+        if (result === null) return { rewarded: await houseAd(), shown: false };
         // Досмотренная реклама за награду тоже сдвигает паузу перед следующей полноэкранной.
         if (result) lastFullscreen = Date.now();
         return { rewarded: !!result, shown: !!result };

@@ -316,6 +316,10 @@ pre.code code{background:none;border:0;padding:0;font-size:inherit;color:inherit
 .ad-test-card{width:min(420px,100%);background:var(--panel);color:var(--ink);border-radius:20px;padding:24px;text-align:center}
 .ad-test-label{display:inline-block;font-size:13px;font-weight:600;color:var(--ink-2);border:1px solid var(--line);border-radius:999px;padding:3px 10px}
 .ad-test-title{font:700 22px/1.2 var(--display);margin:14px 0 8px}.ad-test-sub{margin:0 0 18px;color:var(--ink-2)}
+.ad-house-cover{display:block;margin:14px 0 0;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:var(--line)}
+.ad-house-cover img{display:block;width:100%;height:100%;object-fit:cover}
+.ad-house .ad-test-sub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ad-house-acts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.ad-house-acts .btn{flex:1;justify-content:center;min-width:140px}
 .contact-facts{max-width:560px}.contact-facts a{color:var(--link)}
 
 /* ---------- монетки ---------- */
