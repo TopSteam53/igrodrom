@@ -33,6 +33,7 @@
     <button data-pane="achievements">🏅 Достижения</button>
     <button data-pane="partners" class="owner-only">🎥 Блогеры</button>
     <button data-pane="sources" class="owner-only">Источники</button>
+    <button data-pane="tasks" class="owner-only">Задания</button>
     <button data-pane="log">📜 Журнал</button>
     <button data-pane="team" class="owner-only">🛡️ Команда</button>
   </nav>
@@ -185,6 +186,34 @@
       </form>
     </section>
 
+    <section class="pane hidden" id="pane-tasks">
+      <h1 class="adm-title">Задания</h1>
+      <p class="mut" id="tkRules"></p>
+      <div class="kpis" id="tkKpis"></div>
+      <div class="panel table-panel"><table class="tbl" id="tkTable"></table></div>
+      <form class="panel t-form pt-form" id="tkForm">
+        <h3 id="tkFormTitle">Добавить канал</h3>
+        <input type="hidden" id="tkId">
+        <div class="pt-two">
+          <div><label for="tkChat">Канал</label><input id="tkChat" maxlength="80" placeholder="@имя или t.me/имя" required></div>
+          <div><label for="tkTitle">Название в карточке</label><input id="tkTitle" maxlength="60" placeholder="Gamely в Telegram" required></div>
+        </div>
+        <div class="pt-two">
+          <div><label for="tkReward">Награда, монеток</label><input id="tkReward" type="number" min="1" max="500" step="1" value="50" required></div>
+          <div><label for="tkMax">Лимит подписчиков</label><input id="tkMax" type="number" min="0" step="1" value="0" required>
+            <p class="mut">0 — без лимита; заполнилось — задание пропадает у новых игроков</p></div>
+        </div>
+        <div class="pt-two">
+          <div><label for="tkAdv">Рекламодатель <span class="mut">— для чужих каналов</span></label><input id="tkAdv" maxlength="120" placeholder="ИП Иванов И. И., ИНН …"></div>
+          <div><label for="tkErid">erid <span class="mut">— из ОРД</span></label><input id="tkErid" maxlength="64"></div>
+        </div>
+        <p class="mut">Своему каналу эти поля не нужны. Платное продвижение чужого — реклама: в карточке будет «Реклама», рекламодатель и erid.</p>
+        <label class="pt-check hidden" id="tkActiveRow"><input type="checkbox" id="tkActive" checked> Задание показывается игрокам</label>
+        <div class="pt-acts"><button class="btn primary" id="tkSave">Добавить</button><button class="btn hidden" type="button" id="tkCancel">Отмена</button></div>
+        <div class="err-text" id="tkErr"></div>
+      </form>
+    </section>
+
     <section class="pane hidden" id="pane-sources">
       <h1 class="adm-title">Источники</h1>
       <p class="mut">Переходы по ссылкам с utm-метками, например из VK Рекламы. Заходы владельца и модераторов не считаются.
@@ -248,7 +277,7 @@ async function ask(title, text, placeholder = 'Причина') {
 }
 
 // ---------- разделы ----------
-const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, sources: loadSources, log: loadLog, team: loadTeam };
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, sources: loadSources, tasks: loadTasks, log: loadLog, team: loadTeam };
 function openPane(name) {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
@@ -267,7 +296,7 @@ const spark = (values) => {
 const kpi = (label, value, sub = '', series = null) => `<div class="kpi"><span>${label}</span><b>${value}</b>${sub ? `<small class="mut">${sub}</small>` : ''}${series ? spark(series) : ''}</div>`;
 const FLOW = {
   welcome: 'Подарок новичку', daily: 'Бонус за вход', grant: 'Выдал владелец', achievement: 'Достижения', tournament: 'Турнир недели',
-  referral: 'Приглашения', partner: 'Промокоды блогеров', purchase: 'Покупка монеток', spend: 'Траты в играх', shop: 'Витрина', thanks: 'Спасибо авторам', no_ads: 'День без рекламы',
+  referral: 'Приглашения', partner: 'Промокоды блогеров', task: 'Задания (Telegram)', purchase: 'Покупка монеток', spend: 'Траты в играх', shop: 'Витрина', thanks: 'Спасибо авторам', no_ads: 'День без рекламы',
 };
 let ov = null;
 let actMode = 'active';
@@ -719,6 +748,68 @@ async function loadSources() {
 }
 $('srcDays').onclick = (e) => { const b = e.target.closest('[data-days]'); if (b) { srcDays = Number(b.dataset.days); loadSources(); } };
 
+// ---------- задания (Telegram) ----------
+let tkData = null;
+async function loadTasks() {
+  const d = tkData = await api('GET', '/api/admin/tasks');
+  $('tkRules').innerHTML = d.enabled
+    ? `Игрок подписывается на канал и подтверждает подписку в боте <b>@${esc(d.bot)}</b>. ${d.hold_days} дней подписка перепроверяется: отписался — монетки списываются.
+       Бот должен быть админом канала (без прав на публикацию) — проверьте кнопкой «Бот».`
+    : 'Бот не настроен на сервере (TG_BOT_TOKEN, TG_BOT_USERNAME, TG_API в .env) — игроки заданий не видят.';
+  const sum = (k) => d.tasks.reduce((n, t) => n + t[k], 0);
+  $('tkKpis').innerHTML = [
+    kpi('Подписались', fmt(sum('joined')), 'через задания, всего'),
+    kpi('Остались', fmt(sum('kept') + sum('holding')), `из них прошли ${d.hold_days} дней — ${fmt(sum('kept'))}`),
+    kpi('Отписались', fmt(sum('left_n')), 'монетки списаны'),
+    kpi('Активных заданий', fmt(d.tasks.filter((t) => t.active).length), `всего — ${fmt(d.tasks.length)}`),
+  ].join('');
+  $('tkTable').innerHTML = d.tasks.length ? `<thead><tr><th>Задание</th><th class="n">Награда</th><th class="n">Подписались</th><th class="n">Держатся</th>
+    <th class="n">Прошли ${d.hold_days} дн.</th><th class="n">Отписались</th><th class="n">Лимит</th><th></th></tr></thead><tbody>${d.tasks.map((t) =>
+    `<tr${t.active ? '' : ' class="mut"'}><td><b>${esc(t.title)}</b><br><a class="mut" href="https://t.me/${esc(t.chat.replace(/^@/, ''))}" target="_blank" rel="noopener">${esc(t.chat)}</a>
+      ${t.advertiser ? `<br><small class="mut">Реклама: ${esc(t.advertiser)}${t.erid ? `, erid ${esc(t.erid)}` : ''}</small>` : ''}</td>
+      <td class="n">${fmt(t.reward)}</td><td class="n">${fmt(t.joined)}</td><td class="n">${fmt(t.holding)}</td><td class="n">${fmt(t.kept)}</td>
+      <td class="n">${fmt(t.left_n)}</td><td class="n">${t.max_subs ? fmt(t.max_subs) : '—'}</td>
+      <td class="acts"><button class="btn sm" data-tk-probe="${t.id}">Бот</button><button class="btn sm" data-tk-edit="${t.id}">Изменить</button>
+        <button class="btn sm" data-tk-toggle="${t.id}">${t.active ? 'Выключить' : 'Включить'}</button></td></tr>`).join('')}</tbody>`
+    : '<tbody><tr><td class="mut">Заданий пока нет — добавьте свой канал ниже.</td></tr></tbody>';
+}
+function tkFormReset(t = null) {
+  $('tkId').value = t ? t.id : '';
+  $('tkChat').value = t ? t.chat : ''; $('tkTitle').value = t ? t.title : '';
+  $('tkReward').value = t ? t.reward : (tkData?.default_reward || 50); $('tkMax').value = t ? t.max_subs : 0;
+  $('tkAdv').value = t ? t.advertiser : ''; $('tkErid').value = t ? t.erid : '';
+  $('tkActive').checked = t ? !!t.active : true;
+  $('tkActiveRow').classList.toggle('hidden', !t); $('tkCancel').classList.toggle('hidden', !t);
+  $('tkFormTitle').textContent = t ? 'Изменить задание' : 'Добавить канал';
+  $('tkSave').textContent = t ? 'Сохранить' : 'Добавить';
+  $('tkErr').textContent = '';
+}
+$('tkForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const id = $('tkId').value;
+  const body = { chat: $('tkChat').value, title: $('tkTitle').value, reward: Number($('tkReward').value), max_subs: Number($('tkMax').value),
+    advertiser: $('tkAdv').value, erid: $('tkErid').value, ...(id && { active: $('tkActive').checked }) };
+  try { await api('POST', id ? `/api/admin/tasks/${id}` : '/api/admin/tasks', body); toast(id ? 'Задание сохранено' : 'Задание добавлено'); tkFormReset(); loadTasks(); }
+  catch (err) { $('tkErr').textContent = err.message; }
+};
+$('tkCancel').onclick = () => tkFormReset();
+$('tkTable').onclick = async (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const t = tkData.tasks.find((x) => String(x.id) === (b.dataset.tkEdit || b.dataset.tkToggle || b.dataset.tkProbe));
+  if (!t) return;
+  if (b.dataset.tkEdit) { tkFormReset(t); $('tkForm').scrollIntoView({ behavior: 'smooth' }); return; }
+  b.disabled = true;
+  try {
+    if (b.dataset.tkToggle) { await api('POST', `/api/admin/tasks/${t.id}`, { active: !t.active }); loadTasks(); }
+    else {
+      const r = await api('POST', `/api/admin/tasks/${t.id}/probe`);
+      toast(r.ok ? 'Бот — админ канала, подписка проверяется' : `Бот не может проверять подписку: ${r.error || `статус «${r.status}», нужен админ`}`, !r.ok);
+    }
+  } catch (err) { toast(err.message, true); }
+  finally { b.disabled = false; }
+};
+
 // ---------- достижения ----------
 const TIER_NAME = { bronze: 'бронза', silver: 'серебро', gold: 'золото' };
 async function loadAchievementStats() {
@@ -894,7 +985,7 @@ Igr.me().then((user) => {
   document.querySelectorAll('.owner-only').forEach((el) => el.classList.toggle('hidden', !user.isAdmin));
   $('adm').hidden = false;
   const start = location.hash.slice(1);
-  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners', 'sources'].includes(start)) ? start : 'overview');
+  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners', 'sources', 'tasks'].includes(start)) ? start : 'overview');
   if (start && start !== 'overview') api('GET', '/api/admin/overview').then((o) => {
     $('cntGames').textContent = o.queues.games || ''; $('cntDevs').textContent = o.queues.developers || ''; $('cntAvatars').textContent = o.queues.avatars || '';
   }).catch(() => {});

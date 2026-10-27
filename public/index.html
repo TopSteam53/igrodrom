@@ -36,6 +36,7 @@
     </section>
     <section class="sec hidden" id="tourSec" aria-label="Турнир недели"></section>
     <section class="sec hidden" id="inviteSec" aria-label="Позовите друзей"></section>
+    <section class="sec hidden tasks" id="tasksSec" aria-label="Задания"></section>
     <section class="sec hidden" id="recentSec"><div class="sec-head"><h2>Продолжить играть</h2></div><div class="mini-row" id="recent"></div></section>
     <section class="sec hidden" id="freshSec"><div class="sec-head"><h2>Новые игры</h2></div><div class="row-scroll" id="fresh"></div></section>
   </div>
@@ -227,6 +228,16 @@ async function loadInvitePromo() {
   $('inviteSec').classList.remove('hidden');
 }
 
+// ---------- задания: только невыполненные, только вошедшим ----------
+async function loadTasksPromo() {
+  if (!(await Igr.me())) return;
+  const data = await Igr.loadTasks();
+  const open = data && data.enabled ? data.tasks.filter((t) => !t.status) : [];
+  $('tasksSec').classList.toggle('hidden', !open.length);
+  $('tasksSec').innerHTML = open.map((t) => Igr.taskHTML(t, data)).join('');
+}
+document.addEventListener('igr:tasks', loadTasksPromo);
+
 // ---------- плашка входа для гостя ----------
 const BAR_KEY = 'igrodrom-login-bar';
 function initLoginBar() {
@@ -271,6 +282,7 @@ loadCatalog().then(async ({ live, games: list }) => {
   initLoginBar();
   loadTournament();
   loadInvitePromo();
+  loadTasksPromo();
   try {
     recent = (await (await fetch('/api/recent')).json()).games || [];
     if (!state.q && !state.cat) renderRecent();

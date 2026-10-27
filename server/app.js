@@ -18,6 +18,7 @@ import { createSupport, migrateSupport } from './support.js';
 import { createShop, migrateShop, LOOK_COLS } from './shop.js';
 import { createPartners, migratePartners } from './partners.js';
 import { createSources, migrateSources } from './sources.js';
+import { createTgTasks, migrateTgTasks, telegramFromEnv } from './tgtasks.js';
 import { slugify } from './slug.js';
 import {
   hashPassword, verifyPassword, DUMMY_HASH, newToken, sha256, newGameId, createLimiter,
@@ -110,6 +111,8 @@ export function createApp({
   registerGuard = false, registerPerHour = 10, registerPerDay = 30,
   // Магазин монеток: пакеты и ЮKassa из .env; fetchImpl подменяют тесты.
   coinPacks = packsFromEnv(), yookassa = yookassaFromEnv(), fetchImpl = fetch,
+  // Бот Gamely для заданий «подпишитесь на канал» (server/tgtasks.js).
+  telegram = telegramFromEnv({}),
 }) {
   siteUrl = siteUrl.replace(/\/+$/, '');
   const gamesDir = path.join(dataDir, 'games');
@@ -125,6 +128,7 @@ export function createApp({
   migrateShop(db);
   migratePartners(db);
   migrateSources(db);
+  migrateTgTasks(db);
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
@@ -294,6 +298,10 @@ export function createApp({
   const sources = createSources({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, requireOwner, currentUser: (req) => currentUser(req), isModerator,
     isBot: (ua) => stats.isBot(ua), visitorOf: (req) => visitorOf(req), cookies, sha256, secureCookies,
+  });
+  const tgtasks = createTgTasks({
+    db, now, send, readJson, HttpError, requireUser, requireOwner, currentUser: (req) => currentUser(req), economy, logAction, siteUrl,
+    secret: previewSecret, telegram, fetchImpl,
   });
   if (seedDemoGames) seedDemo();
   for (const g of q.unslugged.all()) assignSlug(g.id, g.title);
@@ -1487,7 +1495,7 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m) || partners.route(p, m) || sources.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m) || partners.route(p, m) || sources.route(p, m) || tgtasks.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);
@@ -1621,7 +1629,7 @@ export function createApp({
       }
     });
   });
-  server.on('close', () => db.close());
+  server.on('close', () => { tgtasks.stop(); db.close(); });
   return server;
 }
 

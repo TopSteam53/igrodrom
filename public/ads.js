@@ -79,20 +79,31 @@
   // каталога, потом награда. Игрок не получает награду «просто так», а каталог рекламирует сам себя.
   // Каталог не загрузился — награда сразу, как раньше.
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  // Вошедшему с невыполненным заданием «подпишитесь на канал» каждый второй раз показываем задание (server/tgtasks.js).
   let catalog = null;
+  let tasks = null;
   async function houseAd() {
     catalog ??= fetch('/api/games').then((r) => r.json()).then((d) => d.games || []).catch(() => []);
+    tasks ??= fetch('/api/tasks').then((r) => r.json()).then((d) => (d.enabled ? d.tasks.filter((t) => !t.status) : [])).catch(() => []);
+    const open = window.Igr && (await window.Igr.me().catch(() => null)) ? await tasks : [];
     const here = decodeURIComponent(location.pathname.split('/game/')[1] || '');
     const pool = (await catalog).filter((g) => g.cover && g.slug && g.slug !== here);
-    if (!pool.length) return true;
+    const task = open.length && (!pool.length || Math.random() < 0.5) ? open[Math.floor(Math.random() * open.length)] : null;
+    if (!task && !pool.length) return true;
     const g = pool[Math.floor(Math.random() * pool.length)];
     return new Promise((resolve) => {
       const SEC = 5;
       const el = document.createElement('div');
       el.className = 'ad-test ad-house';
       el.setAttribute('role', 'dialog');
-      el.setAttribute('aria-label', 'Игра из каталога Gamely');
-      el.innerHTML = `<div class="ad-test-card"><span class="ad-test-label">Gamely советует</span>
+      el.setAttribute('aria-label', task ? 'Задание Gamely' : 'Игра из каталога Gamely');
+      el.innerHTML = task ? `<div class="ad-test-card"><span class="ad-test-label">${task.advertiser ? `Реклама. ${esc(task.advertiser)}${task.erid ? `. erid: ${esc(task.erid)}` : ''}` : 'Задание Gamely'}</span>
+        <span class="ad-house-tg">${window.Igr.taskIcon}</span>
+        <p class="ad-test-title">${esc(task.title)}</p>
+        <p class="ad-test-sub">Подпишитесь на канал в Telegram и получите +${task.reward} монеток. Подтвердить подписку — в профиле, раздел «Задания».</p>
+        <div class="ad-house-acts"><a class="btn" href="${esc(task.link)}" target="_blank" rel="noopener">Подписаться</a>
+          <button class="btn primary" type="button" disabled>Награда через ${SEC}</button></div></div>`
+      : `<div class="ad-test-card"><span class="ad-test-label">Gamely советует</span>
         <a class="ad-house-cover" href="/game/${encodeURIComponent(g.slug)}" target="_blank" rel="noopener">
           <img src="/play/${encodeURIComponent(g.id)}/${encodeURIComponent(g.cover)}" alt=""></a>
         <p class="ad-test-title">${esc(g.title)}</p>

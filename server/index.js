@@ -6,6 +6,7 @@ import { createApp } from './app.js';
 import { adsFromEnv, siteFromEnv } from './config.js';
 import { mailerFromEnv } from './mail.js';
 import { packsFromEnv, yookassaFromEnv } from './economy.js';
+import { telegramFromEnv } from './tgtasks.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT) || 3000;
@@ -42,6 +43,7 @@ const server = createApp({
   registerGuard: true,
   coinPacks: packsFromEnv(process.env),
   yookassa: yookassaFromEnv(process.env),
+  telegram: telegramFromEnv(process.env),
 });
 
 server.listen(port, () => console.log(`Gamely: http://localhost:${port}`));

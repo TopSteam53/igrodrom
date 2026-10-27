@@ -227,6 +227,50 @@
     catch { toast(url); }
   });
 
+  // Задания «подпишитесь на Telegram-канал» (server/tgtasks.js) — карточка для профиля, главной и заставки вместо рекламы.
+  // «Проверить»: аккаунт уже связан с Telegram — сайт сам спрашивает подписку; ещё нет — ссылка открывает бота.
+  const TG_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.4 4.3 3 11.3c-1.1.4-1.1 1.9 0 2.2l4.5 1.4 1.7 5.4c.2.7 1.1.9 1.6.4l2.5-2.3 4.6 3.4c.6.5 1.5.1 1.7-.6L23 5.7c.2-.9-.7-1.7-1.6-1.4zM9.5 14.6l8.6-7.3-6.8 8.5-.3 3-1.5-4.2z" fill="currentColor"/></svg>';
+  async function loadTasks() {
+    try { const r = await fetch('/api/tasks'); return r.ok ? await r.json() : null; } catch { return null; }
+  }
+  function taskHTML(t, data) {
+    const day = (ms) => new Date(ms).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    const ad = t.advertiser ? `<span class="task-ad">Реклама. ${esc(t.advertiser.replace(/\.+$/, ''))}${t.erid ? `. erid: ${esc(t.erid)}` : ''}</span>` : '';
+    const check = data.linked
+      ? `<button type="button" class="btn sm primary" data-task-check="${t.id}">Проверить</button>`
+      : `<a class="btn sm primary" href="${esc(data.bot_url || '#')}" target="_blank" rel="noopener">Проверить</a>`;
+    const acts = t.status === 'paid' ? `<span class="task-state ok">Получено +${fmt(t.reward)}<small>не отписывайтесь до ${day(t.until)}</small></span>`
+      : t.status === 'kept' ? `<span class="task-state ok">Получено +${fmt(t.reward)}</span>`
+      : t.status === 'left' ? '<span class="task-state">Вы отписались — монетки списаны</span>'
+      : `<a class="btn sm" href="${esc(t.link)}" target="_blank" rel="noopener">Подписаться</a>${check}`;
+    return `<div class="task${t.status ? ' done' : ''}"><span class="task-ico">${TG_SVG}</span>
+      <div class="task-t"><b>${esc(t.title)}</b><span>+${esc(coinsText(t.reward))} за подписку на канал в Telegram.
+        Отпишетесь раньше ${data.hold_days} дней — монетки спишутся.</span>${ad}</div>
+      <div class="task-acts">${acts}</div></div>`;
+  }
+  const TASK_MSG = {
+    not_member: ['Подписки пока не видно. Подпишитесь и нажмите «Проверить» ещё раз', 'err'],
+    used: ['С этого Telegram награду уже получали на другом аккаунте', 'err'],
+    left: ['Вы отписались — задание второй раз не выполнить', 'err'],
+    closed: ['Задание уже закончилось', 'err'],
+    error: ['Telegram сейчас не ответил, попробуйте через минуту', 'err'],
+    done: ['Награда уже получена', 'ok'],
+  };
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-task-check]');
+    if (!b) return;
+    b.disabled = true;
+    try {
+      const r = await (await fetch(`/api/tasks/${b.dataset.taskCheck}/check`, { method: 'POST' })).json();
+      if (r.status === 'need_link') { location.href = r.bot_url; return; }
+      if (r.status === 'paid') { setCoins(r.coins); toast(`+${coinsText(r.reward)} за подписку`, 'coins'); }
+      else toast(...(TASK_MSG[r.status] || TASK_MSG.error));
+    } catch { toast(...TASK_MSG.error); }
+    finally { b.disabled = false; document.dispatchEvent(new Event('igr:tasks')); }
+  });
+  // Вернулись из Telegram — статус могли поменять в боте.
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) document.dispatchEvent(new Event('igr:tasks')); });
+
   // Ссылка-приглашение от друга (?invite=<код>): запоминаем на 30 дней, награды сервер выдаст, когда новичок
   // поиграет в двух разных днях. Первая ссылка не перезаписывается. Параметр убираем из адреса, чтобы он не расходился
   // дальше; код этой ссылки остаётся в landingInvite — для плашки «друг бросил вызов» на странице игры.
@@ -593,6 +637,6 @@
 
   window.Igr = {
     $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, miniHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited, landingInvite, shareHTML, checkNews, medalHTML,
+    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited, landingInvite, shareHTML, checkNews, medalHTML, loadTasks, taskHTML, taskIcon: TG_SVG,
   };
 })();
