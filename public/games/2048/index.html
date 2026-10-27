@@ -38,6 +38,7 @@ button{font:inherit;cursor:pointer;border:0;color:#fff}
 #ov button.alt{background:#3a4290;box-shadow:0 4px 0 #23295e}
 #ov button:disabled{opacity:.55;cursor:default}
 .price{display:inline-flex;align-items:center;gap:.25em}
+.ad{font-size:.75em;font-weight:900;border-radius:6px;padding:2px 6px;background:rgba(0,0,0,.14)}
 .gcoin{width:1.1em;height:1.1em;flex:none}
 #ovM{min-height:1.2em;font-size:calc(var(--s)*.042);color:#ffb4c4}
 #hint{margin-top:6px;font-size:12px;color:#7d86c4;height:16px}
@@ -102,7 +103,8 @@ function newGame(){
   grid=new Array(N*N).fill(null);score=0;won=false;keep=false;over=false;hist=[];undoUsed=0;
   addRandom();addRandom();updScore(0);hideOv();
 }
-function userNewGame(){touched=true;newGame();save()}
+// Новая партия — естественная пауза для полноэкранной рекламы (частоту ограничивает площадка).
+function userNewGame(){if(sdk&&(over||score>0))sdk.ads.fullscreen().catch(function(){});touched=true;newGame();save()}
 
 // Сохранение через Gamely SDK: рекорд и незаконченная партия (поле, счёт, победа/продолжение).
 // sdk присваиваем только после чтения сохранения, иначе ранний ход затрёт старую партию.
@@ -189,16 +191,17 @@ function showOv(t,s,cont){
   ovT.textContent=t;ovS.textContent=s;contBtn.style.display=cont?'':'none';ovM.textContent='';
   var canUndo=!cont&&over&&hist.length>0&&undoUsed<UNDO_MAX;
   undoBtn.style.display=canUndo?'':'none';
-  undoBtn.innerHTML='Вернуть '+hist.length+' '+(hist.length===1?'ход':'хода')+(onGamely()?' '+priceHTML(UNDO_COST):'');
+  undoBtn.innerHTML='Вернуть '+hist.length+' '+(hist.length===1?'ход':'хода')+' '+(onGamely()?priceHTML(UNDO_COST):'<span class="ad">▶</span>');
   ov.classList.add('show');
 }
 function hideOv(){ov.classList.remove('show')}
 
 // ---------- монетки Gamely ----------
-// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки возврат ходов бесплатный.
+// Трату подтверждает игрок в окне сайта, игра не переспрашивает. Гостю и вне площадки — за рекламу.
 var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
 var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
-function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+// Гостю монетки не потратить — ему, как и вне сайта, предлагаем рекламу.
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely'&&!(sdk.player&&sdk.player.anonymous))}
 function priceHTML(n){return '<span class="price">'+GCOIN+n+'</span>'}
 function spendCoins(btn,amount,title,fallback,say){
   if(btn.disabled)return Promise.resolve(false);
@@ -206,12 +209,13 @@ function spendCoins(btn,amount,title,fallback,say){
   var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
     if(r&&r.ok)return true;
     var why=r&&r.reason;
-    if(why==='unavailable'&&fallback)return fallback();
+    if((why==='unavailable'||why==='guest')&&fallback)return fallback();
     if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
     return false;
   }):(fallback?fallback():Promise.resolve(false));
   return p.catch(function(){return false}).then(function(ok){btn.disabled=false;return !!ok});
 }
+function byAd(say){var p=sdk?sdk.ads.rewarded():Promise.resolve({rewarded:true});return p.catch(function(){return {rewarded:false}}).then(function(r){if(r&&r.rewarded===true)return true;say('Реклама не досмотрена');return false})}
 var ovM=document.getElementById('ovM'),undoBtn=document.getElementById('undoBtn');
 function rewind(){
   var s=hist[0];if(!s)return;
@@ -223,7 +227,7 @@ function rewind(){
 }
 undoBtn.addEventListener('click',function(){
   if(!over||!hist.length||undoUsed>=UNDO_MAX)return;
-  spendCoins(undoBtn,UNDO_COST,'Вернуть ходы в «2048»',function(){return Promise.resolve(true)},function(t){ovM.textContent=t})
+  spendCoins(undoBtn,UNDO_COST,'Вернуть ходы в «2048»',function(){return byAd(function(t){ovM.textContent=t})},function(t){ovM.textContent=t})
     .then(function(ok){if(ok&&over)rewind()});
 });
 document.getElementById('againBtn').addEventListener('click',userNewGame);

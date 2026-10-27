@@ -213,7 +213,7 @@ function updateHud() {
   const par = SOL[cur]?.par;
   $('hTaps').firstChild.textContent = `Касаний ${taps}`;
   $('hPar').textContent = par ? `для трёх звёзд: ${par}` : '';
-  const hosted = sdk && sdk.environment.host === 'gamely';
+  const hosted = sdk && sdk.environment.host === 'gamely' && !sdk.player?.anonymous;
   $('hintCost').classList.toggle('hidden', !hosted || cur < 3 || hintPaid);
   $('hintCost').innerHTML = GCOIN + HINT_COST;
   const showCost = hosted && cur >= 3 && !hintPaid;
@@ -291,7 +291,7 @@ async function askHint() {
   if (state !== 'play' && state !== 'lose') return;
   audio();
   if (!hintPaid) {
-    const hosted = sdk && sdk.environment.host === 'gamely';
+    const hosted = sdk && sdk.environment.host === 'gamely' && !sdk.player?.anonymous;
     if (cur >= 3 && hosted) {
       // Цену подтверждает игрок в окне сайта. Монетки недоступны (нет связи) — выручает реклама.
       if (hintBuying) return;

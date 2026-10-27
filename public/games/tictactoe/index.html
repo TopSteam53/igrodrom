@@ -227,6 +227,8 @@ function finish(w) {
 }
 
 function newGame(resetStarter) {
+  // После законченной партии — пауза для полноэкранной рекламы (частоту ограничивает площадка).
+  if (over && sdk) sdk.ads.fullscreen().catch(() => {});
   gameId++; clearTimeout(aiTimer); busy = false;
   if (resetStarter) starter = 'X';
   else if (over || board.some(Boolean)) starter = starter === 'X' ? 'O' : 'X';

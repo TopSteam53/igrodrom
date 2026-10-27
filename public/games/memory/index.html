@@ -16,6 +16,7 @@ html,body{margin:0;height:100%;background:radial-gradient(circle at 50% 0,#17484
 .ib:disabled{opacity:.4}
 .ib{display:inline-flex;align-items:center;gap:.35em}
 .price{display:inline-flex;align-items:center;gap:.25em;vertical-align:-.15em}
+.ad{font-size:.75em;font-weight:900;border-radius:6px;padding:2px 6px;background:rgba(0,0,0,.14)}
 .gcoin{width:1.1em;height:1.1em;flex:none}
 .note.msg{color:#ffc9b4;font-weight:700}
 .note.msg:empty{display:none}
@@ -135,7 +136,8 @@ const totalStars = () => save.stars.reduce((a, b) => a + (b || 0), 0);
 // Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
 const GCOIN = '<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
 const COIN_MSG = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' };
-const onGamely = () => !!(sdk && sdk.environment.host === 'gamely');
+// Гостю монетки не потратить — ему, как и вне сайта, предлагаем рекламу.
+const onGamely = () => !!(sdk && sdk.environment.host === 'gamely' && !sdk.player?.anonymous);
 const priceHTML = (n) => `<span class="price">${GCOIN}${n}</span>`;
 async function spendCoins(btn, amount, title, fallback, say) {
   if (btn.disabled) return false;
@@ -145,7 +147,7 @@ async function spendCoins(btn, amount, title, fallback, say) {
     if (onGamely()) {
       const r = await sdk.coins.spend(amount, title).catch(() => ({ ok: false, reason: 'unavailable' }));
       if (r && r.ok) ok = true;
-      else if (r?.reason === 'unavailable' && fallback) ok = await fallback();
+      else if ((r?.reason === 'unavailable' || r?.reason === 'guest') && fallback) ok = await fallback();
       else if (r?.reason !== 'cancelled') say(COIN_MSG[r?.reason] || COIN_MSG.unavailable);
     } else if (fallback) ok = await fallback();
   } catch (e) { ok = false; }
@@ -222,9 +224,9 @@ function hud() {
   $('hPairs').textContent = `Пары ${found} из ${spec.pairs}`;
   $('hTime').textContent = `Время ${Math.max(0, timeLeft)}`;
   $('hTime').classList.toggle('warn', timeLeft <= 10);
-  // Подсказки кончились — на площадке одну можно взять за монетки прямо в игре.
-  const buyable = save.hints <= 0 && onGamely();
-  $('hHints').innerHTML = save.hints > 0 ? save.hints : buyable ? priceHTML(PEEK_COST) : '0';
+  // Подсказки кончились — одну можно взять прямо в игре: за монетки или (гостю и вне сайта) за рекламу.
+  const buyable = save.hints <= 0 && !!sdk;
+  $('hHints').innerHTML = save.hints > 0 ? save.hints : buyable ? (onGamely() ? priceHTML(PEEK_COST) : '<span class="ad">▶</span>') : '0';
   $('hintBtn').disabled = !playing || peekBusy || (save.hints <= 0 && !buyable);
 }
 
@@ -266,13 +268,16 @@ function reshuffle() {
 function floatText(t) { const d = document.createElement('div'); d.className = 'combo'; d.textContent = t; document.body.append(d); setTimeout(() => d.remove(), 900); }
 
 const PEEK_COST = 4, PACK_COST = 10;
+// Реклама за награду: гостю на сайте и вне сайта вместо монеток.
+const byAd = (say) => async () => { const r = sdk ? await sdk.ads.rewarded().catch(() => null) : { rewarded: true }; if (r && r.rewarded === true) return true; say('Реклама не досмотрена'); return false; };
+
 let peekBusy = false;
 $('hintBtn').onclick = async () => {
   if (!playing || busy || peekBusy) return;
   if (save.hints <= 0) {
-    if (!onGamely()) return;
+    if (!sdk) return;
     peekBusy = true;
-    const ok = await spendCoins($('hintBtn'), PEEK_COST, 'Подсказка в Мемори', null, floatText);
+    const ok = await spendCoins($('hintBtn'), PEEK_COST, 'Подсказка в Мемори', byAd(floatText), floatText);
     peekBusy = false;
     if (!ok || !playing) { hud(); return; }
     save.hints++; persist();

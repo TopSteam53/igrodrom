@@ -361,14 +361,15 @@ function addTube(){
 var TUBE_COST=5;
 var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
 var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
-function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+// Гостю монетки не потратить — ему, как и вне сайта, предлагаем рекламу.
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely'&&!(sdk.player&&sdk.player.anonymous))}
 function spendCoins(btn,amount,title,fallback,say){
   if(btn.disabled)return Promise.resolve(false);
   btn.disabled=true;
   var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
     if(r&&r.ok)return true;
     var why=r&&r.reason;
-    if(why==='unavailable'&&fallback)return fallback();
+    if((why==='unavailable'||why==='guest')&&fallback)return fallback();
     if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
     return false;
   }):(fallback?fallback():Promise.resolve(false));

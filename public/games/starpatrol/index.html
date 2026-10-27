@@ -785,7 +785,7 @@ async function gameOver() {
   $('oBest').textContent = save.best.toLocaleString('ru-RU');
   $('oCr').innerHTML = crystalsHTML(runCrystals);
   // Продолжить полёт можно один раз за вылет: за монетки площадки или за рекламу.
-  const hosted = sdk && sdk.environment.host === 'gamely';
+  const hosted = sdk && sdk.environment.host === 'gamely' && !sdk.player?.anonymous;
   $('revive').classList.toggle('hidden', revived || !sdk);
   $('coinRevive').classList.toggle('hidden', !hosted);
   $('oMsg').textContent = '';

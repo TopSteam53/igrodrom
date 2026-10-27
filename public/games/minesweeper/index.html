@@ -40,6 +40,7 @@ button{font:inherit;cursor:pointer;border:0;color:#fff;padding:0}
 #cont{padding:calc(var(--s)*.022) calc(var(--s)*.06);border-radius:999px;font-size:calc(var(--s)*.05);font-weight:800;background:#ffd23f;color:#3a2600;box-shadow:0 4px 0 #b88a00;display:inline-flex;align-items:center;gap:.4em}
 #cont:disabled{opacity:.55;cursor:default}
 .price{display:inline-flex;align-items:center;gap:.25em}
+.ad{font-size:.75em;font-weight:900;border-radius:6px;padding:2px 6px;background:rgba(0,0,0,.14)}
 .gcoin{width:1.1em;height:1.1em;flex:none}
 #ovM{font-size:calc(var(--s)*.04);color:#ffb4c4;font-weight:700}
 #ovM:empty{display:none}
@@ -93,7 +94,9 @@ function face(k){
   else if(k==='lose'){mouth.setAttribute('d','M8 16.5q4-3.5 8 0');eyes.innerHTML='<path d="M7 8l3 3M10 8l-3 3M14 8l3 3M17 8l-3 3" stroke="#3a2600" stroke-width="1.6" stroke-linecap="round"/>'}
   else{mouth.setAttribute('d','M7.5 14q4.5 4 9 0');eyes.innerHTML='<circle cx="8.6" cy="9.6" r="1.5"/><circle cx="15.4" cy="9.6" r="1.5"/>'}
 }
+// Новая партия после начатой — пауза для полноэкранной рекламы (частоту ограничивает площадка).
 function newGame(){
+  if(started&&sdk)sdk.ads.fullscreen().catch(function(){});
   mine=new Array(W*H).fill(false);open=new Array(W*H).fill(false);flag=new Array(W*H).fill(false);adj=new Array(W*H).fill(0);
   started=false;ended=false;flags=0;opened=0;secs=0;boom=null;revived=false;clearInterval(timerId);timerEl.textContent='0';
   cells.forEach(function(c){c.className='c';c.innerHTML=''});
@@ -146,9 +149,11 @@ function lose(i){
     else if(flag[j]&&!mine[j])cells[j].classList.add('wrong');
   }
   cells[i].classList.add('boom');cells[i].classList.remove('m');face('lose');
-  setTimeout(function(){show('Бум!','Вы наткнулись на мину',!revived&&onGamely())},500);
+  setTimeout(function(){show('Бум!','Вы наткнулись на мину',!revived&&!!sdk)},500);
 }
-// Второй шанс за монетки: мина под флажком, поле и время как были. Один раз за партию, только на площадке.
+// Второй шанс: мина под флажком, поле и время как были. Один раз за партию, за монетки или (гостю и вне сайта) за рекламу.
+// Реклама за награду: гостю на сайте и вне сайта вместо монеток.
+function byAd(say){return function(){var p=sdk?sdk.ads.rewarded():Promise.resolve({rewarded:true});return p.catch(function(){return {rewarded:false}}).then(function(r){if(r&&r.rewarded===true)return true;say('Реклама не досмотрена');return false})}}
 var CONT_COST=5,boom=null,revived=false,contBtn=document.getElementById('cont'),ovM=document.getElementById('ovM');
 function revive(){
   if(!boom||revived)return;
@@ -162,7 +167,7 @@ function revive(){
 }
 contBtn.addEventListener('click',function(){
   if(!boom||revived)return;
-  spendCoins(contBtn,CONT_COST,'Второй шанс в «Сапёре»',null,function(t){ovM.textContent=t}).then(function(ok){if(ok)revive()});
+  spendCoins(contBtn,CONT_COST,'Второй шанс в «Сапёре»',byAd(function(t){ovM.textContent=t}),function(t){ovM.textContent=t}).then(function(ok){if(ok)revive()});
 });
 function win(){
   ended=true;clearInterval(timerId);secs=Math.max(1,Math.floor((Date.now()-t0)/1000));timerEl.textContent=Math.min(999,secs);
@@ -175,7 +180,8 @@ function win(){
 // Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
 var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
 var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
-function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+// Гостю монетки не потратить — ему, как и вне сайта, предлагаем рекламу.
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely'&&!(sdk.player&&sdk.player.anonymous))}
 function priceHTML(n){return '<span class="price">'+GCOIN+n+'</span>'}
 function spendCoins(btn,amount,title,fallback,say){
   if(btn.disabled)return Promise.resolve(false);
@@ -183,7 +189,7 @@ function spendCoins(btn,amount,title,fallback,say){
   var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
     if(r&&r.ok)return true;
     var why=r&&r.reason;
-    if(why==='unavailable'&&fallback)return fallback();
+    if((why==='unavailable'||why==='guest')&&fallback)return fallback();
     if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
     return false;
   }):(fallback?fallback():Promise.resolve(false));
@@ -203,7 +209,7 @@ if(window.Gamely)Gamely.init().then(function(s){
 }).catch(function(){});
 function show(t,s,cont){
   ovT.textContent=t;ovS.textContent=s;ovM.textContent='';
-  contBtn.style.display=cont?'':'none';contBtn.innerHTML='Продолжить '+priceHTML(CONT_COST);
+  contBtn.style.display=cont?'':'none';contBtn.innerHTML='Продолжить '+(onGamely()?priceHTML(CONT_COST):'<span class="ad">▶</span>');
   ov.classList.add('show');
 }
 

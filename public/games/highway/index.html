@@ -465,7 +465,8 @@ function burstCoin(x, y) {
 // Трату подтверждает игрок в окне сайта, игра не переспрашивает. Вне площадки — запасной путь (fallback) или ничего.
 const GCOIN = '<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
 const COIN_MSG = { guest: 'Войдите на сайте, чтобы тратить монетки', not_enough: 'Не хватает монеток', unavailable: 'Монетки сейчас недоступны' };
-const onGamely = () => !!(sdk && sdk.environment.host === 'gamely');
+// Гостю монетки не потратить — ему, как и вне сайта, предлагаем рекламу.
+const onGamely = () => !!(sdk && sdk.environment.host === 'gamely' && !sdk.player?.anonymous);
 const priceHTML = (n) => `<span class="price">${GCOIN}${n}</span>`;
 async function spendCoins(btn, amount, title, fallback, say) {
   if (btn.disabled) return false;
@@ -475,7 +476,7 @@ async function spendCoins(btn, amount, title, fallback, say) {
     if (onGamely()) {
       const r = await sdk.coins.spend(amount, title).catch(() => ({ ok: false, reason: 'unavailable' }));
       if (r && r.ok) ok = true;
-      else if (r?.reason === 'unavailable' && fallback) ok = await fallback();
+      else if ((r?.reason === 'unavailable' || r?.reason === 'guest') && fallback) ok = await fallback();
       else if (r?.reason !== 'cancelled') say(COIN_MSG[r?.reason] || COIN_MSG.unavailable);
     } else if (fallback) ok = await fallback();
   } catch (e) { ok = false; }

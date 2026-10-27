@@ -68,6 +68,7 @@ h1{margin:0 auto 0 0;font-size:calc(var(--h)*.52);font-weight:900;line-height:1;
 #hintBtn:disabled{opacity:.5;cursor:default}
 #hintBtn.on{background:linear-gradient(135deg,#43d9ff,#2a6bff);color:#fff}
 .price{display:inline-flex;align-items:center;gap:.25em}
+.ad{font-size:.75em;font-weight:900;border-radius:6px;padding:2px 6px;background:rgba(0,0,0,.14)}
 .gcoin{width:1.1em;height:1.1em;flex:none}
 .tile.next .in{box-shadow:0 0 0 calc(var(--t)*.05) #ffe27a,0 0 calc(var(--t)*.25) rgba(255,226,122,.8),inset 0 calc(var(--t)*-.07) 0 rgba(0,0,0,.2)}
 </style>
@@ -299,7 +300,9 @@ function solveSteps(start,w){
 }
 
 // ---------- подсказка ----------
-// Подсвечиваем плитку, которую нажать следующей, на 20 ходов. На площадке — за монетки, вне её — бесплатно.
+// Подсвечиваем плитку, которую нажать следующей, на 20 ходов. За монетки или (гостю и вне сайта) за рекламу.
+// Реклама за награду: гостю на сайте и вне сайта вместо монеток.
+function byAd(say){return function(){var p=sdk?sdk.ads.rewarded():Promise.resolve({rewarded:true});return p.catch(function(){return {rewarded:false}}).then(function(r){if(r&&r.rewarded===true)return true;say('Реклама не досмотрена');return false})}}
 var HINT_COST=5,HINT_MOVES=20,hintLeft=0,hintSteps=[];
 function hintStop(){hintLeft=0;hintSteps=[];drawHint()}
 function drawHint(){
@@ -307,7 +310,7 @@ function drawHint(){
   var on=hintLeft>0&&hintSteps.length&&!done;
   if(on){var t=tiles[cells[hintSteps[0].k]];if(t)t.classList.add('next')}
   var hb=$('hintBtn');hb.classList.toggle('on',!!on);
-  $('hintCost').innerHTML=on?String(hintLeft):(onGamely()?'<span class="price">'+GCOIN+HINT_COST+'</span>':'');
+  $('hintCost').innerHTML=on?String(hintLeft):(onGamely()?'<span class="price">'+GCOIN+HINT_COST+'</span>':'<span class="ad">▶</span>');
   hb.title=on?'Подсказка: осталось '+hintLeft+' '+plural(hintLeft,'ход','хода','ходов'):'Подсказка: подсветить следующие '+HINT_MOVES+' ходов';
   if(on)$('hint').textContent='Нажимайте на подсвеченную плитку';
   else $('hint').textContent='Нажмите на плитку рядом с пустой клеткой, свайп или стрелки';
@@ -323,7 +326,7 @@ function hintAfterMove(cnt){
 function askHint(){
   var hb=$('hintBtn');
   if(done||ovOpen||hintLeft>0||hb.disabled)return;
-  spendCoins(hb,HINT_COST,'Подсказка в «Пятнашках»',function(){return Promise.resolve(true)},toast).then(function(ok){
+  spendCoins(hb,HINT_COST,'Подсказка в «Пятнашках»',byAd(toast),toast).then(function(ok){
     if(!ok||done||hintLeft>0)return;
     try{hintSteps=solveSteps(cells,n)}catch(e){hintSteps=[]}
     hintLeft=HINT_MOVES;drawHint();
@@ -337,14 +340,15 @@ function toast(t){var h=$('hint');h.textContent=t;h.style.color='#ffb4c4';clearT
 // Трату подтверждает игрок в окне сайта, игра не переспрашивает.
 var GCOIN='<svg class="gcoin" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#FFC531" stroke="#1C2140" stroke-width="1.6"/><circle cx="10" cy="10" r="5.2" fill="none" stroke="#1C2140" stroke-width="1.4"/></svg>';
 var COIN_MSG={guest:'Войдите на сайте, чтобы тратить монетки',not_enough:'Не хватает монеток',unavailable:'Монетки сейчас недоступны'};
-function onGamely(){return !!(sdk&&sdk.environment.host==='gamely')}
+// Гостю монетки не потратить — ему, как и вне сайта, предлагаем рекламу.
+function onGamely(){return !!(sdk&&sdk.environment.host==='gamely'&&!(sdk.player&&sdk.player.anonymous))}
 function spendCoins(btn,amount,title,fallback,say){
   if(btn.disabled)return Promise.resolve(false);
   btn.disabled=true;
   var p=onGamely()?sdk.coins.spend(amount,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
     if(r&&r.ok)return true;
     var why=r&&r.reason;
-    if(why==='unavailable'&&fallback)return fallback();
+    if((why==='unavailable'||why==='guest')&&fallback)return fallback();
     if(why!=='cancelled')say(COIN_MSG[why]||COIN_MSG.unavailable);
     return false;
   }):(fallback?fallback():Promise.resolve(false));
