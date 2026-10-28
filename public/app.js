@@ -121,6 +121,7 @@
     const login = $('login');
     if (login && window.IgrTheme) login.before(IgrTheme.button());
     metrika();
+    vkPixel();
     visitSource();
     if (login) login.href = `login.html?next=${encodeURIComponent(here())}`;
     me().then((user) => {
@@ -562,10 +563,25 @@
     });
   }
 
+  // Пиксель VK Рекламы (счётчик Top@Mail.ru) — если номер задан в .env (VK_PIXEL_ID).
+  function vkPixel() {
+    config().then(({ site }) => {
+      const id = site && site.vkPixel;
+      if (!id || document.getElementById('tmr-code')) return;
+      const tmr = window._tmr || (window._tmr = []);
+      tmr.push({ id, type: 'pageView', start: Date.now() });
+      const s = document.createElement('script');
+      s.async = true; s.id = 'tmr-code'; s.src = 'https://top-fwz1.mail.ru/js/code.js';
+      document.head.append(s);
+    }).catch(() => {});
+  }
+
   // Цель Метрики: регистрация, запуск игры, заявка автора, оплата. Цели с такими же именами нужно завести
   // в настройках счётчика. Обещание выполняется, когда цель ушла (или через 800 мс), — перед уходом со страницы его ждут.
   function goal(name, params) {
     return config().then(({ site }) => {
+      // та же цель — в пиксель VK, чтобы кампании VK Рекламы оптимизировались по ней
+      if (site && site.vkPixel) (window._tmr || (window._tmr = [])).push({ type: 'reachGoal', id: site.vkPixel, goal: name });
       const id = site && Number(site.metrika);
       if (!id || !window.ym) return;
       return new Promise((done) => {

@@ -45,6 +45,7 @@ export function siteFromEnv(env = {}) {
     telegram: str(env.SITE_TELEGRAM).replace(/^@/, ''),
     owner: str(env.SITE_OWNER), // «Иванов Иван Иванович, самозанятый, ИНН …»
     metrika: /^\d{4,12}$/.test(str(env.METRIKA_ID)) ? str(env.METRIKA_ID) : '',
+    vkPixel: /^\d{4,12}$/.test(str(env.VK_PIXEL_ID)) ? str(env.VK_PIXEL_ID) : '',
   };
 }
 

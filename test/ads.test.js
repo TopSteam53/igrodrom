@@ -38,6 +38,8 @@ test('настройки рекламы из .env: значения по умо�
   assert.equal(y.adsTxt, 'a.com, 1, DIRECT\nb.com, 2, RESELLER');
   assert.equal(siteFromEnv({ METRIKA_ID: '12345678', SITE_TELEGRAM: '@igrodrom' }).telegram, 'igrodrom');
   assert.equal(siteFromEnv({ METRIKA_ID: '<script>' }).metrika, '', 'в номер счётчика ничего лишнего');
+  assert.equal(siteFromEnv({ VK_PIXEL_ID: '3456789' }).vkPixel, '3456789');
+  assert.equal(siteFromEnv({ VK_PIXEL_ID: '12"><script>' }).vkPixel, '', 'в номер пикселя VK ничего лишнего');
 });
 
 test('/api/config и /ads.txt', async () => {
