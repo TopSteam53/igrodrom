@@ -425,7 +425,8 @@ if(window.Gamely)Gamely.init().then(function(s){
 try{window.focus()}catch(e){}
 // Для автопроверки.
 window.__game={get level(){return level},get moves(){return moves},get done(){return done},get ready(){return ready},
-  go:function(l){return startLevel(l)},swap:function(a,b){swap(a,b,false)},
+  go:function(l){return startLevel(l)},
+  debug:function(){return {C:C,R:R,regions:regions.map(function(r){return [r.x,r.y,r.w,r.h,r.name]}),done:doneRegions.slice(),pos:pos.slice(),home:pieces.map(function(p){return p.home}),sig:sig.map(function(x,i){return sig.indexOf(x)})}},swap:function(a,b){swap(a,b,false)},
   solveStep:function(){for(var c=0;c<C*R;c++)if(!correct(c)){var w=homeOf[c],f=cellOf[w];if(correct(f)){for(var i=0;i<pieces.length;i++)if(pieces[i].r===pieces[w].r&&sig[i]===sig[w]&&!correct(cellOf[i])){f=cellOf[i];break}}swap(f,c,false);return true}return false}};
 })();
 </script>

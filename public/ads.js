@@ -170,7 +170,7 @@
   // Полноэкранный блок на сайте — тот же тег mrg-tag; событий «показан/закрыт» у него нет,
   // поэтому следим за рекламными фреймами: появился — показ идёт, все пропали — закрыли.
   // Если за VK_WAIT_MS ничего не появилось — рекламы нет.
-  const VK_WAIT_MS = 6000;
+  const VK_WAIT_MS = 6000, VK_MAX_MS = 45000;
   function vkFullscreen(slot) {
     if (!slot) return Promise.resolve(null);
     return loadScript('https://ad.mail.ru/static/ads-async.js').then(() => settle((finish) => {
@@ -182,14 +182,29 @@
       ins.setAttribute('data-ad_query', `dl=${encodeURIComponent(location.href)}`);
       document.body.append(ins);
       const started = Date.now();
-      let shown = false;
-      const visible = (f) => f.isConnected && f.offsetWidth > 0 && f.offsetHeight > 0;
+      let shown = false, shownAt = 0;
+      // Показ — только рамка на заметную часть экрана, которую видно. Тег VK оставляет служебные рамки 1×1,
+      // а баннер под игрой догружается позже: раньше они считались показом, который «не закрывается»,
+      // и игра стояла на паузе до SAFETY_MS.
+      const visible = (f) => {
+        if (!f.isConnected) return false;
+        const r = f.getBoundingClientRect();
+        if (r.width * r.height < innerWidth * innerHeight * 0.35) return false;
+        if (r.bottom <= 0 || r.right <= 0 || r.top >= innerHeight || r.left >= innerWidth) return false;
+        for (let e = f; e && e !== document.documentElement; e = e.parentElement) {
+          const s = getComputedStyle(e);
+          if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) return false;
+        }
+        return true;
+      };
       const done = (result) => { clearInterval(poll); ins.remove(); finish(result); };
       const poll = setInterval(() => {
         const fresh = [...document.querySelectorAll('iframe')].filter((f) => !before.has(f) && visible(f));
-        if (fresh.length) shown = true;
+        if (fresh.length) { if (!shown) shownAt = Date.now(); shown = true; }
         else if (shown) done('closed');
         else if (Date.now() - started > VK_WAIT_MS) done('none');
+        // Закрытие так и не заметили, а показ шёл: через VK_MAX_MS считаем рекламу досмотренной, не держим игру.
+        if (shown && Date.now() - shownAt > VK_MAX_MS) done('closed');
       }, 400);
       (window.MRGtag = window.MRGtag || []).push({ onNoAds: () => { if (!shown) done('none'); } });
     })).catch(() => 'none');
