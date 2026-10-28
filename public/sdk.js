@@ -356,8 +356,19 @@
     initPromise = new Promise(function (resolve) {
       if (!inFrame()) return resolve(standalone(key, options));
       global.addEventListener('message', onMessage);
+      // Первое касание, клик или клавиша в игре — один раз сообщаем площадке: так она отличает игрока,
+      // который начал играть, от случайного захода (игра по рекламной ссылке открывается сама).
+      var touched = false, connected = false;
+      var reportInput = function () { request('game.input').then(function () {}, function () {}); };
+      var onInput = function (e) {
+        if (touched || (e && e.isTrusted === false)) return;
+        touched = true;
+        ['pointerdown', 'touchstart', 'keydown'].forEach(function (t) { global.removeEventListener(t, onInput, true); });
+        if (connected) reportInput();
+      };
+      ['pointerdown', 'touchstart', 'keydown'].forEach(function (t) { global.addEventListener(t, onInput, true); });
       request('init', { sdk: VERSION }, HANDSHAKE_MS).then(
-        function (info) { resolve(hosted(info || {})); },
+        function (info) { connected = true; if (touched) reportInput(); resolve(hosted(info || {})); },
         function () { resolve(standalone(key, options)); }
       );
     });

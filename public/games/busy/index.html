@@ -258,6 +258,9 @@ function frame(now){
   requestAnimationFrame(frame);
   var dt=Math.min(.05,(now-last)/1000);last=now;
   if(paused)return;
+  // Окно могло получить размер позже, чем пришло событие resize (рамка на сайте ещё раскладывалась).
+  if(window.innerWidth!==VW||window.innerHeight!==VH){layout();assignSlots(true)}
+  if(board.s<=0)return;
   var anim=false,cp=null;
   trayBeads.forEach(function(b){
     if(b.state==='sit'){

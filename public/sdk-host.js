@@ -118,7 +118,7 @@
   /**
    * Начать обслуживать игру в iframe. Вызывать до того, как iframe начнёт загружаться.
    * player() — кто играет: { authorized, name, id }; id у каждой игры свой, по нему нельзя
-   * связать игрока между играми. onEvent(type) — события игры: game.ready, game.start, game.stop.
+   * связать игрока между играми. onEvent(type) — события игры: game.ready, game.start, game.stop и game.input (первое касание или клавиша игрока).
    * ads — реклама страницы (IgrAds из ads.js); onAd(kind) — реклама показана, для статистики.
    * coins — монетки игрока: { balance(), confirm({ amount, title, balance }) → true/false, spend(amount, title) };
    * без него монетки недоступны. feedback — { can() → { value, reason }, request() → true, если отзыв написан }.
@@ -183,7 +183,7 @@
         }
         case 'adv.fullscreen': return advert('fullscreen');
         case 'adv.rewarded': return advert('rewarded');
-        case 'game.ready': case 'game.start': case 'game.stop': onEvent(m.type); return null;
+        case 'game.ready': case 'game.start': case 'game.stop': case 'game.input': onEvent(m.type); return null;
         case 'data.get': return store.get();
         case 'data.set': {
           const json = m.payload;

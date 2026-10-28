@@ -232,6 +232,9 @@ function rrect(x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r)
 function frame(now){
   requestAnimationFrame(frame);
   if(paused)return;
+  // Окно могло получить размер позже, чем пришло событие resize (рамка на сайте ещё раскладывалась).
+  if(window.innerWidth!==VW||window.innerHeight!==VH)layout();
+  if(B.cs<=0)return;
   if(Object.keys(anims).length||flashes.length||(intro&&now<intro+900))dirty=true;
   if(!dirty)return;dirty=false;draw(now);
 }

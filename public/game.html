@@ -186,6 +186,10 @@ function render(all) {
     qs.delete('play');
     history.replaceState(null, '', location.pathname + (qs.toString() ? `?${qs}` : ''));
     $('play').click();
+  } else if (qs.has('utm_source')) {
+    // Пришёл по рекламе — игра открывается сразу, без заставки. Запуск засчитываем только после первого
+    // касания или клика в игре: случайный клик по рекламе не должен выглядеть как сыгравший игрок.
+    requestAnimationFrame(() => startGame({ countOnTouch: true })); // после раскладки страницы: рамка сразу нужного размера
   }
   // Гостю — подсказка: прогресс сейчас живёт только в этом браузере.
   if (live) Igr.me().then((user) => {
@@ -242,8 +246,9 @@ function renderScore() {
 }
 
 // ---------- игра ----------
-let session = null;
-$('play').onclick = () => {
+let session = null, waitInput = false;
+$('play').onclick = () => startGame();
+function startGame({ countOnTouch = false } = {}) {
   const frame = document.createElement('iframe');
   // SDK-хост слушает до загрузки игры, чтобы не пропустить её первое сообщение.
   IgrodromHost.attach(frame, {
@@ -257,6 +262,7 @@ $('play').onclick = () => {
       return user ? { authorized: true, name: user.name, id: await IgrodromHost.playerIdFor(user.id, game.id) } : null;
     },
     onScore: () => { if (live) setTimeout(loadBoard, 300); },
+    onEvent: (type) => { if (type === 'game.input' && waitInput) { waitInput = false; if (live) startSession(); } },
     ...(live && { coins: coinsBridge, feedback: feedbackBridge }),
   });
   frame.src = game.src;
@@ -264,10 +270,11 @@ $('play').onclick = () => {
   frame.setAttribute('sandbox', 'allow-scripts allow-pointer-lock');
   frame.setAttribute('allow', 'fullscreen; autoplay');
   $('splash').replaceWith(frame);
-  frame.focus();
   IgrAds.start();
-  if (live) startSession();
-};
+  if (!countOnTouch) { frame.focus(); if (live) startSession(); return; }
+  // Засчитаем, когда SDK в игре сообщит о первом касании или клавише (game.input).
+  waitInput = true;
+}
 
 // Показы рекламы — в статистику автора игры.
 function countAd(kind) {
