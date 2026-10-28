@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PICTURES, BEAD_PALETTE } from './busy-art/list.mjs';
-import { capFor } from './busy-art/solver.mjs';
+import { capFor, specials } from './busy-art/solver.mjs';
 import { SCENES } from './busy-art/scenes.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -130,13 +130,15 @@ for (const p of PICTURES) {
   const used = [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a));
   const px = q.grid.map((v) => (v < 0 ? '.' : String.fromCharCode(97 + used.indexOf(v)))).join('');
   const pic = { name: p.name, w: q.w, h: q.h, pal: used.map((i) => BEAD_PALETTE[i]), px };
+  const sp = specials(pic, p.level);
+  if (/[bis]/.test(sp)) pic.sp = sp;
   Object.assign(pic, capFor(pic, p.level));
   result.push(pic);
-  console.log(`${p.name.padEnd(18)} ${q.w}×${q.h} цветов ${used.length} бусин ${q.grid.filter((v) => v >= 0).length} лоток ${pic.cap}`);
+  console.log(`${p.name.padEnd(18)} ${q.w}×${q.h} цветов ${used.length} бусин ${q.grid.filter((v) => v >= 0).length} лоток ${pic.cap}/${pic.cap2} ${pic.sp ? ['b', 'i', 's'].map((k) => k + (pic.sp.split(k).length - 1)).join(' ') : ''}`);
 }
 
 fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, `// Собрано scripts/busy-pictures.mjs — не править руками.\n// pal — цвета бусин, px — строки по w клеток: a — pal[0], b — pal[1]…, «.» — пустая клетка; cap — мест в лотке, cap2 — на втором круге картин.\nwindow.BUSY_PICTURES = ${JSON.stringify(result).replace(/\},\{/g, '},\n{')};\n`);
+fs.writeFileSync(out, `// Собрано scripts/busy-pictures.mjs — не править руками.\n// pal — цвета бусин, px — строки по w клеток: a — pal[0], b — pal[1]…, «.» — пустая клетка; cap — мест в лотке, cap2 — на втором круге картин; sp — особые клетки: b бомба, i лёд, s камень.\nwindow.BUSY_PICTURES = ${JSON.stringify(result).replace(/\},\{/g, '},\n{')};\n`);
 console.log('→', path.relative(root, out), result.length, 'картин');
 
 if (process.argv.includes('--sheet')) {

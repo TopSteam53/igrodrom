@@ -89,9 +89,14 @@ function partition(C,R,r){
   })(0,0,C,R);
   return out;
 }
-var level=1,C=4,R=4,regions=[],pieces=[],pos=[],cellOf=[],sig=[],moves=0,optimal=0,done=false,doneRegions=[];
+var level=1,C=4,R=4,regions=[],pieces=[],pos=[],cellOf=[],sig=[],sym=[],rot=[],moves=0,optimal=0,done=false,doneRegions=[];
+// Чтобы не было одного и того же: с 4-го уровня каждый третий — с повёрнутыми кусочками (касание поворачивает),
+// с 5-го каждый пятый — «вслепую»: кусочки не закрепляются, пока картина не собрана целиком. Бывают оба сразу.
+var turnMode=false,blindMode=false;
+function modesFor(l){return {turn:l>=4&&l%3===1,blind:l>=5&&l%5===0}}
 function makeLevel(l){
   var r=rng(l*7919+13),bs=boardFor(l);C=bs[0];R=bs[1];
+  var md=modesFor(l);turnMode=md.turn;blindMode=md.blind;
   regions=partition(C,R,r);
   var kinds=shuffle(SC.list.slice(),r),covers=shuffle(COVERS.map(function(c,i){return i}),rng(Math.floor((l-1)/4)*31+5));
   var ci=(l-1)%4*3,ki=0;
@@ -104,7 +109,8 @@ function makeLevel(l){
 }
 function homePiece(cell){for(var i=0;i<pieces.length;i++)if(pieces[i].home===cell)return i;return -1}
 var homeOf=[];
-function correct(cell){var p=pos[cell],q=homeOf[cell];return p===q||(pieces[p].r===pieces[q].r&&sig[p]===sig[q])}
+function correct(cell){var p=pos[cell],q=homeOf[cell];if(turnMode&&rot[p]&&!sym[p])return false;return p===q||(pieces[p].r===pieces[q].r&&sig[p]===sig[q])}
+function locked(cell){return correct(cell)&&(!blindMode||doneRegions[pieces[pos[cell]].r])}
 function regionDone(ri){var rg=regions[ri];for(var y=0;y<rg.h;y++)for(var x=0;x<rg.w;x++)if(!correct(rg.x+x+(rg.y+y)*C))return false;return true}
 function shufflePos(r){
   var n=pieces.length;pos=pieces.map(function(_,i){return i});
@@ -114,6 +120,7 @@ function shufflePos(r){
     if(!bad.length)break;
     bad.forEach(function(c){var o=Math.floor(r()*n),t=pos[c];pos[c]=pos[o];pos[o]=t});
   }
+  rot=pieces.map(function(){return turnMode&&r()<.75?1+Math.floor(r()*3):0});
 }
 function cycles(){var seen=[],n=0;for(var i=0;i<pos.length;i++){if(seen[i])continue;n++;for(var j=i;!seen[j];j=pieces[pos[j]].home)seen[j]=1}return n}
 
@@ -140,6 +147,9 @@ function renderPictures(){
       }
       return s;
     });
+    // кусочек, который после поворота на 90° выглядит так же, поворачивать не нужно
+    // с допуском: лёгкий градиент неба не должен делать «невидимый» неправильный поворот
+    sym=sig.map(function(sg){if(sg.charAt(0)==='p')return false;for(var y=0;y<6;y++)for(var x=0;x<6;x++)for(var ch=0;ch<3;ch++){var a=sg.charCodeAt((y*6+x)*3+ch),b=sg.charCodeAt((x*6+(5-y))*3+ch);if(Math.abs(a-b)>1)return false}return true});
   });
 }
 
@@ -153,9 +163,9 @@ function startLevel(l,saved){
   return renderPictures().then(function(){
     if(l!==level)return;
     $('loading').style.display='none';
-    if(saved){pos=saved.pos.slice();moves=saved.moves}
+    if(saved){pos=saved.pos.slice();moves=saved.moves;rot=saved.rot&&saved.rot.length===pieces.length?saved.rot.slice():pieces.map(function(){return 0})}
     else shufflePos(rng(l*31+(Date.now()&0xffff)));
-    optimal=pieces.length-cycles();
+    optimal=pieces.length-cycles()+(turnMode?rot.filter(function(v,i){return v&&!sym[i]}).length:0);
     cellOf=[];pos.forEach(function(p,c){cellOf[p]=c});
     doneRegions=regions.map(function(_,i){return regionDone(i)});
     $('moves').textContent=moves;
@@ -165,6 +175,8 @@ function startLevel(l,saved){
       // Сначала картины видно целиком: их нужно запомнить — потом образец только за монетки или рекламу.
       var memo=Math.min(6000,3000+pieces.length*70);
       intro=performance.now()+memo;
+      var why=turnMode&&blindMode?'Кусочки повёрнуты и не закрепляются до сборки картины':turnMode?'Кусочки повёрнуты: нажмите на кусочек, чтобы повернуть его':blindMode?'Вслепую: кусочки не закрепляются, пока картина не собрана':'';
+      if(why)setTimeout(function(){if(level===l&&!done)toast(why,3600)},memo+300);
       pieces.forEach(function(p,i){var h=cellRect(p.home);anims[i]={x:h.x,y:h.y,t0:intro+((i*37)%pieces.length)*12,dur:520}});
     }else intro=0;
     if(saved&&doneRegions.every(Boolean))win();
@@ -186,8 +198,12 @@ function cellAt(x,y){var cx=Math.floor((x-B.x)/B.cs),cy=Math.floor((y-B.y)/B.cs)
 
 // ---------- рисование ----------
 var dirty=true,sel=-1,drag=null,peekUntil=0,flashes=[];
-function drawPiece(p,x,y,size,insets){
+var rotAnim={};
+function drawPiece(p,x,y,size,insets,now){
   var pc=pieces[p],s=B.cs,src=pics[pc.r];
+  var ang=(rot[p]||0)*Math.PI/2,ra=rotAnim[p];
+  if(ra&&now!=null){var t=Math.min(1,(now-ra.t0)/180);ang=ra.from+(ang-ra.from)*(1-Math.pow(1-t,3));if(t>=1)delete rotAnim[p]}
+  if(ang){var gp=insets?insets[0]:0,cx=x+size/2,cy=y+size/2,in2=size-gp*2*size/s;g.save();g.translate(cx,cy);g.rotate(ang);g.drawImage(src,pc.lx*RES,pc.ly*RES,RES,RES,-in2/2,-in2/2,in2,in2);g.restore();return}
   var l=insets?insets[0]:0,t=insets?insets[1]:0,rr=insets?insets[2]:0,b=insets?insets[3]:0;
   var k=RES/s;
   g.drawImage(src,pc.lx*RES+l*k,pc.ly*RES+t*k,RES-(l+rr)*k,RES-(t+b)*k,x+l*size/s,y+t*size/s,(s-l-rr)*size/s,(s-t-b)*size/s);
@@ -198,6 +214,7 @@ function draw(now){
   var s=B.cs,gp=B.gap/2;
   g.fillStyle='#181a24';rrect(B.x-6,B.y-6,s*C+12,s*R+12,12);g.fill();
   var showHome=now<peekUntil||now<intro;
+  var keepRot=rot;if(showHome)rot=pieces.map(function(){return 0});
   // готовые картины — целиком, в рамке
   regions.forEach(function(rg,ri){
     if(!doneRegions[ri]||showHome)return;
@@ -214,22 +231,23 @@ function draw(now){
     else if(a){r={x:a.x,y:a.y}}
     // закреплённые кусочки одной картины прилегают друг к другу без щелей
     var ins=[gp,gp,gp,gp];
-    if(!showHome&&correct(c)){
+    if(!showHome&&locked(c)){
       var cx=c%C,cy=(c/C)|0,nb=[[cx-1,cy],[cx,cy-1],[cx+1,cy],[cx,cy+1]];
-      nb.forEach(function(n,k){if(n[0]<0||n[1]<0||n[0]>=C||n[1]>=R)return;var nc=n[0]+n[1]*C;if(pieces[pos[nc]].r===pc.r&&pieces[homeOf[nc]].r===pc.r&&correct(nc))ins[k]=0});
+      nb.forEach(function(n,k){if(n[0]<0||n[1]<0||n[0]>=C||n[1]>=R)return;var nc=n[0]+n[1]*C;if(pieces[pos[nc]].r===pc.r&&pieces[homeOf[nc]].r===pc.r&&locked(nc))ins[k]=0});
     }
     if(showHome)ins=[0,0,0,0];
-    drawPiece(p,r.x,r.y,s,ins);
+    drawPiece(p,r.x,r.y,s,ins,now);
     if(c===sel&&!showHome){g.strokeStyle='#ffc531';g.lineWidth=3;g.strokeRect(r.x+gp+1.5,r.y+gp+1.5,s-gp*2-3,s-gp*2-3)}
   }
   if(drag&&!showHome){
     var tc=cellAt(drag.x,drag.y);
-    if(tc>=0&&tc!==drag.from&&!correct(tc)){var tr=cellRect(tc);g.strokeStyle='#ffc531';g.lineWidth=3;g.strokeRect(tr.x+gp+1.5,tr.y+gp+1.5,s-gp*2-3,s-gp*2-3)}
+    if(tc>=0&&tc!==drag.from&&!locked(tc)){var tr=cellRect(tc);g.strokeStyle='#ffc531';g.lineWidth=3;g.strokeRect(tr.x+gp+1.5,tr.y+gp+1.5,s-gp*2-3,s-gp*2-3)}
     var big=s*1.08;
     g.save();g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=18;g.shadowOffsetY=8;
     g.fillStyle='#000';g.fillRect(drag.x-drag.ox*1.08,drag.y-drag.oy*1.08,big,big);g.restore();
-    drawPiece(drag.p,drag.x-drag.ox*1.08,drag.y-drag.oy*1.08,big,null);
+    drawPiece(drag.p,drag.x-drag.ox*1.08,drag.y-drag.oy*1.08,big,null,now);
   }
+  rot=keepRot;
   flashes=flashes.filter(function(f){return now-f.t0<700});
   flashes.forEach(function(f){var rg=regions[f.r],t=(now-f.t0)/700;g.fillStyle='rgba(255,255,255,'+(.55*(1-t))+')';g.fillRect(B.x+rg.x*s,B.y+rg.y*s,rg.w*s,rg.h*s)});
 }
@@ -240,7 +258,7 @@ function frame(now){
   // Окно могло получить размер позже, чем пришло событие resize (рамка на сайте ещё раскладывалась).
   if(window.innerWidth!==VW||window.innerHeight!==VH)layout();
   if(B.cs<=0)return;
-  if(Object.keys(anims).length||flashes.length||(intro&&now<intro+900)||now<peekUntil+100)dirty=true;
+  if(Object.keys(anims).length||Object.keys(rotAnim).length||flashes.length||(intro&&now<intro+900)||now<peekUntil+100)dirty=true;
   // отсчёт: «Запомните картины» в начале и при платном образце
   var left=Math.max(intro,peekUntil)-now,me=$('memo');
   if(ready&&!done&&left>0){me.textContent=(now<intro?'Запомните картины ':'Образец ')+Math.ceil(left/1000);me.classList.add('show')}else me.classList.remove('show');
@@ -249,7 +267,7 @@ function frame(now){
 
 // ---------- ходы ----------
 function swap(a,b,fromDrag){
-  if(a===b||correct(a)||correct(b))return;
+  if(a===b||locked(a)||locked(b))return;
   var pa=pos[a],pb=pos[b],ra=cellRect(a),rb=cellRect(b),now=performance.now();
   if(fromDrag){anims[pa]={x:drag.x-drag.ox,y:drag.y-drag.oy,t0:now,dur:140}}else anims[pa]={x:ra.x,y:ra.y,t0:now,dur:200};
   anims[pb]={x:rb.x,y:rb.y,t0:now,dur:200};
@@ -257,13 +275,20 @@ function swap(a,b,fromDrag){
   moves++;$('moves').textContent=moves;touched=true;
   afterMove([a,b]);
 }
+function turn(c){
+  var p=pos[c];if(locked(c))return;
+  rotAnim[p]={from:(rot[p]||0)*Math.PI/2,t0:performance.now()};
+  // крутим по часовой; 3 → 0 через полный круг, чтобы анимация не прыгала назад
+  if(rot[p]===3)rotAnim[p].from=-Math.PI/2;
+  rot[p]=((rot[p]||0)+1)%4;moves++;$('moves').textContent=moves;touched=true;tick();afterMove([c]);
+}
 function afterMove(cells){
-  var locked=cells.some(correct);
+  var lockedNow=cells.some(function(c){return correct(c)&&!blindMode});
   var newly=[];regions.forEach(function(_,i){if(!doneRegions[i]&&regionDone(i)){doneRegions[i]=true;newly.push(i)}});
   if(newly.length){
     newly.forEach(function(i){flashes.push({r:i,t0:performance.now()+150})});
     arpeggio();toast((newly.length>1?'Картины ':'Картина ')+newly.map(function(i){return '«'+regions[i].name+'»'}).join(', ')+(newly.length>1?' собраны':' собрана'));
-  }else if(locked)ding();else click();
+  }else if(lockedNow)ding();else click();
   save();dirty=true;
   if(doneRegions.every(Boolean))setTimeout(win,650);
 }
@@ -323,7 +348,7 @@ function hint(){
     // клетка, куда ставим, — та, чей кусочек сейчас дальше всех от своего места
     var c=wrong[Math.floor(Math.random()*wrong.length)],want=homeOf[c],from=cellOf[want];
     if(correct(from)){for(var i=0;i<pieces.length;i++)if(pieces[i].r===pieces[want].r&&sig[i]===sig[want]&&!correct(cellOf[i])){from=cellOf[i];break}}
-    var m=moves;swap(from,c,false);moves=m;$('moves').textContent=moves;save();
+    var m=moves,pw=pos[from];if(from!==c)swap(from,c,false);rot[pw]=0;moves=m;$('moves').textContent=moves;afterMove([c]);save();
   });
 }
 
@@ -333,7 +358,7 @@ cv.addEventListener('pointerdown',function(e){
   ensureAudio();
   var c=cellAt(e.clientX,e.clientY);
   if(c<0){sel=-1;dirty=true;return}
-  if(correct(c)){thud();return}
+  if(locked(c)){thud();return}
   var r=cellRect(c);
   drag={from:c,p:pos[c],x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,ox:e.clientX-r.x,oy:e.clientY-r.y,moved:false};
   try{cv.setPointerCapture(e.pointerId)}catch(_){}
@@ -349,11 +374,12 @@ function endDrag(e){
   if(!d.moved){
     // касание без перетаскивания: выбрать кусочек, потом второй — поменять местами
     drag=null;
+    if(turnMode){sel=-1;turn(d.from);dirty=true;return}
     if(sel<0){sel=d.from;tick()}else if(sel===d.from)sel=-1;else{var a=sel;sel=-1;swap(a,d.from,false)}
     dirty=true;return;
   }
   var t=cellAt(d.x,d.y);
-  if(t>=0&&t!==d.from&&!correct(t)){sel=-1;swap(d.from,t,true)}
+  if(t>=0&&t!==d.from&&!locked(t)){sel=-1;swap(d.from,t,true)}
   else{var now=performance.now();anims[d.p]={x:d.x-d.ox,y:d.y-d.oy,t0:now,dur:160}}
   drag=null;dirty=true;
 }
@@ -372,13 +398,13 @@ window.addEventListener('resize',layout);
 
 // ---------- тосты ----------
 var toastEl=$('toast'),tt=null;
-function toast(s){toastEl.textContent=s;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},2200)}
+function toast(s,ms){toastEl.textContent=s;toastEl.classList.add('show');clearTimeout(tt);tt=setTimeout(function(){toastEl.classList.remove('show')},ms||2200)}
 
 // ---------- сохранение через SDK ----------
 // sdk присваиваем только после чтения сохранения, иначе первое действие затрёт старый прогресс.
 function saveRaw(){
   if(!sdk)return;
-  var game=!done&&ready?{lvl:level,pos:pos,moves:moves}:null;
+  var game=!done&&ready?{lvl:level,pos:pos,moves:moves,rot:rot}:null;
   sdk.data.set({v:1,level:level,mute:mute,game:game}).catch(function(){});
 }
 function save(){if(!done)saveRaw()}
@@ -386,6 +412,7 @@ function validGame(gm,l){
   if(!gm||typeof gm!=='object'||gm.lvl!==l||!Array.isArray(gm.pos)||!(gm.moves>=0&&gm.moves<100000))return null;
   var bs=boardFor(l),n=bs[0]*bs[1];if(gm.pos.length!==n)return null;
   var seen={};for(var i=0;i<n;i++){var v=gm.pos[i];if(v!==(v|0)||v<0||v>=n||seen[v])return null;seen[v]=1}
+  if(gm.rot!=null&&(!Array.isArray(gm.rot)||gm.rot.length!==n||!gm.rot.every(function(x){return x===0||x===1||x===2||x===3})))return null;
   return gm;
 }
 function applySave(d){
@@ -441,8 +468,8 @@ try{window.focus()}catch(e){}
 // Для автопроверки.
 window.__game={get level(){return level},get moves(){return moves},get done(){return done},get ready(){return ready},
   go:function(l){return startLevel(l)},
-  debug:function(){return {C:C,R:R,regions:regions.map(function(r){return [r.x,r.y,r.w,r.h,r.name]}),done:doneRegions.slice(),pos:pos.slice(),home:pieces.map(function(p){return p.home}),sig:sig.map(function(x,i){return sig.indexOf(x)})}},swap:function(a,b){swap(a,b,false)},
-  solveStep:function(){for(var c=0;c<C*R;c++)if(!correct(c)){var w=homeOf[c],f=cellOf[w];if(correct(f)){for(var i=0;i<pieces.length;i++)if(pieces[i].r===pieces[w].r&&sig[i]===sig[w]&&!correct(cellOf[i])){f=cellOf[i];break}}swap(f,c,false);return true}return false}};
+  debug:function(){return {turn:turnMode,blind:blindMode,rot:rot.slice(),sym:sym.slice(),C:C,R:R,regions:regions.map(function(r){return [r.x,r.y,r.w,r.h,r.name]}),done:doneRegions.slice(),pos:pos.slice(),home:pieces.map(function(p){return p.home}),sig:sig.map(function(x,i){return sig.indexOf(x)})}},swap:function(a,b){swap(a,b,false)},
+  solveStep:function(){for(var c=0;c<C*R;c++)if(!correct(c)){var w=homeOf[c],f=cellOf[w];if(pos[c]===w||(pieces[pos[c]].r===pieces[w].r&&sig[pos[c]]===sig[w])){turn(c);return true}if(correct(f)){for(var i=0;i<pieces.length;i++)if(pieces[i].r===pieces[w].r&&sig[i]===sig[w]&&!correct(cellOf[i])){f=cellOf[i];break}}swap(f,c,false);return true}return false}};
 })();
 </script>
 </body>

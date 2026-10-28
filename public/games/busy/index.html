@@ -66,22 +66,26 @@ button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transpar
 <script>
 (function(){
 'use strict';
-var PICS=window.BUSY_PICTURES, STRING=10, MORE=10, MORE_COST=5;
+var PICS=window.BUSY_PICTURES, STRING=10, MORE=10, MORE_COST=5, STONE=-2, BOMB=-3;
 var cv=document.getElementById('cv'), g=cv.getContext('2d');
 var $=function(id){return document.getElementById(id)};
 var sdk=null, paused=false, mute=false, touched=false;
 
 // ---------- модель (те же правила, что в scripts/busy-art/solver.mjs) ----------
-var level=1, pic=null, W=0, Hh=0, orig=null, cells=null, cap=0, extra=0, tray=[], load=0, left=0, strings=0, stringCols=[], over=null;
+var level=1, pic=null, W=0, Hh=0, orig=null, cells=null, ice=null, cap=0, extra=0, tray=[], load=0, left=0, strings=0, stringCols=[], over=null;
 function picFor(l){return PICS[(l-1)%PICS.length]}
 function capOf(l){var p=picFor(l);return l>PICS.length?p.cap2:p.cap}
 function startLevel(l,saved){
   level=l;pic=picFor(l);W=pic.w;Hh=pic.h;
   orig=[];for(var i=0;i<pic.px.length;i++){var ch=pic.px.charCodeAt(i);orig.push(ch===46?-1:ch-97)}
-  cells=orig.slice();cap=capOf(l);extra=0;tray=pic.pal.map(function(){return 0});load=0;strings=0;stringCols=[];over=null;
+  // Особые клетки (pic.sp): s — камень, b — бомба, i — лёд поверх бусины.
+  var sp=pic.sp||'';
+  cells=orig.map(function(o,i){return sp.charAt(i)==='s'?STONE:sp.charAt(i)==='b'?BOMB:o});
+  ice=orig.map(function(o,i){return sp.charAt(i)==='i'});
+  cap=capOf(l);extra=0;tray=pic.pal.map(function(){return 0});load=0;strings=0;stringCols=[];over=null;
   left=cells.filter(function(c){return c>=0}).length;
   if(saved){
-    for(var k=0;k<cells.length;k++)if(saved.removed.charAt(k)==='1')cells[k]=-1;
+    for(var k=0;k<cells.length;k++){if(saved.removed.charAt(k)==='1')cells[k]=-1;if(saved.ice&&saved.ice.charAt(k)==='0')ice[k]=false}
     left=cells.filter(function(c){return c>=0}).length;
     tray=saved.tray.slice();load=tray.reduce(function(a,b){return a+b},0);extra=saved.extra;strings=saved.strings;stringCols=saved.sc.slice();
   }
@@ -98,13 +102,16 @@ function startLevel(l,saved){
 function isOpen(i){
   var x=i%W,y=(i/W)|0;
   if(!x||!y||x===W-1||y===Hh-1)return true;
-  return cells[i-1]<0||cells[i+1]<0||cells[i-W]<0||cells[i+W]<0;
+  return cells[i-1]===-1||cells[i+1]===-1||cells[i-W]===-1||cells[i+W]===-1;
 }
+function sides(j){var x=j%W,o=[];if(x>0)o.push(j-1);if(x<W-1)o.push(j+1);if(j-W>=0)o.push(j-W);if(j+W<cells.length)o.push(j+W);return o}
+// клетки квадрата 3×3 вокруг бомбы
+function around(i){var x0=i%W,y0=(i/W)|0,o=[];for(var dy=-1;dy<=1;dy++)for(var dx=-1;dx<=1;dx++){var x=x0+dx,y=y0+dy;if((dx||dy)&&x>=0&&y>=0&&x<W&&y<Hh)o.push(y*W+x)}return o}
 function group(i){
   var c=cells[i],seen={},q=[i];seen[i]=1;
   for(var k=0;k<q.length;k++){
     var j=q[k],x=j%W,ns=[x>0?j-1:-1,x<W-1?j+1:-1,j-W,j+W];
-    for(var t=0;t<4;t++){var n=ns[t];if(n>=0&&n<cells.length&&!seen[n]&&cells[n]===c){seen[n]=1;q.push(n)}}
+    for(var t=0;t<4;t++){var n=ns[t];if(n>=0&&n<cells.length&&!seen[n]&&cells[n]===c&&!ice[n]){seen[n]=1;q.push(n)}}
   }
   return q;
 }
@@ -172,6 +179,32 @@ function bead(hex,px,ghost){
   sprites[key]=c;return c;
 }
 
+// Камень, бомба и лёд — свои спрайты того же размера, что бусина.
+function special(kind,px){
+  var key=kind+px;if(sprites[key])return sprites[key];
+  var n=Math.max(4,Math.ceil(px*DPR)),c=document.createElement('canvas');c.width=c.height=n;
+  var x=c.getContext('2d'),r=n/2;
+  if(kind==='stone'){
+    x.fillStyle='rgba(59,47,39,.25)';x.beginPath();x.arc(r,r+n*.05,r*.9,0,7);x.fill();
+    var g2=x.createLinearGradient(0,0,0,n);g2.addColorStop(0,'#a59c92');g2.addColorStop(1,'#6b635b');
+    x.fillStyle=g2;x.beginPath();x.moveTo(r*.25,r*.7);x.lineTo(r*.7,r*.18);x.lineTo(r*1.45,r*.28);x.lineTo(r*1.82,r*.95);x.lineTo(r*1.5,r*1.75);x.lineTo(r*.55,r*1.8);x.lineTo(r*.15,r*1.25);x.closePath();x.fill();
+    x.strokeStyle='rgba(255,255,255,.35)';x.lineWidth=Math.max(1,n*.05);x.beginPath();x.moveTo(r*.55,r*.6);x.lineTo(r*.95,r*.42);x.stroke();
+  }else if(kind==='bomb'){
+    x.fillStyle='rgba(59,47,39,.25)';x.beginPath();x.arc(r,r+n*.05,r*.86,0,7);x.fill();
+    var g3=x.createRadialGradient(r*.7,r*.7,r*.1,r,r,r*.85);g3.addColorStop(0,'#5c6670');g3.addColorStop(1,'#1c2140');
+    x.fillStyle=g3;x.beginPath();x.arc(r,r*1.08,r*.74,0,7);x.fill();
+    x.fillStyle='#8b5a2b';x.fillRect(r*.82,r*.12,r*.36,r*.32);
+    x.fillStyle='#ffc531';x.beginPath();x.arc(r*1.32,r*.16,r*.2,0,7);x.fill();x.fillStyle='#ff6b35';x.beginPath();x.arc(r*1.32,r*.16,r*.1,0,7);x.fill();
+    x.fillStyle='rgba(255,255,255,.4)';x.beginPath();x.ellipse(r*.72,r*.8,r*.2,r*.12,-.6,0,7);x.fill();
+  }else{
+    // лёд: голубой полупрозрачный кубик поверх бусины
+    x.fillStyle='rgba(190,232,255,.62)';rr(x,n*.06,n*.06,n*.88,n*.88,n*.18);x.fill();
+    x.strokeStyle='rgba(255,255,255,.95)';x.lineWidth=Math.max(1,n*.06);rr(x,n*.06,n*.06,n*.88,n*.88,n*.18);x.stroke();
+    x.strokeStyle='rgba(255,255,255,.8)';x.lineWidth=Math.max(1,n*.05);x.beginPath();x.moveTo(n*.25,n*.42);x.lineTo(n*.42,n*.25);x.moveTo(n*.3,n*.6);x.lineTo(n*.6,n*.3);x.stroke();
+  }
+  sprites[key]=c;return c;
+}
+
 // ---------- картина (кэш) ----------
 var boardCache=null,dirty=true;
 function redrawBoard(){boardCache=null;dirty=true}
@@ -185,7 +218,12 @@ function drawBoardCache(){
   for(var i=0;i<cells.length;i++){
     var o=orig[i],px=(pad+(i%W)*s)*DPR,py=(pad+((i/W)|0)*s)*DPR;
     if(o<0){x.fillStyle='#ece1cd';x.beginPath();x.arc(px+s*DPR/2,py+s*DPR/2,s*DPR*.12,0,7);x.fill();continue}
-    x.drawImage(bead(pic.pal[o],s,cells[i]<0),px,py,s*DPR,s*DPR);
+    var sz=s*DPR;
+    if(cells[i]===STONE){x.drawImage(special('stone',s),px,py,sz,sz);continue}
+    if(cells[i]===BOMB){x.drawImage(special('bomb',s),px,py,sz,sz);continue}
+    if((pic.sp||'').charAt(i)==='b'){x.fillStyle='#ece1cd';x.beginPath();x.arc(px+sz/2,py+sz/2,sz*.12,0,7);x.fill();continue}
+    x.drawImage(bead(pic.pal[o],s,cells[i]<0),px,py,sz,sz);
+    if(cells[i]>=0&&ice[i])x.drawImage(special('ice',s),px,py,sz,sz);
   }
   boardCache={c:c,pad:pad};
 }
@@ -216,26 +254,39 @@ function bumpCounter(){
 var hover=-1,flash=null,endKind=null;
 function busyNow(){return trayBeads.some(function(b){return b.state!=='sit'})}
 function tapCell(i){
-  if(over||paused||i<0||cells[i]<0)return;
+  if(over||paused||i<0||cells[i]===-1)return;
   if(busyNow())return;
   ensureAudio();
+  if(cells[i]===STONE){flash={i:i,t:performance.now()};dirty=true;thud();tipOnce('stone','Камень не убрать — до бусин за ним добирайтесь с другой стороны');return}
+  if(ice[i]){flash={i:i,t:performance.now()};dirty=true;thud();tipOnce('ice','Лёд растает, когда рядом с бусиной освободится место');return}
   if(!isOpen(i)){flash={i:i,t:performance.now()};dirty=true;thud();hintClosed();return}
   if(load>=cap+extra){toast('Лоток полон');thud();return}
   // Бусины берём по одной: десятая бусина цвета сразу собирает нитку вместе с теми, что ждут в лотке,
   // и вся нитка летит к счётчику, не занимая места.
-  var c=cells[i],grp=group(i),now=performance.now(),taken=[];
-  var pend=trayBeads.filter(function(b){return b.c===c});
-  for(var k=0;k<grp.length&&load<cap+extra;k++){
-    var j=grp[k];cells[j]=-1;left--;tray[c]++;load++;
-    var p=cellCenter(j),bd={c:c,state:'fly',dest:'tray',seq:seqN++,x:p.x,y:p.y,sx:p.x,sy:p.y,slot:0};
+  var now=performance.now(),taken=[],removed=[],melted=[],pendBy={};
+  var pendOf=function(c){if(!pendBy[c])pendBy[c]=trayBeads.filter(function(b){return b.c===c});return pendBy[c]};
+  var takeOne=function(j){
+    var c=cells[j];cells[j]=-1;left--;tray[c]++;load++;removed.push(j);
+    var p=cellCenter(j),bd={c:c,state:'fly',dest:'tray',seq:seqN++,x:p.x,y:p.y,sx:p.x,sy:p.y,slot:0},pend=pendOf(c);
     taken.push(bd);pend.push(bd);
     if(tray[c]===STRING){
       tray[c]=0;load-=STRING;strings++;stringCols.push(c);
       pend.forEach(function(q){q.dest='str';q.strIdx=taken.length});
-      pend[pend.length-1].bump=true;pend=[];
+      pend[pend.length-1].bump=true;pendBy[c]=[];
     }
+  };
+  if(cells[i]===BOMB){
+    // бомба: исчезает и забирает бусины вокруг; лёд рядом тает, но бусина остаётся
+    cells[i]=-1;removed.push(i);boom();
+    around(i).forEach(function(j){if(cells[j]<0)return;if(ice[j]){ice[j]=false;melted.push(j);return}if(load<cap+extra)takeOne(j)});
+  }else{
+    var grp=group(i);
+    for(var k=0;k<grp.length&&load<cap+extra;k++)takeOne(grp[k]);
   }
-  var n=taken.length,step=Math.min(14,900/n);
+  // лёд тает рядом с освободившимися клетками
+  removed.forEach(function(j){sides(j).forEach(function(nb){if(ice[nb]){ice[nb]=false;melted.push(nb)}})});
+  if(melted.length)crack();
+  var n=taken.length,step=Math.min(14,900/Math.max(1,n));
   taken.forEach(function(bd,k){bd.t0=now+k*step;bd.dur=bd.dest==='str'?520:400+Math.random()*60;trayBeads.push(bd)});
   // ждавшие в лотке уходят, когда прилетает бусина, замкнувшая их нитку
   trayBeads.forEach(function(q){if(q.state==='sit'&&q.dest==='str'){q.state='leave';q.t0=now+(q.strIdx-1)*step+250;q.dur=480;q.sx=q.x;q.sy=q.y}});
@@ -294,10 +345,10 @@ function draw(now){
   var pad=boardCache.pad;
   g.drawImage(boardCache.c,board.x-pad,board.y-pad,boardCache.c.width/DPR,boardCache.c.height/DPR);
   var s=board.s;
-  if(hover>=0&&cells[hover]>=0&&!over){
+  if(hover>=0&&(cells[hover]>=0||cells[hover]===BOMB)&&!ice[hover]&&!over){
     var open=isOpen(hover);
     if(open){
-      var grp=group(hover),free=cap+extra-load;
+      var grp=cells[hover]===BOMB?[hover].concat(around(hover).filter(function(j){return cells[j]>=0&&!ice[j]})):group(hover),free=cap+extra-load;
       g.fillStyle='rgba(255,255,255,.34)';
       grp.slice(0,Math.max(0,free)).forEach(function(j){var p=cellCenter(j);g.beginPath();g.arc(p.x,p.y,s*.44,0,7);g.fill()});
     }
@@ -354,7 +405,9 @@ function drawArt(kind){
   x.clearRect(0,0,N,N);
   // картина целиком в середине, вокруг — бусы из собранных ниток
   var f=kind==='won'?.56:.9,s=Math.min(N*f/W,N*f/Hh),ox=(N-s*W)/2,oy=(N-s*Hh)/2;
-  for(var i=0;i<orig.length;i++){if(orig[i]<0)continue;
+  var spc=pic.sp||'';
+  for(var i=0;i<orig.length;i++){if(orig[i]<0||spc.charAt(i)==='b')continue;
+    if(spc.charAt(i)==='s'){x.drawImage(special('stone',s/DPR),ox+(i%W)*s,oy+((i/W)|0)*s,s,s);continue}
     var on=kind==='won'||cells[i]>=0;
     x.drawImage(bead(pic.pal[orig[i]],s/DPR,!on),ox+(i%W)*s,oy+((i/W)|0)*s,s,s)}
   if(kind!=='won')return;
@@ -403,8 +456,13 @@ function addMore(btn){
 
 // ---------- подсказки ----------
 var firstTip=true,closedTips=0;
+var shownTips={};
+function tipOnce(k,text){if(shownTips[k])return;shownTips[k]=1;toast(text)}
 function tipFor(){
-  var t=$('tip');
+  var t=$('tip'),spt=pic.sp||'';
+  if(level===5){t.textContent='Новое: бомба. Нажмите на неё — заберёт бусины вокруг себя, всех цветов. Следите за местом в лотке.';return}
+  if(level===8){t.textContent='Новое: лёд. Замёрзшую бусину не взять — она оттает, когда рядом освободится место.';return}
+  if(level===14){t.textContent='Новое: камни. Их не убрать — к бусинам за ними придётся пробираться с другой стороны.';return}
   if(level<=2&&firstTip)t.textContent='Нажмите на бусину с краю — улетит вся её группа. Десять бусин одного цвета собираются в нитку.';
   else if(level===1&&strings===0)t.textContent='Если лоток заполнится, а нитку собрать не из чего, картина не разобрана.';
   else t.textContent='';
@@ -417,7 +475,7 @@ function toast(s){toastEl.textContent=s;toastEl.classList.add('show');clearTimeo
 // sdk присваиваем только после чтения сохранения, иначе первое действие затрёт старый прогресс.
 function saveRaw(){
   if(!sdk)return;
-  var game=(!over||over==='lost')&&left>0?{lvl:level,removed:cells.map(function(c,i){return orig[i]>=0&&c<0?'1':'0'}).join(''),tray:tray,extra:extra,strings:strings,sc:stringCols}:null;
+  var game=(!over||over==='lost')&&left>0?{lvl:level,removed:cells.map(function(c,i){return orig[i]>=0&&c===-1?'1':'0'}).join(''),ice:ice.map(function(v){return v?'1':'0'}).join(''),tray:tray,extra:extra,strings:strings,sc:stringCols}:null;
   sdk.data.set({v:1,level:level,mute:mute,game:game}).catch(function(){});
 }
 function save(){if(over!=='won')saveRaw()}
@@ -428,7 +486,8 @@ function validGame(d,l){
   if(!Array.isArray(gm.tray)||gm.tray.length!==p.pal.length||!Array.isArray(gm.sc))return null;
   if(!(gm.extra>=0&&gm.extra<=500&&gm.extra%MORE===0)||gm.strings!==gm.sc.length)return null;
   var per=p.pal.map(function(){return 0});
-  for(var i=0;i<p.px.length;i++)if(gm.removed.charAt(i)==='1'){if(p.px.charAt(i)==='.')return null;per[p.px.charCodeAt(i)-97]++}
+  var sp=p.sp||'';if(gm.ice!=null&&(typeof gm.ice!=='string'||gm.ice.length!==p.px.length))return null;
+  for(var i=0;i<p.px.length;i++){if(gm.removed.charAt(i)!=='1')continue;if(p.px.charAt(i)==='.'||sp.charAt(i)==='s')return null;if(sp.charAt(i)!=='b')per[p.px.charCodeAt(i)-97]++}
   gm.sc.forEach(function(c){if(per[c]!=null)per[c]-=STRING});
   var ok=per.every(function(n,c){return gm.tray[c]===n&&n>=0&&n<STRING});
   return ok?gm:null;
@@ -459,6 +518,8 @@ function tick(){var n=performance.now();if(n-lastTick<28)return;lastTick=n;tone(
 function rattle(n,step){for(var k=0;k<Math.min(n,10);k++)tone(900+Math.random()*900,.025,'square',.022,k*step/1000*Math.max(1,n/10),.7)}
 function chime(){[784,988,1319].forEach(function(f,i){tone(f,.12,'triangle',.08,i*.06)})}
 function fanfare(){[523,659,784,1047,1319].forEach(function(f,i){tone(f,.16,'triangle',.11,i*.09)})}
+function boom(){tone(90,.35,'sawtooth',.12,0,.5);tone(60,.4,'sine',.14,.02,.6)}
+function crack(){[1800,2400,3000].forEach(function(f,i){tone(f,.05,'triangle',.05,i*.03,.8)})}
 function thud(){tone(180,.12,'sine',.12,0,.6)}
 function sad(){[392,330,262].forEach(function(f,i){tone(f,.2,'triangle',.1,i*.14,.9)})}
 var muteBtn=$('muteBtn');
@@ -474,7 +535,7 @@ function cellAt(cx,cy){
   if(x<0||y<0||x>=W||y>=Hh)return -1;return y*W+x;
 }
 cv.addEventListener('pointerdown',function(e){if(e.button>0)return;tapCell(cellAt(e.clientX,e.clientY))});
-cv.addEventListener('pointermove',function(e){if(e.pointerType!=='mouse')return;var h=cellAt(e.clientX,e.clientY);if(h!==hover){hover=h;dirty=true;cv.style.cursor=h>=0&&cells[h]>=0&&isOpen(h)?'pointer':''}});
+cv.addEventListener('pointermove',function(e){if(e.pointerType!=='mouse')return;var h=cellAt(e.clientX,e.clientY);if(h!==hover){hover=h;dirty=true;cv.style.cursor=h>=0&&(cells[h]>=0||cells[h]===BOMB)&&!ice[h]&&isOpen(h)?'pointer':''}});
 cv.addEventListener('pointerleave',function(){hover=-1;dirty=true});
 $('restartBtn').addEventListener('click',function(){restart();this.blur()});
 $('moreBtn').addEventListener('click',function(){addMore(this);this.blur()});
@@ -502,7 +563,7 @@ if(window.Gamely)Gamely.init().then(function(s){
 try{window.focus()}catch(e){}
 // Для автопроверки: состояние и ходы.
 window.__game={get level(){return level},get left(){return left},get load(){return load},get cap(){return cap+extra},get over(){return over},get strings(){return strings},
-  tap:function(i){tapCell(i)},go:function(l){startLevel(l)},open:function(i){return cells[i]>=0&&isOpen(i)},cells:function(){return cells.slice()},w:function(){return W}};
+  tap:function(i){tapCell(i)},go:function(l){startLevel(l)},open:function(i){return (cells[i]>=0||cells[i]===BOMB)&&!ice[i]&&isOpen(i)},ice:function(){return ice.slice()},cells:function(){return cells.slice()},w:function(){return W}};
 })();
 </script>
 </body>
