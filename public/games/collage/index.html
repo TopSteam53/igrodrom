@@ -42,6 +42,8 @@ button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transpar
 #ovBtns .btn{width:100%;justify-content:center}
 #toast{position:fixed;left:50%;top:64px;transform:translate(-50%,-8px);z-index:30;background:#f1ede4;color:#232633;padding:10px 16px;border-radius:12px;font-size:15px;font-weight:800;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translate(-50%,0)}
+#memo{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:15;background:#ffc531;color:#232633;padding:10px 18px;border-radius:12px;font-size:16px;font-weight:900;display:none;pointer-events:none;font-variant-numeric:tabular-nums;white-space:nowrap}
+#memo.show{display:block}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;color:#a7a3b8;font-weight:700;pointer-events:none}
 </style>
 </head>
@@ -55,18 +57,19 @@ button{font:inherit;cursor:pointer;border:0;-webkit-tap-highlight-color:transpar
 </div>
 <div id="bar">
   <button class="btn" id="restartBtn" title="Перемешать заново (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/></svg><span>Заново</span></button>
-  <button class="btn" id="peekBtn" title="Пока нажата — видно, как должно быть (пробел)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Образец</span></button>
+  <button class="btn" id="peekBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>Образец</span><span class="cost"></span></button>
   <button class="btn main" id="hintBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z"/></svg><span class="cost"></span></button>
 </div>
 <div id="ov"><div class="card"><div id="ovStars"></div><h2 id="ovT"></h2><p id="ovS"></p><div id="ovBtns"></div></div></div>
 <div id="toast"></div>
+<div id="memo"></div>
 <script src="scenes.js"></script>
 <script src="covers.js"></script>
 <script src="../../sdk/v1.js"></script>
 <script>
 (function(){
 'use strict';
-var SC=window.COLLAGE_SCENES,COVERS=window.COLLAGE_COVERS,RES=200,HINT_COST=3;
+var SC=window.COLLAGE_SCENES,COVERS=window.COLLAGE_COVERS,RES=200,HINT_COST=3,PEEK_COST=2,PEEK_MS=3000;
 var cv=document.getElementById('cv'),g=cv.getContext('2d');
 var $=function(id){return document.getElementById(id)};
 var sdk=null,paused=false,mute=false,touched=false;
@@ -74,7 +77,7 @@ function rng(seed){return function(){seed=seed+0x6D2B79F5|0;var t=Math.imul(seed
 function shuffle(a,r){for(var i=a.length-1;i>0;i--){var j=r()*(i+1)|0,t=a[i];a[i]=a[j];a[j]=t}return a}
 
 // ---------- уровень: доска делится на прямоугольники-картины ----------
-function boardFor(l){return l<=2?[4,4]:l<=5?[4,5]:l<=10?[4,6]:l<=16?[5,6]:l<=25?[5,7]:[6,7]}
+function boardFor(l){return l<=1?[4,4]:l<=3?[4,5]:l<=6?[4,6]:l<=10?[5,6]:l<=16?[5,7]:l<=24?[6,7]:[6,8]}
 function partition(C,R,r){
   var out=[];
   (function split(x,y,w,h){
@@ -159,7 +162,9 @@ function startLevel(l,saved){
     ready=true;dirty=true;
     // Сначала видно, как должно быть, потом кусочки разлетаются по местам.
     if(!saved){
-      intro=performance.now()+1300;
+      // Сначала картины видно целиком: их нужно запомнить — потом образец только за монетки или рекламу.
+      var memo=Math.min(6000,3000+pieces.length*70);
+      intro=performance.now()+memo;
       pieces.forEach(function(p,i){var h=cellRect(p.home);anims[i]={x:h.x,y:h.y,t0:intro+((i*37)%pieces.length)*12,dur:520}});
     }else intro=0;
     if(saved&&doneRegions.every(Boolean))win();
@@ -180,7 +185,7 @@ function cellRect(c){return {x:B.x+(c%C)*B.cs,y:B.y+Math.floor(c/C)*B.cs}}
 function cellAt(x,y){var cx=Math.floor((x-B.x)/B.cs),cy=Math.floor((y-B.y)/B.cs);return cx<0||cy<0||cx>=C||cy>=R?-1:cx+cy*C}
 
 // ---------- рисование ----------
-var dirty=true,sel=-1,drag=null,peek=false,flashes=[];
+var dirty=true,sel=-1,drag=null,peekUntil=0,flashes=[];
 function drawPiece(p,x,y,size,insets){
   var pc=pieces[p],s=B.cs,src=pics[pc.r];
   var l=insets?insets[0]:0,t=insets?insets[1]:0,rr=insets?insets[2]:0,b=insets?insets[3]:0;
@@ -192,7 +197,7 @@ function draw(now){
   if(!ready)return;
   var s=B.cs,gp=B.gap/2;
   g.fillStyle='#181a24';rrect(B.x-6,B.y-6,s*C+12,s*R+12,12);g.fill();
-  var showHome=peek||now<intro;
+  var showHome=now<peekUntil||now<intro;
   // готовые картины — целиком, в рамке
   regions.forEach(function(rg,ri){
     if(!doneRegions[ri]||showHome)return;
@@ -235,7 +240,10 @@ function frame(now){
   // Окно могло получить размер позже, чем пришло событие resize (рамка на сайте ещё раскладывалась).
   if(window.innerWidth!==VW||window.innerHeight!==VH)layout();
   if(B.cs<=0)return;
-  if(Object.keys(anims).length||flashes.length||(intro&&now<intro+900))dirty=true;
+  if(Object.keys(anims).length||flashes.length||(intro&&now<intro+900)||now<peekUntil+100)dirty=true;
+  // отсчёт: «Запомните картины» в начале и при платном образце
+  var left=Math.max(intro,peekUntil)-now,me=$('memo');
+  if(ready&&!done&&left>0){me.textContent=(now<intro?'Запомните картины ':'Образец ')+Math.ceil(left/1000);me.classList.add('show')}else me.classList.remove('show');
   if(!dirty)return;dirty=false;draw(now);
 }
 
@@ -286,20 +294,32 @@ function onGamely(){return !!(sdk&&sdk.environment.host==='gamely'&&!(sdk.player
 function drawCost(){
   var host=onGamely();
   document.querySelector('#hintBtn .cost').innerHTML=host?'<span class="price">'+GCOIN+HINT_COST+'</span>':'<span class="ad">▶</span>';
+  document.querySelector('#peekBtn .cost').innerHTML=host?'<span class="price">'+GCOIN+PEEK_COST+'</span>':'<span class="ad">▶</span>';
+  $('peekBtn').title=host?'Показать собранные картины на 3 секунды за '+PEEK_COST+' монетки':'Показать собранные картины на 3 секунды за просмотр рекламы';
   $('hintBtn').title=host?'Поставить один кусочек на место за '+HINT_COST+' монетки':'Поставить один кусочек на место за просмотр рекламы';
   $('hintBtn').setAttribute('aria-label','Подсказка');
+}
+// Монетки (вошедшему) или реклама за награду (гостю и вне сайта).
+function pay(btn,cost,title,noAdMsg){
+  btn.disabled=true;ensureAudio();
+  var byAd=function(){var p=sdk?sdk.ads.rewarded():Promise.resolve({rewarded:true});
+    return p.catch(function(){return {rewarded:false}}).then(function(r){if(r&&r.rewarded===true)return true;toast(noAdMsg);return false})};
+  var p=onGamely()?sdk.coins.spend(cost,title).catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
+    if(r&&r.ok)return true;var why=r&&r.reason;if(why==='unavailable'||why==='guest')return byAd();if(why!=='cancelled')toast(COIN_MSG[why]||COIN_MSG.unavailable);return false}):byAd();
+  return p.catch(function(){return false}).then(function(ok){btn.disabled=false;return !!ok});
+}
+function peekPaid(){
+  var btn=$('peekBtn');if(!ready||done||btn.disabled||performance.now()<Math.max(intro,peekUntil))return;
+  pay(btn,PEEK_COST,'Образец в «Коллаже»','Реклама не досмотрена — образца не будет').then(function(ok){
+    if(!ok||done)return;sel=-1;drag=null;peekUntil=performance.now()+PEEK_MS;dirty=true;
+  });
 }
 function hint(){
   var btn=$('hintBtn');if(!ready||done||btn.disabled)return;
   var wrong=[];for(var c=0;c<C*R;c++)if(!correct(c))wrong.push(c);
   if(!wrong.length)return;
-  btn.disabled=true;ensureAudio();
-  var byAd=function(){var p=sdk?sdk.ads.rewarded():Promise.resolve({rewarded:true});
-    return p.catch(function(){return {rewarded:false}}).then(function(r){if(r&&r.rewarded===true)return true;toast('Реклама не досмотрена — подсказки не будет');return false})};
-  var p=onGamely()?sdk.coins.spend(HINT_COST,'Подсказка в «Коллаже»').catch(function(){return {ok:false,reason:'unavailable'}}).then(function(r){
-    if(r&&r.ok)return true;var why=r&&r.reason;if(why==='unavailable'||why==='guest')return byAd();if(why!=='cancelled')toast(COIN_MSG[why]||COIN_MSG.unavailable);return false}):byAd();
-  p.catch(function(){return false}).then(function(ok){
-    btn.disabled=false;if(!ok||done)return;
+  pay(btn,HINT_COST,'Подсказка в «Коллаже»','Реклама не досмотрена — подсказки не будет').then(function(ok){
+    if(!ok||done)return;
     // клетка, куда ставим, — та, чей кусочек сейчас дальше всех от своего места
     var c=wrong[Math.floor(Math.random()*wrong.length)],want=homeOf[c],from=cellOf[want];
     if(correct(from)){for(var i=0;i<pieces.length;i++)if(pieces[i].r===pieces[want].r&&sig[i]===sig[want]&&!correct(cellOf[i])){from=cellOf[i];break}}
@@ -309,7 +329,7 @@ function hint(){
 
 // ---------- ввод ----------
 cv.addEventListener('pointerdown',function(e){
-  if(!ready||done||e.button>0||performance.now()<intro+300)return;
+  if(!ready||done||e.button>0||performance.now()<intro+300||performance.now()<peekUntil)return;
   ensureAudio();
   var c=cellAt(e.clientX,e.clientY);
   if(c<0){sel=-1;dirty=true;return}
@@ -339,18 +359,13 @@ function endDrag(e){
 }
 cv.addEventListener('pointerup',endDrag);
 cv.addEventListener('pointercancel',endDrag);
-function setPeek(v){if(!ready||done)return;peek=v;$('peekBtn').classList.toggle('on',v);dirty=true}
-var pk=$('peekBtn');
-pk.addEventListener('pointerdown',function(e){e.preventDefault();setPeek(true);try{pk.setPointerCapture(e.pointerId)}catch(_){}});
-['pointerup','pointercancel','pointerleave'].forEach(function(ev){pk.addEventListener(ev,function(){setPeek(false)})});
+$('peekBtn').addEventListener('click',function(){peekPaid();this.blur()});
 $('restartBtn').addEventListener('click',function(){restart();this.blur()});
 $('hintBtn').addEventListener('click',function(){hint();this.blur()});
 window.addEventListener('keydown',function(e){
   if(ov.classList.contains('show')){if(e.code==='Enter'||e.code==='Space'){e.preventDefault();next()}return}
-  if(e.code==='Space'){e.preventDefault();if(!e.repeat)setPeek(true)}
   if(e.code==='KeyR')restart();
 });
-window.addEventListener('keyup',function(e){if(e.code==='Space')setPeek(false)});
 document.addEventListener('touchmove',function(e){e.preventDefault()},{passive:false});
 document.addEventListener('contextmenu',function(e){e.preventDefault()});
 window.addEventListener('resize',layout);
