@@ -116,7 +116,8 @@ function cycles(){var seen=[],n=0;for(var i=0;i<pos.length;i++){if(seen[i])conti
 
 // ---------- картины: рисуем один раз в RES px на клетку ----------
 var pics=[],imgCache={};
-function loadImg(src){if(imgCache[src])return imgCache[src];imgCache[src]=new Promise(function(ok){var i=new Image();i.onload=function(){ok(i)};i.onerror=function(){ok(null)};i.src=src});return imgCache[src]}
+// На сайте игра в песочнице без своего origin: без crossOrigin картинка «портит» canvas и пиксели не прочитать.
+function loadImg(src){if(imgCache[src])return imgCache[src];imgCache[src]=new Promise(function(ok){var i=new Image();i.crossOrigin='anonymous';i.onload=function(){ok(i)};i.onerror=function(){ok(null)};i.src=src});return imgCache[src]}
 function renderPictures(){
   return Promise.all(regions.map(function(rg){return rg.src.cover!=null?loadImg(COVERS[rg.src.cover].file):null})).then(function(imgs){
     pics=regions.map(function(rg,i){
@@ -126,8 +127,9 @@ function renderPictures(){
       return c;
     });
     // Кусочки, которые выглядят одинаково (ровное небо, тёмный фон), считаются взаимозаменяемыми.
-    sig=pieces.map(function(p){
-      var d=pics[p.r].getContext('2d').getImageData(p.lx*RES,p.ly*RES,RES,RES).data,s='';
+    sig=pieces.map(function(p,pi){
+      var d;try{d=pics[p.r].getContext('2d').getImageData(p.lx*RES,p.ly*RES,RES,RES).data}catch(e){return 'p'+pi}
+      var s='';
       for(var by=0;by<6;by++)for(var bx=0;bx<6;bx++){
         var rr=0,gg=0,bb=0,n=0;
         for(var y=by*RES/6;y<(by+1)*RES/6;y+=4)for(var xx=bx*RES/6;xx<(bx+1)*RES/6;xx+=4){var o=((y|0)*RES+(xx|0))*4;rr+=d[o];gg+=d[o+1];bb+=d[o+2];n++}

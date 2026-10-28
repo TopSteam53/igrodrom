@@ -177,8 +177,9 @@ const TILT = Math.SQRT1_2, LIFT = Math.SQRT1_2, U = 28, AY = 0.5 + 0.28 * LIFT;
 const SPR = { shade_0: 1.9, shade_1: 1.9, bat_0: 2, bat_1: 2, ghost: 2, golem: 2.6, boss: 4, tree_0: 4.4, tree_1: 4.4, tree_2: 4.4, stump: 1.6, rock: 1.6, shroom: 1.2, lantern: 1.9, lanternon: 1.9, chest: 1.7, gem: 0.8, gemb: 0.8, coal: 0.8 };
 const img = {}, bright = {};
 let assetsReady = false;
+// crossOrigin: на сайте игра в песочнице без своего origin, иначе вспышка попадания (brightOf) не прочитает пиксели.
 function loadAssets() {
-  return Promise.all([...Object.keys(SPR), 'ground'].map((n) => new Promise((res) => { const i = new Image(); i.onload = () => { img[n] = i; res(); }; i.onerror = res; i.src = `img/${n}.webp`; })));
+  return Promise.all([...Object.keys(SPR), 'ground'].map((n) => new Promise((res) => { const i = new Image(); i.crossOrigin = 'anonymous'; i.onload = () => { img[n] = i; res(); }; i.onerror = res; i.src = `img/${n}.webp`; })));
 }
 // Светлая копия спрайта для вспышки при попадании; тень (чёрные пиксели) не трогаем.
 function brightOf(n) {
@@ -950,8 +951,10 @@ function renderBoard(r) {
 
 // ---------- отрисовка ----------
 function resize() {
-  dpr = Math.min(coarse ? 1.5 : 2, devicePixelRatio || 1);
   W = innerWidth; H = innerHeight;
+  // На большом мониторе холст в 2× плотности — это 4–8 млн пикселей на кадр, слабая видеокарта не успевает.
+  // Держим не больше ~1,6 млн: разница в чёткости незаметна, а кадров в разы больше.
+  dpr = Math.max(1, Math.min(coarse ? 1.5 : 2, devicePixelRatio || 1, Math.sqrt(1.6e6 / (W * H))));
   cv.width = W * dpr; cv.height = H * dpr;
   lc.width = Math.ceil(W / 2); lc.height = Math.ceil(H / 2);
   zoom = Math.max(0.72, Math.min(1.15, Math.min(W, H) / 620));
@@ -975,10 +978,23 @@ function drawFlame(c, x, y, s, pal, t, dir = 0) {
   if (pal[3]) { c.fillStyle = pal[3]; c.beginPath(); c.ellipse(-4.5 + dir * 3, -14, 2.2, 3.2, 0, 0, 7); c.ellipse(4.5 + dir * 3, -14, 2.2, 3.2, 0, 0, 7); c.fill(); }
   c.restore();
 }
+// Свечение — готовая картинка-градиент на каждый цвет: создавать градиент на каждый огонёк в каждом кадре дорого.
+const glowCache = new Map();
+function glowSprite(color) {
+  let c = glowCache.get(color);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = c.height = 128;
+    const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, `rgba(${color},1)`); g.addColorStop(1, `rgba(${color},0)`);
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128); glowCache.set(color, c);
+  }
+  return c;
+}
 function glow(x, y, r, color, a) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(${color},${a})`); g.addColorStop(1, `rgba(${color},0)`);
-  ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  if (a <= 0 || r <= 0) return;
+  const ga = ctx.globalAlpha; ctx.globalAlpha = ga * Math.min(1, a);
+  ctx.drawImage(glowSprite(color), x - r, y - r, r * 2, r * 2);
+  ctx.globalAlpha = ga;
 }
 function groundGlow(x, y, r, color, a) { ctx.save(); ctx.translate(x, y * TILT); ctx.scale(1, TILT); glow(0, 0, r, color, a); ctx.restore(); }
 function ellipseShadow(x, y, rx, a = 0.35) { ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(x, y * TILT, rx, rx * TILT * 0.8, 0, 0, 7); ctx.fill(); }
@@ -986,6 +1002,13 @@ const enemyZ = (e, T, t) => (T.fly ? T.fly + Math.sin(t * 3 + e.wob) * 4 : 0);
 const enemyK = (e, T) => (T.k || 1) * (e.elite ? 1.35 : 1);
 
 let groundPat = null;
+// Пятно света в карте темноты (вырезается из тьмы).
+const holeSprite = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d'), g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.45, 'rgba(0,0,0,.8)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128); return c;
+})();
 const lights = [];
 function draw() {
   const t = performance.now() / 1000;
@@ -1007,7 +1030,9 @@ function draw() {
   if (groundPat) {
     const GS = 8 * U / 512;
     ctx.save(); ctx.scale(GS, GS * TILT); ctx.fillStyle = groundPat;
-    ctx.fillRect(vx0 / GS, vy0 / GS, (vx1 - vx0) / GS, (vy1 - vy0) / GS); ctx.restore();
+    // земля — ровно по экрану (с запасом на тряску), без полей для спрайтов: это самая большая заливка кадра
+    const gx0 = camX - W / 2 / zoom - 24, gy0 = camY - H / 2 / zoom / TILT - 24;
+    ctx.fillRect(gx0 / GS, gy0 / GS, (W / zoom + 48) / GS, (H / zoom / TILT + 48) / GS); ctx.restore();
   }
   for (const d of decals) { ctx.fillStyle = `rgba(10,6,4,${Math.min(0.35, d.life * 0.2)})`; ctx.beginPath(); ctx.ellipse(d.x, d.y * TILT, d.r, d.r * TILT, 0, 0, 7); ctx.fill(); }
   // круг, куда тени боятся заходить
@@ -1082,9 +1107,7 @@ function draw() {
     const px = (ox + x * zoom) * hs, py = (oy + y * TILT * zoom) * hs, pr = r * zoom * hs;
     if (px < -pr || py < -pr || px > lc.width + pr || py > lc.height + pr) continue;
     lctx.setTransform(1, 0, 0, TILT, px, py);
-    const g = lctx.createRadialGradient(0, 0, 0, 0, 0, pr);
-    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.45, 'rgba(0,0,0,.8)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-    lctx.fillStyle = g; lctx.fillRect(-pr, -pr, pr * 2, pr * 2);
+    lctx.drawImage(holeSprite, -pr, -pr, pr * 2, pr * 2);
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.drawImage(lc, 0, 0, W, H);
