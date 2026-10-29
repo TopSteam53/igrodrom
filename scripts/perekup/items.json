@@ -1,0 +1,50 @@
+{
+  "_note": "Предметы «Перекупа». model — id Poly Haven (CC0) или own:<имя> (своя сцена в scripts/blender/perekup.py). view — азимут:наклон камеры. price — рыночная цена в рублях, tier 1–6.",
+  "items": [
+    { "id": "spoon", "title": "Деревянная ложка", "price": 50, "tier": 1, "model": "wooden_spoon", "view": "35:40" },
+    { "id": "lightbulb", "title": "Лампочка", "price": 90, "tier": 1, "model": "lightbulb_01" },
+    { "id": "duck", "title": "Резиновая уточка", "price": 120, "tier": 1, "model": "rubber_duck_toy", "view": "-30:20" },
+    { "id": "notebook", "title": "Блокнот", "price": 300, "tier": 1, "model": "binder_notebook", "view": "30:40" },
+    { "id": "tape", "title": "Строительная рулетка", "price": 380, "tier": 1, "model": "measuring_tape_01" },
+    { "id": "stapler", "title": "Степлер", "price": 450, "tier": 1, "model": "vintage_stapler" },
+    { "id": "alarm", "title": "Будильник", "price": 690, "tier": 1, "model": "alarm_clock_01" },
+    { "id": "gnome", "title": "Садовый гном", "price": 900, "tier": 1, "model": "garden_gnome", "view": "-25:15" },
+
+    { "id": "watch", "title": "Электронные часы", "price": 1250, "tier": 2, "model": "digital_wrist_watch", "view": "30:58" },
+    { "id": "flashlight", "title": "Фонарь", "price": 1600, "tier": 2, "model": "vintage_flashlight" },
+    { "id": "kettle", "title": "Чайник", "price": 2400, "tier": 2, "model": "vintage_electric_kettle" },
+    { "id": "binoculars", "title": "Бинокль", "price": 2900, "tier": 2, "model": "binoculars" },
+    { "id": "player", "title": "Кассетный плеер", "price": 3800, "tier": 2, "model": "portable_cassette_player", "view": "30:35" },
+    { "id": "chess", "title": "Шахматы", "price": 4200, "tier": 2, "model": "chess_set", "view": "35:40" },
+    { "id": "boombox", "title": "Магнитола", "price": 6500, "tier": 2, "model": "boombox" },
+    { "id": "ukulele", "title": "Укулеле", "price": 7800, "tier": 2, "model": "Ukulele_01" },
+
+    { "id": "tv", "title": "Телевизор", "price": 18000, "tier": 3, "model": "television_02" },
+    { "id": "console", "title": "Игровая приставка", "price": 24900, "tier": 3, "model": "gaming_console" },
+    { "id": "detector", "title": "Металлоискатель", "price": 27000, "tier": 3, "model": "metal_detector" },
+    { "id": "camcorder", "title": "Кинокамера", "price": 33500, "tier": 3, "model": "vintage_video_camera" },
+    { "id": "radio", "title": "Ламповая рация", "price": 41700, "tier": 3, "model": "vintage_radio_transceiver" },
+    { "id": "microscope", "title": "Микроскоп", "price": 52000, "tier": 3, "model": "vintage_microscope" },
+    { "id": "laptop", "title": "Ноутбук «Классика»", "price": 61000, "tier": 3, "model": "classic_laptop" },
+    { "id": "phone", "title": "Смартфон", "price": 89000, "tier": 3, "model": "own:phone" },
+
+    { "id": "compass", "title": "Морской компас", "price": 120000, "tier": 4, "model": "seadogs_compass", "view": "35:40" },
+    { "id": "armchair", "title": "Кресло 60-х", "price": 140000, "tier": 4, "model": "mid_century_lounge_chair" },
+    { "id": "pocketwatch", "title": "Карманные часы", "price": 190000, "tier": 4, "model": "vintage_pocket_watch", "view": "35:45" },
+    { "id": "chandelier", "title": "Хрустальная люстра", "price": 260000, "tier": 4, "model": "Chandelier_01", "view": "35:10" },
+    { "id": "clock", "title": "Напольные часы", "price": 380000, "tier": 4, "model": "vintage_grandfather_clock_01", "view": "30:12" },
+    { "id": "katana", "title": "Старинная катана", "price": 650000, "tier": 4, "model": "antique_katana_01", "view": "30:45", "lay": 90 },
+    { "id": "bust", "title": "Мраморный бюст", "price": 900000, "tier": 4, "model": "marble_bust_01", "view": "25:12" },
+
+    { "id": "cabinet", "title": "Китайский шкаф", "price": 1800000, "tier": 5, "model": "chinese_cabinet", "view": "30:12" },
+    { "id": "whale", "title": "Бронзовый кит", "price": 2200000, "tier": 5, "model": "bronze_whale_statue" },
+    { "id": "horse", "title": "Фарфоровый конь", "price": 3500000, "tier": 5, "model": "horse_statue_01", "view": "50:15" },
+    { "id": "statue", "title": "Готическая статуя", "price": 7000000, "tier": 5, "model": "gothic_statue", "view": "25:10" },
+    { "id": "car", "title": "Машина под чехлом", "price": 9500000, "tier": 5, "model": "covered_car" },
+    { "id": "studio", "title": "Квартира-студия", "price": 28000000, "tier": 5, "model": "own:studio" },
+
+    { "id": "chest", "title": "Сундук с сокровищами", "price": 150000000, "tier": 6, "model": "treasure_chest" },
+    { "id": "ship", "title": "Парусник", "price": 450000000, "tier": 6, "model": "dutch_ship_large_01", "view": "55:15" },
+    { "id": "penthouse", "title": "Пентхаус", "price": 1200000000, "tier": 6, "model": "own:penthouse" }
+  ]
+}

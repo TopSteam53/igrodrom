@@ -1,0 +1,202 @@
+/* «Перекуп» — тёмный интерфейс как у приложения-маркетплейса, товары на белых карточках.
+   Цвета по смыслу: зелёный — сделка, синий — я и выбор, красный — отказ, жёлтый — деньги. */
+@font-face{font-family:Onest;font-weight:400 700;font-display:swap;src:url(fonts/onest-cyrillic.woff2) format("woff2");unicode-range:U+0400-045F,U+2116}
+@font-face{font-family:Onest;font-weight:400 700;font-display:swap;src:url(fonts/onest-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+20BD}
+:root{
+  --bg:#1D1F24;--panel:#282B32;--panel-2:#33363E;--line:#3A3D46;--text:#F1F2F4;--text-2:#9BA0AB;--nav:#17191D;
+  --deal:#22C36A;--deal-ink:#06240F;--me:#2F8CFF;--warn:#FF4F5E;--gold:#F5B731;--card:#FFFFFF;--card-ink:#16181D;--card-2:#4B505C;
+  --t1:#E8EAEE;--t1-ink:#3C414C;--t2:#DDEBFF;--t2-ink:#1B55B3;--t3:#FFF0CC;--t3-ink:#7A5200;--t4:#FFE0D6;--t4-ink:#9A2E0C;
+  --t5:#EBDDFF;--t5-ink:#5B2BB0;--t6:#1D1F24;--t6-ink:#F5B731;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#101114;color:var(--text);font:16px/1.4 Onest,system-ui,sans-serif;overflow:hidden;
+  user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+.hidden{display:none!important}
+svg{fill:currentColor}
+
+/* Телефон вертикально; на широком экране — та же колонка по центру. */
+.app{position:relative;height:100%;max-width:480px;margin:0 auto;background:var(--bg);display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:10px;padding:12px 16px 10px;padding-top:max(12px,env(safe-area-inset-top))}
+.bar .title{flex:1;margin:0;font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.back{width:34px;height:34px;margin-left:-8px;display:grid;place-items:center;border-radius:10px}
+.back svg{width:24px;height:24px}
+.bal{display:flex;align-items:center;gap:6px;background:var(--panel-2);border-radius:999px;padding:6px 12px 6px 8px;font-size:15px;
+  font-variant-numeric:tabular-nums;transition:transform .15s}
+.bal svg{width:20px;height:20px}
+.bal.bump{transform:scale(1.08)}
+.view{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:4px 14px 44px;scrollbar-width:thin;scrollbar-color:var(--panel-2) transparent} /* снизу место под круглую кнопку «Кейсы» */
+
+.nav{flex:none;height:74px;padding-bottom:env(safe-area-inset-bottom);background:var(--nav);display:flex;align-items:flex-start;justify-content:space-around;padding-top:9px}
+.nav button{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--text-2);width:68px}
+.nav button svg{width:26px;height:26px}
+.nav button.on{color:var(--me)}
+.nav .center{margin-top:-24px}
+.nav .center .k{width:58px;height:58px;border-radius:50%;background:var(--panel-2);color:var(--text);display:grid;place-items:center;box-shadow:0 0 0 5px var(--nav)}
+.nav .center .k svg{width:30px;height:30px}
+.nav .center.on{color:var(--text)}.nav .center.on .k{background:var(--me);color:#fff}
+.dot{position:absolute;top:-2px;right:14px;min-width:18px;height:18px;border-radius:9px;background:var(--warn);color:#fff;font:700 11px/18px Onest,sans-serif;font-style:normal;padding:0 5px}
+
+/* Кнопки */
+.btn{display:block;width:100%;text-align:center;border-radius:12px;padding:13px 12px;font-weight:700;font-size:15px;transition:transform .08s,opacity .15s}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.deal{background:var(--deal);color:var(--deal-ink)}
+.btn.me{background:var(--me);color:#fff}
+.btn.ghost{background:var(--panel-2);color:var(--text)}
+.btn.warn{background:var(--warn);color:#fff}
+.btn.white{background:#fff;color:var(--card-ink);font-weight:600}
+.btn .sub{display:block;font-weight:500;font-size:12px;opacity:.8}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{color:var(--text-2);font-size:14px;margin:8px 2px}
+.empty{color:var(--text-2);text-align:center;padding:48px 20px}
+.empty .btn{margin-top:14px}
+.sec{font-size:13px;color:var(--text-2);margin:16px 2px 8px}
+
+/* Карточка товара */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{background:var(--card);color:var(--card-ink);border-radius:14px;overflow:hidden;text-align:left;display:block;width:100%}
+.card .ph{aspect-ratio:1;display:grid;place-items:center;background:#fff}
+.card .ph img{width:100%;height:100%;object-fit:contain}
+.card .ph.full img{width:100%;height:100%;object-fit:cover}
+.card .tx{padding:4px 10px 10px}
+.card .pr{font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+.card .nm{font-size:13px;color:var(--card-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.tag{display:inline-block;font-size:11px;font-weight:600;border-radius:6px;padding:2px 6px}
+.tag.t1{background:var(--t1);color:var(--t1-ink)}.tag.t2{background:var(--t2);color:var(--t2-ink)}.tag.t3{background:var(--t3);color:var(--t3-ink)}
+.tag.t4{background:var(--t4);color:var(--t4-ink)}.tag.t5{background:var(--t5);color:var(--t5-ink)}.tag.t6{background:var(--t6);color:var(--t6-ink)}
+.tag.c{background:#F1F2F4;color:var(--card-2)}
+
+/* Кейсы */
+/* Края рулетки уходят в фон маской, а не серой плёнкой поверх белых карточек. */
+.reel-wrap{position:relative;margin:6px auto 0;width:150px;border-radius:18px;
+  height:clamp(150px,calc(100vh - 430px),380px); /* на невысоком экране (игра в окне на компьютере) кнопка «Открыть» остаётся видна */;background:var(--panel);overflow:hidden;
+  -webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
+.reel{position:absolute;left:0;right:0;top:0;will-change:transform}
+.reel .it{height:124px;margin:6px 8px;border-radius:12px;background:var(--card);display:grid;place-items:center}
+.reel .it{overflow:hidden}.reel .it img{width:100%;height:124px;object-fit:cover} /* рендер квадратный, ячейка почти квадратная: срезаются только поля */
+.reel .it.full img{width:100%;height:100%;object-fit:cover;border-radius:12px}
+.reel-line{position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1px;background:var(--deal);box-shadow:0 0 10px var(--deal);z-index:2}
+.case-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.case{background:var(--panel);border-radius:12px;padding:10px 6px;text-align:center;font-size:13px;color:var(--text-2)}
+.case b{display:block;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}
+.case.sel{outline:2px solid var(--me);color:var(--text)}
+.case:disabled{opacity:.4}
+.odds{display:flex;gap:4px;justify-content:center;margin:10px 0 0;flex-wrap:wrap}
+.case-actions{margin-top:12px}
+
+/* Выпало */
+.drop{text-align:center;padding-top:6px}
+.drop .card{max-width:min(280px,calc(100vh - 400px));min-width:150px;margin:0 auto}
+.drop .pr{font-size:22px}
+.drop h2{margin:4px 0 12px;font-size:16px;color:var(--text-2);font-weight:500}
+
+/* Продажа */
+.sell{background:var(--panel);border-radius:16px;padding:14px;margin-top:12px}
+.sell .lbl{font-size:13px;color:var(--text-2)}
+.sell .ask{font-weight:700;font-size:24px;margin-top:2px;font-variant-numeric:tabular-nums}
+.sell .wait{font-size:13px;margin-top:2px}
+.range{position:relative;height:36px;margin:8px 0 2px;touch-action:none}
+.range .track{position:absolute;left:0;right:0;top:14px;height:8px;border-radius:4px;
+  background:linear-gradient(90deg,var(--deal) 0 var(--g),var(--gold) var(--g) var(--y),var(--warn) var(--y))}
+.range .knob{position:absolute;top:7px;width:22px;height:22px;margin-left:-11px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.scale{display:flex;justify-content:space-between;font-size:12px;color:var(--text-2)}
+.item-head{display:flex;gap:12px;align-items:center}
+.item-head .ph{width:96px;height:96px;flex:none;border-radius:12px;background:#fff;display:grid;place-items:center;overflow:hidden}
+.item-head .ph img{width:100%;height:100%;object-fit:contain}.item-head .ph.full img{width:100%;height:100%;object-fit:cover}
+.item-head b{display:block;font-size:17px}
+.item-head span{font-size:13px;color:var(--text-2)}
+
+/* Мои продажи */
+.listing{display:flex;gap:12px;align-items:center;background:var(--panel);border-radius:14px;padding:10px;margin-bottom:8px}
+.listing .ph{width:64px;height:64px;flex:none;border-radius:10px;background:#fff;display:grid;place-items:center;overflow:hidden}
+.listing .ph img{width:100%;height:100%;object-fit:contain}.listing .ph.full img{width:100%;height:100%;object-fit:cover}
+.listing .info{flex:1;min-width:0}
+.listing .info b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.listing .info span{display:block;font-size:13px;color:var(--text-2)}
+.listing .acts{display:flex;flex-direction:column;gap:6px;width:108px}
+.listing .acts .btn{padding:8px 6px;font-size:13px}
+.bar-wait{height:4px;border-radius:2px;background:var(--panel-2);margin-top:6px;overflow:hidden}
+.bar-wait i{display:block;height:100%;background:var(--me);width:0}
+
+/* Переписки */
+.thread{display:flex;gap:10px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.ava{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:700;flex:none;color:#fff}
+.thread .who{flex:1;min-width:0}
+.thread .who b{display:block;font-size:15px}
+.thread .who span{display:block;font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thread .new{width:10px;height:10px;border-radius:50%;background:var(--me);flex:none}
+.chat{display:flex;flex-direction:column;height:100%}
+.chat-head{display:flex;gap:10px;align-items:center;padding:4px 0 12px;border-bottom:1px solid var(--line)}
+.chat-head .who b{display:block;font-size:15px}.chat-head .who span{font-size:13px;color:var(--text-2)}
+.goods{margin-left:auto;display:flex;gap:8px;align-items:center;background:var(--panel);border-radius:10px;padding:5px 10px 5px 5px;font-size:12px;max-width:52%}
+.goods img{width:36px;height:36px;background:#fff;border-radius:7px;object-fit:contain;flex:none}
+.goods.full img{object-fit:cover}
+.goods span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msgs{flex:1;padding:12px 0;display:flex;flex-direction:column;gap:8px}
+.m{max-width:80%;border-radius:16px;padding:9px 13px;font-size:15px;animation:pop .18s ease-out}
+.m.them{background:var(--panel-2);align-self:flex-start;border-bottom-left-radius:5px}
+.m.mine{background:var(--me);color:#fff;align-self:flex-end;border-bottom-right-radius:5px}
+.m.sys{align-self:center;background:none;color:var(--text-2);font-size:13px;text-align:center}
+.typing{align-self:flex-start;color:var(--text-2);font-size:13px;padding:4px 6px}
+.replies{display:grid;gap:8px;padding-top:6px}
+@keyframes pop{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+
+/* Работа */
+.work{text-align:center;padding-top:8px}
+.work .hint{margin:0 0 6px}
+.pc{position:relative;display:block;margin:6px auto 0;width:240px;height:200px}
+.pc svg{width:100%;height:100%}
+.pc:active svg{transform:scale(.97)}
+.float{position:absolute;font-weight:700;color:var(--deal);font-size:18px;pointer-events:none;animation:up .8s ease-out forwards}
+@keyframes up{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-60px)}}
+.work .inc{font-size:20px;font-weight:700;margin-top:8px}.work .inc em{font-style:normal;color:var(--me)}
+.work .lvl{color:var(--text-2);font-size:14px;margin-bottom:14px}
+.work .btn{max-width:300px;margin:8px auto 0}
+.energy{max-width:300px;margin:0 auto 10px;text-align:left}
+.energy-top{display:flex;justify-content:space-between;font-size:14px;color:var(--text-2)}
+.energy-top b{color:var(--text);font-variant-numeric:tabular-nums}
+.energy .bar-wait{height:8px;border-radius:4px}
+.energy .bar-wait i{transition:width .3s}
+.energy .hint{margin:6px 0 0;min-height:20px}
+
+.toast{position:absolute;left:14px;right:14px;top:58px;z-index:10;background:#fff;color:var(--card-ink);border-radius:14px;padding:12px 14px;
+  font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:pop .2s ease-out}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Горизонтальный экран (окно игры на компьютере, 16:9 и ниже 600 px): меню слева, экраны в две колонки.
+   На телефоне вертикально этих правил нет. */
+@media (min-width:640px) and (min-aspect-ratio:5/4){
+  .app{max-width:1100px;display:grid;grid-template-columns:92px 1fr;grid-template-rows:auto 1fr}
+  .bar{grid-column:2;grid-row:1}
+  .view{grid-column:2;grid-row:2;padding:4px 20px 16px}
+  .nav{grid-column:1;grid-row:1/3;height:auto;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:12px 0}
+  .nav button{width:84px}
+  .nav .center{margin-top:0}
+  .dot{right:20px}
+  .toast{left:auto;right:20px;width:min(420px,calc(100% - 132px))}
+
+  .cases{display:grid;grid-template-columns:190px 1fr;gap:24px;align-items:center;min-height:100%}
+  .cases .reel-wrap{width:150px;height:clamp(200px,calc(100vh - 90px),420px);margin:0 auto}
+  .cases .case-list{margin-top:0}
+  .drop{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto 1fr;column-gap:24px;align-items:start;text-align:left;min-height:100%}
+  .drop h2{grid-column:1/3}
+  .drop .card{width:min(300px,calc(100vh - 170px));min-width:0;max-width:none;margin:0}
+  .drop-side{align-self:center;max-width:420px}
+  .drop .row2{margin-top:0!important}
+  .item{display:grid;grid-template-columns:minmax(200px,0.8fr) 1fr;gap:24px;align-items:start}
+  .item-head{flex-direction:column;align-items:flex-start}
+  .item-head .ph{width:100%;height:auto;aspect-ratio:1;max-width:min(260px,calc(100vh - 230px))}
+  .item .sell{margin-top:0}
+  .listings{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .listings .listing{margin:0}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .chat{max-width:680px;margin:0 auto}
+  .replies{grid-template-columns:1fr 1fr}
+  .work{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto 1fr;column-gap:28px;text-align:left;align-items:center;min-height:100%}
+  .work>.hint{grid-column:1/3}
+  .work .pc{margin:0}
+  .work-side .btn{margin:8px 0 0}
+  .work-side .energy{margin:0 0 10px}
+}

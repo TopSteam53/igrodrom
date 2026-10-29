@@ -8,3 +8,4 @@ node_modules/
 docs/
 .claude/worktrees/
 public/games/rubezh/
+dist/
