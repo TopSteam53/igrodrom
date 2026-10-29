@@ -48,7 +48,7 @@ function render(d) {
   const t = d.totals, p = d.partner;
   const active = d.days.filter((x) => x.clicks || x.regs || x.counted).reverse();
   $('root').innerHTML = `
-    <p class="mut" style="margin:0 0 18px;max-width:64ch">${esc(p.name)} · ставка ${rub(p.rate)} за засчитанного игрока.
+    <p class="mut" style="margin:0 0 18px;max-width:64ch">${esc(p.name)}, ставка ${rub(p.rate)} за засчитанного игрока.
       Игрок засчитывается, когда сыграет в ${d.rules.games} разные игры и зайдёт на сайт в ${d.rules.days} разных дня — пустые регистрации не в счёт.</p>
     ${p.active ? '' : '<p class="err-text">Партнёрство приостановлено: ссылка и промокод сейчас не работают.</p>'}
 
@@ -84,7 +84,7 @@ function render(d) {
       <div class="pt-kit" id="kit"></div>
       <div class="panel pt-obs">
         <h3>Плашка для стрима</h3>
-        <p class="mut">В OBS: «Источники» → «+» → «Браузер», вставьте ссылку, ширина 1920, высота 1080. Плашка сама выезжает и показывает промокод.</p>
+        <p class="mut">В OBS: «Источники», затем «+», затем «Браузер», вставьте ссылку, ширина 1920, высота 1080. Плашка сама выезжает и показывает промокод.</p>
         ${copyBox('Ссылка для OBS', d.overlay)}
       </div>
     </section>`;

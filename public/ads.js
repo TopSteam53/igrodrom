@@ -52,7 +52,7 @@
       el.className = 'ad-test';
       el.setAttribute('role', 'dialog');
       el.setAttribute('aria-label', 'Реклама');
-      el.innerHTML = `<div class="ad-test-card"><span class="ad-test-label">Реклама · тестовый показ</span>
+      el.innerHTML = `<div class="ad-test-card"><span class="ad-test-label">Реклама, тестовый показ</span>
         <p class="ad-test-title">${rewarded ? 'Реклама за награду' : 'Полноэкранная реклама'}</p>
         <p class="ad-test-sub">Здесь будет реклама сети, когда её подключат. ${rewarded ? 'Досмотрите, чтобы получить награду.' : ''}</p>
         <button class="btn" type="button" disabled>Закрыть через ${SEC}</button></div>`;
@@ -82,7 +82,9 @@
   // Вошедшему с невыполненным заданием «подпишитесь на канал» каждый второй раз показываем задание (server/tgtasks.js).
   let catalog = null;
   let tasks = null;
-  async function houseAd() {
+  // watch — для VK: если реклама сети всё-таки появилась поверх нашей заставки (ответ пришёл поздно),
+  // заставка прячется, ждёт закрытия рекламы и даёт награду: игрок уже посмотрел рекламу.
+  async function houseAd(watch) {
     catalog ??= fetch('/api/games').then((r) => r.json()).then((d) => d.games || []).catch(() => []);
     tasks ??= fetch('/api/tasks').then((r) => r.json()).then((d) => (d.enabled ? d.tasks.filter((t) => !t.status) : [])).catch(() => []);
     const open = window.Igr && (await window.Igr.me().catch(() => null)) ? await tasks : [];
@@ -120,11 +122,30 @@
         btn.disabled = false; btn.textContent = 'Получить награду';
         btn.focus();
       }, 1000);
-      const close = (watched) => { clearInterval(tick); el.remove(); removeEventListener('keydown', onKey); resolve(watched); };
-      const onKey = (e) => { if (e.key === 'Escape') close(left <= 0); };
+      let seen = false;
+      const spy = watch ? setInterval(() => {
+        const ad = watch();
+        if (ad) { seen = true; el.style.display = 'none'; } else if (seen) close(true);
+      }, 400) : 0;
+      const close = (watched) => { clearInterval(tick); clearInterval(spy); el.remove(); removeEventListener('keydown', onKey); resolve(watched); };
+      const onKey = (e) => { if (e.key === 'Escape' && !seen) close(left <= 0); };
       addEventListener('keydown', onKey);
       btn.onclick = () => close(true);
     });
+  }
+
+  // Свой баннер под игрой, когда у сети нет рекламы: другая игра каталога, а не пустая полоса.
+  async function houseBanner(el) {
+    catalog ??= fetch('/api/games').then((r) => r.json()).then((d) => d.games || []).catch(() => []);
+    const here = decodeURIComponent(location.pathname.split('/game/')[1] || '');
+    const pool = (await catalog).filter((g) => g.cover && g.slug && g.slug !== here);
+    if (!pool.length) { el.classList.add('hidden'); return; }
+    const g = pool[Math.floor(Math.random() * pool.length)];
+    const href = `/game/${encodeURIComponent(g.slug)}`;
+    el.innerHTML = `<a class="ad-house-strip" href="${href}">
+      <img src="/play/${encodeURIComponent(g.id)}/${encodeURIComponent(g.cover)}" alt="" loading="lazy">
+      <span class="ad-house-strip-tx"><small>Gamely советует</small><b>${esc(g.title)}</b>${g.short_description ? `<span>${esc(g.short_description)}</span>` : ''}</span>
+      <span class="btn primary sm">Играть</span></a>`;
   }
 
   // ---------- Рекламная сеть Яндекса ----------
@@ -170,11 +191,33 @@
   // Полноэкранный блок на сайте — тот же тег mrg-tag; событий «показан/закрыт» у него нет,
   // поэтому следим за рекламными фреймами: появился — показ идёт, все пропали — закрыли.
   // Если за VK_WAIT_MS ничего не появилось — рекламы нет.
-  const VK_WAIT_MS = 6000, VK_MAX_MS = 45000;
-  function vkFullscreen(slot) {
+  const VK_WAIT_MS = 8000, VK_MAX_MS = 45000;
+  // Показ VK — новая рамка или новый слой поверх страницы, появившиеся после запроса, видимые и на заметную
+  // часть экрана (от 10 %). Не считаются: рамки баннера под игрой (.ad-banner) — он догружается когда угодно,
+  // служебные рамки 1×1 тега VK и наши заставки (.ad-test). Раньше ловили только рамку на 35 % экрана: окно VK
+  // на компьютере бывало меньше, сайт решал, что рекламы нет, и поверх выводил «Gamely советует».
+  function vkWatcher() {
+    const frames = new Set(document.querySelectorAll('iframe'));
+    const layers = new Set(document.body.children);
+    const big = (e) => {
+      if (!e.isConnected || e.closest('.ad-banner, .ad-test')) return false;
+      const r = e.getBoundingClientRect();
+      if (r.width * r.height < innerWidth * innerHeight * 0.1) return false;
+      if (r.bottom <= 0 || r.right <= 0 || r.top >= innerHeight || r.left >= innerWidth) return false;
+      for (let x = e; x && x !== document.documentElement; x = x.parentElement) {
+        const st = getComputedStyle(x);
+        if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) return false;
+      }
+      return true;
+    };
+    return () => [...document.querySelectorAll('iframe')].find((f) => !frames.has(f) && big(f))
+      || [...document.body.children].find((e) => !layers.has(e) && e.tagName !== 'INS' && e.tagName !== 'SCRIPT'
+        && ['fixed', 'absolute'].includes(getComputedStyle(e).position) && big(e))
+      || null;
+  }
+  function vkFullscreen(slot, watch) {
     if (!slot) return Promise.resolve(null);
     return loadScript('https://ad.mail.ru/static/ads-async.js').then(() => settle((finish) => {
-      const before = new Set(document.querySelectorAll('iframe'));
       const ins = document.createElement('ins');
       ins.className = 'mrg-tag';
       ins.setAttribute('data-ad-client', `ad-${slot}`);
@@ -183,24 +226,11 @@
       document.body.append(ins);
       const started = Date.now();
       let shown = false, shownAt = 0;
-      // Показ — только рамка на заметную часть экрана, которую видно. Тег VK оставляет служебные рамки 1×1,
-      // а баннер под игрой догружается позже: раньше они считались показом, который «не закрывается»,
-      // и игра стояла на паузе до SAFETY_MS.
-      const visible = (f) => {
-        if (!f.isConnected) return false;
-        const r = f.getBoundingClientRect();
-        if (r.width * r.height < innerWidth * innerHeight * 0.35) return false;
-        if (r.bottom <= 0 || r.right <= 0 || r.top >= innerHeight || r.left >= innerWidth) return false;
-        for (let e = f; e && e !== document.documentElement; e = e.parentElement) {
-          const s = getComputedStyle(e);
-          if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) return false;
-        }
-        return true;
-      };
-      const done = (result) => { clearInterval(poll); ins.remove(); finish(result); };
+      // Тег не убираем, если рекламы не дождались: ответ VK может прийти позже, и тогда окно появится —
+      // его заметит watch (заставка за награду) или оно просто закроется само.
+      const done = (result) => { clearInterval(poll); setTimeout(() => ins.remove(), result === 'none' ? 60000 : 0); finish(result); };
       const poll = setInterval(() => {
-        const fresh = [...document.querySelectorAll('iframe')].filter((f) => !before.has(f) && visible(f));
-        if (fresh.length) { if (!shown) shownAt = Date.now(); shown = true; }
+        if (watch()) { if (!shown) shownAt = Date.now(); shown = true; }
         else if (shown) done('closed');
         else if (Date.now() - started > VK_WAIT_MS) done('none');
         // Закрытие так и не заметили, а показ шёл: через VK_MAX_MS считаем рекламу досмотренной, не держим игру.
@@ -210,13 +240,15 @@
     })).catch(() => 'none');
   }
 
+  let vkLate = null; // наблюдатель последнего запроса за награду, на случай позднего показа
   const vk = {
     async fullscreen() {
-      return (await vkFullscreen((config.vk || {}).fullscreenSlot)) === 'closed';
+      return (await vkFullscreen((config.vk || {}).fullscreenSlot, vkWatcher())) === 'closed';
     },
     async rewarded() {
-      const r = await vkFullscreen((config.vk || {}).rewardedSlot);
-      // Блок не настроен или рекламы сейчас нет — награду даём, как без сети: игра не должна ломаться.
+      vkLate = vkWatcher();
+      const r = await vkFullscreen((config.vk || {}).rewardedSlot, vkLate);
+      // Блок не настроен или рекламы сейчас нет — своя заставка (она уступит место поздней рекламе VK).
       return r === 'closed' ? true : null;
     },
     banner(el) {
@@ -224,7 +256,16 @@
       if (!bannerClient || !bannerSlot) return false;
       el.innerHTML = `<ins class="mrg-tag" style="display:inline-block;width:100%;max-width:728px;height:90px"
         data-ad-client="${bannerClient}" data-ad-slot="${bannerSlot}"></ins>`;
-      loadScript('https://ad.mail.ru/static/ads-async.js').catch(() => {});
+      const ins = el.firstElementChild;
+      // Заполняемость у нового сайта низкая: если VK за 20 с ничего не поставил — свой баннер вместо пустоты.
+      // Ответ VK на запрос баннера бывает и через 15 с, поэтому раньше не сдаёмся.
+      const filled = () => [...ins.querySelectorAll('iframe, img')].some((x) => x.offsetHeight > 20);
+      let tries = 0;
+      const wait = setInterval(() => {
+        if (!ins.isConnected || filled()) return clearInterval(wait);
+        if (++tries >= 20) { clearInterval(wait); houseBanner(el); }
+      }, 1000);
+      loadScript('https://ad.mail.ru/static/ads-async.js').catch(() => { clearInterval(wait); houseBanner(el); });
       (window.MRGtag = window.MRGtag || []).push({});
       return true;
     },
@@ -277,7 +318,7 @@
     test: {
       fullscreen: () => testOverlay({ rewarded: false }).then(() => true),
       rewarded: () => testOverlay({ rewarded: true }),
-      banner(el) { el.innerHTML = '<div class="ad-test-banner">Реклама · тестовый баннер 728×90</div>'; return true; },
+      banner(el) { el.innerHTML = '<div class="ad-test-banner">Реклама, тестовый баннер 728×90</div>'; return true; },
     },
     yandex, vk, google,
   };
@@ -331,7 +372,7 @@
       hooks.open?.();
       try {
         const result = await p.rewarded().catch(() => false);
-        if (result === null) return { rewarded: await houseAd(), shown: false };
+        if (result === null) return { rewarded: await houseAd(p === vk ? vkLate : null), shown: false };
         // Досмотренная реклама за награду тоже сдвигает паузу перед следующей полноэкранной.
         if (result) lastFullscreen = Date.now();
         return { rewarded: !!result, shown: !!result };

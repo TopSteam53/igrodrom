@@ -188,7 +188,7 @@ function onCall(c) {
   else if (c.type === 'data.get') res = c.result == null ? 'сохранения нет' : `${size(c.result)}: ${brief(c.result, 160)}`;
   else res = c.result == null ? 'ок' : brief(c.result);
   const note = c.ok && NOTES[c.type] ? `. ${NOTES[c.type][0].toUpperCase()}${NOTES[c.type].slice(1)}` : '';
-  addLine({ kind: 'sdk', ok: c.ok, text: `${c.type}${args ? ` (${args})` : ''} → ${res}, ${c.ms} мс${note}` });
+  addLine({ kind: 'sdk', ok: c.ok, text: `${c.type}${args ? ` (${args})` : ''}: ${res}, ${c.ms} мс${note}` });
 }
 const PUSH = { pause: 'игре отправлена пауза (начинается реклама)', resume: 'игре разрешено продолжить (реклама закончилась)' };
 

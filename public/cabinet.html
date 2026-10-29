@@ -213,7 +213,7 @@ async function loadMine() {
   games = (await api('GET', '/api/my/games')).games;
   $('mine').innerHTML = games.length ? games.map((g) => `
     <div class="row game-row" data-open="${g.id}">
-      <div class="game-thumb">${g.cover_url ? `<img src="${esc(g.cover_url)}" alt="" loading="lazy">` : '<span>🎮</span>'}</div>
+      <div class="game-thumb">${g.cover_url ? `<img src="${esc(g.cover_url)}" alt="" loading="lazy">` : ''}</div>
       <div class="t"><b>${esc(g.title)}</b>
         <span class="facts-line"><span>${esc(g.genre)}</span><span>${g.version ? `версия ${esc(g.version)}` : files(g.file_count)}</span><span>${date(g.created_at)}</span></span>
         ${g.status === 'rejected' ? `<div class="reject-reason">Причина: ${esc(g.reject_reason || '')}</div>` : ''}
@@ -281,7 +281,7 @@ function openGame(id) {
   ed.classList.remove('hidden');
   ed.innerHTML = `
     <div class="ed-head">
-      <button class="btn sm" id="edBack">← Все игры</button>
+      <button class="btn sm" id="edBack">Все игры</button>
       <h2>${esc(g.title)}</h2><span class="badge ${g.status}">${STATUS[g.status]}</span>
       <span class="spacer"></span>
       ${g.status === 'approved' ? `<a class="btn sm" href="game.html?id=${g.id}" target="_blank" rel="noopener">Страница в каталоге</a>` : ''}
@@ -331,7 +331,7 @@ function openGame(id) {
       </div>
       <span class="label">Скриншоты — до 8, первые два видны сразу</span>
       <div class="shots">${g.screenshots.map((s, i) => `<figure class="shot"><img src="${esc(s)}" alt="Скриншот ${i + 1}" loading="lazy">
-        <div class="shot-acts">${i ? `<button class="btn sm" data-left="${i}" aria-label="Левее">←</button>` : ''}<button class="btn sm bad" data-del="${i}" aria-label="Удалить">✕</button></div></figure>`).join('')}
+        <div class="shot-acts">${i ? `<button class="btn sm" data-left="${i}" aria-label="Левее">Левее</button>` : ''}<button class="btn sm bad" data-del="${i}" aria-label="Удалить">Удалить</button></div></figure>`).join('')}
         ${g.screenshots.length < 8 ? `<label class="shot add"><input type="file" accept="image/png,image/jpeg,image/webp" data-media="shot" multiple hidden><span>+ Добавить</span></label>` : ''}</div>
       <p class="mut">PNG, JPEG или WebP до 3 МБ. Без мелкого текста на обложке и иконке — их показывают маленькими.</p>
       ${g.cover_url || g.icon_url || g.screenshots.length ? `<div class="form-acts"><a class="btn sm" href="/api/games/${g.id}/download?part=media" download>Скачать картинки</a></div>` : ''}

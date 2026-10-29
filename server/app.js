@@ -17,6 +17,7 @@ import { createRewards, migrateRewards } from './rewards.js';
 import { createSupport, migrateSupport } from './support.js';
 import { createShop, migrateShop, LOOK_COLS } from './shop.js';
 import { createPartners, migratePartners } from './partners.js';
+import { createHero, migrateHero } from './hero.js';
 import { createSources, migrateSources } from './sources.js';
 import { createTgTasks, migrateTgTasks, telegramFromEnv } from './tgtasks.js';
 import { slugify } from './slug.js';
@@ -127,6 +128,7 @@ export function createApp({
   migrateSupport(db);
   migrateShop(db);
   migratePartners(db);
+  migrateHero(db);
   migrateSources(db);
   migrateTgTasks(db);
   const admins = new Set(adminEmails.map((e) => e.trim().toLowerCase()).filter(Boolean));
@@ -295,6 +297,7 @@ export function createApp({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, HttpError, requireUser, requireOwner, cookies, secureCookies, economy,
     logAction, siteUrl,
   });
+  const hero = createHero({ db, dataDir, now, send, readJson, readBody, HttpError, requireOwner, logAction });
   const sources = createSources({
     db, now, dayOf: (t) => stats.dayOf(t), send, readJson, requireOwner, currentUser: (req) => currentUser(req), isModerator,
     isBot: (ua) => stats.isBot(ua), visitorOf: (req) => visitorOf(req), cookies, sha256, secureCookies,
@@ -343,16 +346,18 @@ export function createApp({
       const icon = ICON_FILES.find((f) => fs.existsSync(path.join(src, f))) || null;
       const files = fs.readdirSync(src, { recursive: true }).filter((f) => fs.statSync(path.join(src, f)).isFile());
       const size = files.reduce((n, f) => n + fs.statSync(path.join(src, f)).size, 0);
-      if (!q.game.get(id)) {
+      const fresh = !q.game.get(id);
+      if (fresh) {
         const t = Date.now();
         q.insertGame.run(id, studio.id, meta.title || slug, genre, size, files.length, cover, icon, t, t);
         q.setStatus.run('approved', null, t, id);
       }
       q.updateMeta.run(String(meta.title || slug).slice(0, 60), genre, age,
         String(meta.description || '').slice(0, 1500), String(meta.how_to_play || '').slice(0, 600), Date.now(), id);
-      const featured = Number.isInteger(meta.featured) ? meta.featured : 0;
-      db.prepare('UPDATE games SET cover = ?, icon = ?, size = ?, file_count = ?, featured = ? WHERE id = ?')
-        .run(cover, icon, size, files.length, featured, id);
+      db.prepare('UPDATE games SET cover = ?, icon = ?, size = ?, file_count = ? WHERE id = ?').run(cover, icon, size, files.length, id);
+      // featured из meta.json — только для новой игры: дальше подборку ведёт владелец в админке, и перезапуск
+      // сервера её не сбрасывает (раньше отметки «на главную» у демо-игр пропадали после каждого выката).
+      if (fresh && Number.isInteger(meta.featured)) db.prepare('UPDATE games SET featured = ? WHERE id = ?').run(meta.featured, id);
       assignSlug(id, slug);
     }
   }
@@ -1495,7 +1500,7 @@ export function createApp({
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);
-    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m) || partners.route(p, m) || sources.route(p, m) || tgtasks.route(p, m);
+    const moduleRoute = economy.route(p, m) || avatars.route(p, m) || gamedev.route(p, m) || devref.route(p, m) || support.route(p, m) || admin.route(p, m) || rewards.route(p, m) || shop.route(p, m) || partners.route(p, m) || sources.route(p, m) || tgtasks.route(p, m) || hero.route(p, m);
     if (moduleRoute) return moduleRoute(req, res, url);
     if (p === '/api/me' && m === 'GET') {
       const u = currentUser(req);

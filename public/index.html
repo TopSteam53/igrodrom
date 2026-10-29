@@ -121,39 +121,63 @@ function render() {
        <a class="btn" href="index.html">Показать все игры</a></div>`;
 }
 
-// ---------- подборка: самые популярные игры с обложкой ----------
+// ---------- карусель: слайды из админки (раздел «Карусель»), а пока их нет — отмеченные и популярные игры ----------
 const HERO_SIZE = 5;
 const HERO_MS = 7000;
-let hero = { games: [], i: 0, timer: null, paused: false };
+let hero = { slides: [], i: 0, timer: null, paused: false, built: false };
+const heroConfig = fetch('/api/hero').then((r) => (r.ok ? r.json() : { slides: [] })).then((d) => d.slides || []).catch(() => []);
 
-function renderHero() {
-  if (hero.games.length) return; // собираем один раз, чтобы поиск не сбрасывал карусель
-  // Сначала отмеченные для подборки, потом самые популярные.
-  hero.games = games.filter((g) => g.cover_url)
-    .sort((a, b) => (b.featured || 0) - (a.featured || 0) || SORTS.popular(a, b)).slice(0, HERO_SIZE);
-  if (games.length < 4 || !hero.games.length) return;
-  $('heroSlides').innerHTML = hero.games.map((g, i) => {
-    const url = Igr.gameUrl(g);
-    return `<article class="hero-slide" aria-roledescription="слайд" aria-label="${i + 1} из ${hero.games.length}">
+function gameSlide(g, i, n) {
+  const url = Igr.gameUrl(g);
+  return `<article class="hero-slide" aria-roledescription="слайд" aria-label="${i + 1} из ${n}">
       <div class="hero-bg"><img src="${esc(g.cover_url)}" alt="" onerror="this.remove()"></div>
       <div class="hero-text">
-        <div class="hero-kicker"><span>${esc(g.genre)}</span><span class="age">${esc(g.age || '0+')}</span>${rating(g) !== null ? `<span>👍 ${rating(g)}%</span>` : ''}</div>
+        <div class="hero-kicker"><span>${esc(g.genre)}</span><span class="age">${esc(g.age || '0+')}</span>${rating(g) !== null ? `<span>Нравится ${rating(g)} %</span>` : ''}</div>
         <h2 class="hero-title">${esc(g.title)}</h2>
         ${g.description ? `<p class="hero-desc">${esc(g.description)}</p>` : ''}
         <a class="btn play-btn md" href="${Igr.withParam(url, 'play=1')}">Играть</a>
       </div>
       <a class="hero-cover" href="${url}" tabindex="-1" aria-hidden="true"><img src="${esc(g.cover_url)}" alt=""></a>
     </article>`;
-  }).join('');
-  $('heroDots').innerHTML = hero.games.map((g, i) => `<button class="hero-dot" type="button" data-i="${i}" aria-label="${esc(g.title)}"></button>`).join('');
-  const single = hero.games.length < 2;
+}
+// Свой слайд: ссылка на страницу сайта открывается здесь же, внешняя (канал) — в новой вкладке.
+function customSlide(s, i, n) {
+  const ext = /^https?:/.test(s.link);
+  const attrs = ext ? ' target="_blank" rel="noopener"' : '';
+  const link = s.link ? `href="${esc(s.link)}"${attrs}` : '';
+  return `<article class="hero-slide" aria-roledescription="слайд" aria-label="${i + 1} из ${n}">
+      <div class="hero-bg"><img src="${esc(s.image_url)}" alt="" onerror="this.remove()"></div>
+      <div class="hero-text">
+        ${s.kicker ? `<div class="hero-kicker"><span>${esc(s.kicker)}</span></div>` : ''}
+        <h2 class="hero-title">${esc(s.title)}</h2>
+        ${s.text ? `<p class="hero-desc">${esc(s.text)}</p>` : ''}
+        ${s.link ? `<a class="btn play-btn md" ${link}>${esc(s.button)}</a>` : ''}
+      </div>
+      ${s.link ? `<a class="hero-cover" ${link} tabindex="-1" aria-hidden="true">` : '<div class="hero-cover">'}<img src="${esc(s.image_url)}" alt="">${s.link ? '</a>' : '</div>'}
+    </article>`;
+}
+
+async function renderHero() {
+  if (hero.built) return; // собираем один раз, чтобы поиск не сбрасывал карусель
+  hero.built = true;
+  const config = await heroConfig;
+  const byId = new Map(games.map((g) => [g.id, g]));
+  hero.slides = config.length
+    ? config.map((s) => (s.kind === 'game' ? byId.get(s.game_id) && { game: byId.get(s.game_id) } : { custom: s })).filter((s) => s && (s.custom || s.game.cover_url))
+    // Слайдов в админке нет: сначала отмеченные для подборки, потом самые популярные.
+    : games.filter((g) => g.cover_url).sort((a, b) => (b.featured || 0) - (a.featured || 0) || SORTS.popular(a, b)).slice(0, HERO_SIZE).map((g) => ({ game: g }));
+  if ((!config.length && games.length < 4) || !hero.slides.length) return;
+  const n = hero.slides.length;
+  $('heroSlides').innerHTML = hero.slides.map((s, i) => (s.game ? gameSlide(s.game, i, n) : customSlide(s.custom, i, n))).join('');
+  $('heroDots').innerHTML = hero.slides.map((s, i) => `<button class="hero-dot" type="button" data-i="${i}" aria-label="${esc(s.game ? s.game.title : s.custom.title)}"></button>`).join('');
+  const single = n < 2;
   $('heroPrev').hidden = $('heroNext').hidden = $('heroDots').hidden = single;
   $('hero').classList.remove('hidden');
   showSlide(0);
 }
 
 function showSlide(i) {
-  const n = hero.games.length;
+  const n = hero.slides.length;
   hero.i = (i + n) % n;
   document.querySelectorAll('.hero-slide').forEach((el, k) => el.classList.toggle('on', k === hero.i));
   document.querySelectorAll('.hero-dot').forEach((el, k) => el.classList.toggle('on', k === hero.i));
@@ -223,7 +247,7 @@ async function loadInvitePromo() {
       <span class="invp-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${goal}" aria-valuenow="${Math.min(inv.confirmed, goal)}" aria-label="Засчитано друзей">
         <i style="width:${Math.min(100, (inv.confirmed / goal) * 100)}%"></i></span>
       <ol class="invp-steps">${inv.items.map((it) => `<li class="${inv.confirmed >= it.friends ? 'done' : ''}">
-        <span class="invp-art">${art(it)}</span><b>${esc(it.title)}</b><small>${kind[it.slot]} · ${it.friends} ${Igr.plural(it.friends, ['друг', 'друга', 'друзей'])}</small></li>`).join('')}</ol>
+        <span class="invp-art">${art(it)}</span><b>${esc(it.title)}</b><small>${kind[it.slot]}, ${it.friends} ${Igr.plural(it.friends, ['друг', 'друга', 'друзей'])}</small></li>`).join('')}</ol>
     </div></div>`;
   $('inviteSec').classList.remove('hidden');
 }

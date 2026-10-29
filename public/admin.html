@@ -21,21 +21,23 @@
 
 <div class="w adm" id="adm" hidden>
   <nav class="adm-nav" id="nav" aria-label="Разделы админки">
-    <button data-pane="overview" class="on">📊 Обзор</button>
-    <button data-pane="users">👥 Пользователи</button>
-    <button data-pane="games">🎮 Игры <span class="count" id="cntGames"></span></button>
-    <button data-pane="devs">🧑‍💻 Заявки <span class="count" id="cntDevs"></span></button>
-    <button data-pane="avatars">🖼️ Аватарки <span class="count" id="cntAvatars"></span></button>
-    <button data-pane="payments" class="owner-only">💳 Платежи</button>
+    <button data-pane="overview" class="on">Обзор</button>
+    <button data-pane="users">Пользователи</button>
+    <button data-pane="games">Игры <span class="count" id="cntGames"></span></button>
+    <button data-pane="devs">Заявки <span class="count" id="cntDevs"></span></button>
+    <button data-pane="avatars">Аватарки <span class="count" id="cntAvatars"></span></button>
+    <button data-pane="reviews">Отзывы <span class="count" id="cntReviews"></span></button>
+    <button data-pane="hero" class="owner-only">Карусель</button>
+    <button data-pane="payments" class="owner-only">Платежи</button>
     <button data-pane="tournament" class="owner-only">Турнир недели</button>
-    <button data-pane="shop">🏪 Витрина</button>
-    <button data-pane="invites">🤝 Приглашения</button>
-    <button data-pane="achievements">🏅 Достижения</button>
-    <button data-pane="partners" class="owner-only">🎥 Блогеры</button>
+    <button data-pane="shop">Витрина</button>
+    <button data-pane="invites">Приглашения</button>
+    <button data-pane="achievements">Достижения</button>
+    <button data-pane="partners" class="owner-only">Блогеры</button>
     <button data-pane="sources" class="owner-only">Источники</button>
     <button data-pane="tasks" class="owner-only">Задания</button>
-    <button data-pane="log">📜 Журнал</button>
-    <button data-pane="team" class="owner-only">🛡️ Команда</button>
+    <button data-pane="log">Журнал</button>
+    <button data-pane="team" class="owner-only">Команда</button>
   </nav>
 
   <main class="adm-main">
@@ -123,6 +125,41 @@
       <h1 class="adm-title">Аватарки на проверке</h1>
       <p class="mut">Своя картинка игрока. Отклоняйте чужие фото, лица детей, неприличное, рекламу и ссылки.</p>
       <div class="ava-queue" id="avaQueue"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-reviews">
+      <h1 class="adm-title">Отзывы <span class="mut" id="rvTotal"></span></h1>
+      <p class="mut">Отзывы выходят сразу. Удаляйте оскорбления, спам, ссылки и рекламу: игрок отзыв больше не увидит, удаление попадёт в журнал.</p>
+      <div class="adm-tools">
+        <input type="search" id="rvSearch" autocomplete="off" placeholder="Текст отзыва или имя" aria-label="Поиск по отзывам">
+        <select id="rvGame" aria-label="Игра"><option value="">Все игры</option></select>
+      </div>
+      <div class="rv-list" id="rvList"></div>
+      <div class="pager" id="rvPager"></div>
+    </section>
+
+    <section class="pane hidden" id="pane-hero">
+      <h1 class="adm-title">Карусель на главной</h1>
+      <p class="mut">Слайды идут в этом порядке, каждый 7 секунд. Слайд игры берёт обложку, название и описание из игры. Свой слайд —
+        картинка 16:9, заголовок, текст и ссылка: турнир, канал, акция. Пока слайдов нет, карусель собирается сама: отмеченные игры, потом популярные.</p>
+      <div class="hero-adm" id="hrList"></div>
+      <div class="hero-add">
+        <form class="panel" id="hrGameForm">
+          <h3>Добавить игру</h3>
+          <select id="hrGame" aria-label="Игра" required></select>
+          <button class="btn primary" type="submit">Добавить</button>
+        </form>
+        <form class="panel" id="hrCustomForm">
+          <h3>Свой слайд</h3>
+          <label for="hrTitle">Заголовок</label><input id="hrTitle" maxlength="80" required placeholder="Турнир недели: Обби">
+          <label for="hrKicker">Надпись сверху, необязательно</label><input id="hrKicker" maxlength="40" placeholder="Только до воскресенья">
+          <label for="hrText">Текст, необязательно</label><textarea id="hrText" rows="2" maxlength="240" placeholder="Призы 150, 100 и 50 монеток"></textarea>
+          <label for="hrLink">Ссылка</label><input id="hrLink" maxlength="300" placeholder="/tournament или https://t.me/канал">
+          <label for="hrButton">Текст кнопки</label><input id="hrButton" maxlength="24" placeholder="Подробнее">
+          <label for="hrImage">Картинка 16:9, от 960 px в ширину</label><input id="hrImage" type="file" accept="image/png,image/jpeg,image/webp" required>
+          <button class="btn primary" type="submit">Добавить слайд</button>
+        </form>
+      </div>
     </section>
 
     <section class="pane hidden" id="pane-payments">
@@ -287,7 +324,7 @@ async function ask(title, text, placeholder = 'Причина') {
 }
 
 // ---------- разделы ----------
-const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, sources: loadSources, tasks: loadTasks, log: loadLog, team: loadTeam };
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, reviews: loadReviews, hero: loadHero, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, sources: loadSources, tasks: loadTasks, log: loadLog, team: loadTeam };
 function openPane(name) {
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
@@ -335,9 +372,9 @@ async function loadOverview() {
   const conv = o.invites.invited ? Math.round((o.invites.rewarded / o.invites.invited) * 100) : 0;
   $('growth').innerHTML = `
     <button class="grow" data-go="invites"><span>Приглашения</span><b>${fmt(o.invites.rewarded)} <small>из ${fmt(o.invites.invited)}</small></b>
-      <small class="mut">засчитаны · конверсия ${conv}% · ждут ${fmt(o.invites.pending)}</small></button>
+      <small class="mut">засчитаны, конверсия ${conv}%, ждут ${fmt(o.invites.pending)}</small></button>
     <button class="grow" data-go="shop"><span>Витрина за 30 дней</span><b>${fmt(o.shop.n)} <small>покупок</small></b>
-      <small class="mut">${fmt(o.shop.coins)} монеток · ${fmt(o.shop.buyers)} покупателей</small></button>
+      <small class="mut">${fmt(o.shop.coins)} монеток, ${fmt(o.shop.buyers)} покупателей</small></button>
     <button class="grow" data-go="achievements"><span>Достижения за 30 дней</span><b>${fmt(o.achievements)}</b><small class="mut">выдано игрокам</small></button>`;
   $('growth').onclick = (e) => { const b = e.target.closest('[data-go]'); if (b) openPane(b.dataset.go); };
   $('money').innerHTML = o.money ? `<h2 class="adm-sub">Монетки и платежи</h2><div class="kpis">
@@ -345,7 +382,7 @@ async function loadOverview() {
     ${kpi('Выручка за всё время', rub(o.money.all.rub), `${fmt(o.money.all.n)} покупок`)}
     ${kpi('Монеток у игроков', fmt(o.money.circulation), `потрачено за 30 дней: ${fmt(o.money.spent_month)}`)}
     ${kpi('Подарено за 30 дней', fmt(o.money.given_month), 'подарки, бонусы, выдачи')}</div>
-    <div class="ov-grid"><div class="panel"><h3>Откуда приходят и куда уходят монетки · 30 дней</h3><table class="tbl"><thead><tr><th>Что</th><th class="n">Пришло</th><th class="n">Ушло</th><th class="n">Записей</th></tr></thead><tbody>
+    <div class="ov-grid"><div class="panel"><h3>Откуда приходят и куда уходят монетки за 30 дней</h3><table class="tbl"><thead><tr><th>Что</th><th class="n">Пришло</th><th class="n">Ушло</th><th class="n">Записей</th></tr></thead><tbody>
       ${o.money.flows.length ? o.money.flows.map((f) => `<tr><td>${esc(FLOW[f.kind] || f.kind)}</td><td class="n plus">${f.income ? `+${fmt(f.income)}` : '—'}</td>
         <td class="n">${f.outcome ? `−${fmt(f.outcome)}` : '—'}</td><td class="n mut">${fmt(f.n)}</td></tr>`).join('') : '<tr><td colspan="4" class="mut">Пока пусто.</td></tr>'}</tbody></table></div>
     <div class="panel"><h3>Больше всего монеток</h3><ol class="lb">${o.money.rich.map((u, i) => `<li><span class="r">${i + 1}</span>
@@ -388,13 +425,13 @@ async function loadUsers() {
   $('uTable').innerHTML = `<thead><tr><th>Пользователь</th><th>Роль</th><th class="n">Монетки</th><th>Регистрация</th><th>Был на сайте</th></tr></thead><tbody>` +
     (r.users.length ? r.users.map((u) => `<tr class="click" data-user="${u.id}">
       <td><div class="u-cell">${avatarHTML(u, 32)}<div><b>${esc(u.name)}</b>${u.blocked ? ' <span class="badge rejected">заблокирован</span>' : ''}
-        ${u.avatar_pending ? ' <span class="badge pending">аватарка</span>' : ''}<div class="mut">${esc(u.email)}${u.verified ? ' ✓' : ''}</div></div></div></td>
+        ${u.avatar_pending ? ' <span class="badge pending">аватарка</span>' : ''}<div class="mut">${esc(u.email)}${u.verified ? ', почта подтверждена' : ''}</div></div></div></td>
       <td>${ROLE[u.role]}${u.developer === 'approved' ? ', разработчик' : u.developer === 'pending' ? ', заявка' : ''}</td>
       <td class="n">${fmt(u.coins)}</td><td>${date(u.created_at)}</td><td>${u.last_seen_at ? when(u.last_seen_at) : '—'}</td></tr>`).join('')
       : '<tr><td colspan="5" class="mut">Никого не нашли.</td></tr>') + '</tbody>';
-  $('uPager').innerHTML = r.pages > 1 ? `<button class="btn sm" data-p="${r.page - 1}" ${r.page ? '' : 'disabled'}>← Назад</button>
+  $('uPager').innerHTML = r.pages > 1 ? `<button class="btn sm" data-p="${r.page - 1}" ${r.page ? '' : 'disabled'}>Назад</button>
     <span class="mut">Страница ${r.page + 1} из ${r.pages}</span>
-    <button class="btn sm" data-p="${r.page + 1}" ${r.page + 1 < r.pages ? '' : 'disabled'}>Дальше →</button>` : '';
+    <button class="btn sm" data-p="${r.page + 1}" ${r.page + 1 < r.pages ? '' : 'disabled'}>Дальше</button>` : '';
 }
 let searchT;
 $('uSearch').oninput = (e) => { clearTimeout(searchT); searchT = setTimeout(() => { uState.q = e.target.value.trim(); uState.page = 0; loadUsers(); }, 250); };
@@ -409,7 +446,7 @@ $('uFilters').onclick = (e) => {
 $('uPager').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b && !b.disabled) { uState.page = Number(b.dataset.p); loadUsers(); } };
 $('uTable').onclick = (e) => { const tr = e.target.closest('[data-user]'); if (tr) openUser(Number(tr.dataset.user)); };
 
-const KIND = { purchase: '🛒 Покупка', welcome: '🎁 Подарок', daily: '📅 Бонус', grant: '⭐ Выдача', spend: '🎮 Трата', play: '⏱️ За игру',
+const KIND = { purchase: 'Покупка', welcome: 'Подарок', daily: 'Бонус', grant: 'Выдача', spend: 'Трата', play: 'За игру',
   achievement: 'Достижение', tournament: 'Турнир', referral: 'Приглашение' };
 async function openUser(id) {
   const d = await api('GET', `/api/admin/users/${id}`);
@@ -418,7 +455,7 @@ async function openUser(id) {
   const body = document.createElement('div');
   body.className = 'user-card';
   body.innerHTML = `
-    <div class="u-head">${avatarHTML(u, 64)}<div><b class="u-name">${esc(u.name)}</b><div class="mut">${esc(u.email)} · №${u.id}</div>
+    <div class="u-head">${avatarHTML(u, 64)}<div><b class="u-name">${esc(u.name)}</b><div class="mut">${esc(u.email)}, №${u.id}</div>
       <div class="me-badges"><span class="badge role ${u.role === 'owner' ? 'owner' : ''}">${ROLE[u.role]}</span>
       ${d.application ? `<span class="badge role">${d.application.status === 'approved' ? 'разработчик' : 'заявка: ' + esc(STATUS[d.application.status] || d.application.status)}</span>` : ''}
       ${u.verified ? '<span class="badge approved">почта подтверждена</span>' : '<span class="badge pending">почта не подтверждена</span>'}
@@ -570,7 +607,7 @@ async function loadAvatars() {
   $('cntAvatars').textContent = avatars.length || '';
   $('avaQueue').innerHTML = avatars.length ? avatars.map((a) => `
     <div class="ava-card panel"><img src="${esc(a.url)}" alt="Аватарка ${esc(a.name)}" width="160" height="160">
-      <b>${esc(a.name)}</b><span class="mut">${esc(a.email)} · ${when(a.at)}</span>
+      <b>${esc(a.name)}</b><span class="mut">${esc(a.email)}, ${when(a.at)}</span>
       <div class="acts"><button class="btn ok sm" data-av="approve" data-id="${a.user_id}">Принять</button>
       <button class="btn bad sm" data-av="reject" data-id="${a.user_id}">Отклонить</button></div></div>`).join('')
     : '<p class="mut">Все аватарки проверены.</p>';
@@ -582,6 +619,140 @@ $('avaQueue').onclick = async (e) => {
   if (av === 'reject' && (reason = await ask('Почему не подходит?', 'Игрок увидит причину в профиле.', 'Например: чужое фото')) === null) return;
   try { await api('POST', `/api/admin/avatars/${id}`, { action: av, reason }); loadAvatars(); }
   catch (err) { toast(err.message, true); }
+};
+
+// ---------- отзывы ----------
+let rvPage = 0, rvTimer = 0;
+async function loadReviews() {
+  const game = $('rvGame').value, q = $('rvSearch').value.trim();
+  const r = await api('GET', `/api/admin/reviews?page=${rvPage}&game=${encodeURIComponent(game)}&q=${encodeURIComponent(q)}`);
+  $('rvTotal').textContent = r.total ? fmt(r.total) : '';
+  $('cntReviews').textContent = r.day || '';
+  $('rvGame').innerHTML = '<option value="">Все игры</option>' + r.games.map((g) => `<option value="${esc(g.id)}"${g.id === game ? ' selected' : ''}>${esc(g.title)} (${g.n})</option>`).join('');
+  $('rvList').innerHTML = r.reviews.length ? r.reviews.map((v) => `
+    <article class="rv panel" data-game="${esc(v.game_id)}" data-uid="${v.user_id}">
+      ${avatarHTML(v, 40)}
+      <div class="rv-body">
+        <div class="rv-head"><a href="#users" data-user="${v.user_id}">${esc(v.name)}</a>${v.blocked ? ' <span class="badge rejected">заблокирован</span>' : ''}
+          <span class="mut">об игре <a href="/game/${encodeURIComponent(v.slug || '')}" target="_blank" rel="noopener">${esc(v.game_title)}</a>, ${when(v.updated_at)}${v.updated_at !== v.created_at ? ', изменён' : ''}</span></div>
+        <p class="rv-text">${esc(v.text)}</p>
+      </div>
+      <button class="btn bad sm" type="button" data-del>Удалить</button>
+    </article>`).join('')
+    : `<p class="mut">${q || game ? 'Ничего не нашлось.' : 'Отзывов пока нет.'}</p>`;
+  $('rvPager').innerHTML = r.pages > 1 ? `<button class="btn sm" data-p="-1"${rvPage ? '' : ' disabled'}>Назад</button>
+    <span class="mut">Страница ${rvPage + 1} из ${r.pages}</span><button class="btn sm" data-p="1"${rvPage + 1 < r.pages ? '' : ' disabled'}>Дальше</button>` : '';
+}
+$('rvSearch').oninput = () => { clearTimeout(rvTimer); rvTimer = setTimeout(() => { rvPage = 0; loadReviews(); }, 300); };
+$('rvGame').onchange = () => { rvPage = 0; loadReviews(); };
+$('rvPager').onclick = (e) => { const p = Number(e.target.dataset.p); if (p) { rvPage += p; loadReviews(); } };
+$('rvList').onclick = async (e) => {
+  const u = e.target.closest('[data-user]');
+  if (u) { e.preventDefault(); return openUser(Number(u.dataset.user)); }
+  if (!e.target.closest('[data-del]')) return;
+  const card = e.target.closest('.rv');
+  const body = document.createElement('p');
+  body.textContent = card.querySelector('.rv-text').textContent;
+  const ok = await dialog({ title: 'Удалить отзыв?', body, buttons: [{ text: 'Отмена', value: false }, { text: 'Удалить', value: true, cls: 'bad' }] });
+  if (!ok) return;
+  try { await api('DELETE', `/api/admin/reviews/${card.dataset.game}/${card.dataset.uid}`); toast('Отзыв удалён'); loadReviews(); }
+  catch (err) { toast(err.message, true); }
+};
+
+// ---------- карусель ----------
+let hrSlides = [];
+async function loadHero() {
+  const [{ slides, max }, cat] = await Promise.all([api('GET', '/api/admin/hero'), api('GET', '/api/games')]);
+  hrSlides = slides;
+  const games = cat.games.map(Igr.fromApi);
+  const byId = new Map(games.map((g) => [g.id, g]));
+  const used = new Set(slides.filter((x) => x.kind === 'game').map((x) => x.game_id));
+  $('hrGame').innerHTML = games.filter((g) => g.cover_url && !used.has(g.id))
+    .map((g) => `<option value="${esc(g.id)}">${esc(g.title)}</option>`).join('');
+  $('hrList').innerHTML = slides.length ? slides.map((x, i) => {
+    const g = x.kind === 'game' ? byId.get(x.game_id) : null;
+    const img = g ? g.cover_url : x.image_url;
+    const title = g ? g.title : x.title || x.game_title;
+    const off = !x.active || (x.kind === 'game' && !x.game_live) || (x.kind === 'custom' && !x.image_url);
+    return `<article class="hr-slide panel${off ? ' off' : ''}" data-id="${x.id}">
+      <div class="hr-img">${img ? `<img src="${esc(img)}" alt="">` : '<span class="mut">Нет картинки</span>'}</div>
+      <div class="hr-body">
+        <div class="hr-head"><span class="mut">${i + 1}. ${x.kind === 'game' ? 'Игра' : 'Свой слайд'}</span><b>${esc(title || '')}</b>
+          ${x.kind === 'game' && !x.game_live ? '<span class="badge rejected">игра снята</span>' : ''}
+          ${x.kind === 'custom' && !x.image_url ? '<span class="badge pending">без картинки не показывается</span>' : ''}</div>
+        ${x.kind === 'custom' ? `<div class="hr-fields">
+          <input data-f="title" value="${esc(x.title)}" maxlength="80" aria-label="Заголовок" placeholder="Заголовок">
+          <input data-f="kicker" value="${esc(x.kicker)}" maxlength="40" aria-label="Надпись сверху" placeholder="Надпись сверху">
+          <textarea data-f="text" rows="2" maxlength="240" aria-label="Текст" placeholder="Текст">${esc(x.text)}</textarea>
+          <input data-f="link" value="${esc(x.link)}" maxlength="300" aria-label="Ссылка" placeholder="/tournament или https://">
+          <input data-f="button" value="${esc(x.button)}" maxlength="24" aria-label="Текст кнопки" placeholder="Подробнее">
+          <label class="btn sm">Заменить картинку<input type="file" data-img accept="image/png,image/jpeg,image/webp" hidden></label>
+          <button class="btn sm primary" type="button" data-a="save">Сохранить</button></div>` : ''}
+      </div>
+      <div class="hr-acts">
+        <label class="hr-on"><input type="checkbox" data-a="active"${x.active ? ' checked' : ''}> Показывать</label>
+        <button class="btn sm" type="button" data-a="up"${i ? '' : ' disabled'}>Выше</button>
+        <button class="btn sm" type="button" data-a="down"${i < slides.length - 1 ? '' : ' disabled'}>Ниже</button>
+        <button class="btn sm bad" type="button" data-a="del">Убрать</button>
+      </div></article>`;
+  }).join('') : '<p class="mut">Слайдов нет: сейчас на главной отмеченные и популярные игры. Добавьте первый слайд ниже.</p>';
+  $('hrGameForm').querySelector('button').disabled = slides.length >= max || !$('hrGame').options.length;
+  $('hrCustomForm').querySelector('button[type=submit]').disabled = slides.length >= max;
+}
+async function heroImage(id, file) {
+  const res = await fetch(`/api/admin/hero/${id}/image`, { method: 'POST', body: file });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Ошибка ${res.status}`);
+}
+$('hrGameForm').onsubmit = async (e) => {
+  e.preventDefault();
+  try { await api('POST', '/api/admin/hero', { kind: 'game', game_id: $('hrGame').value }); toast('Игра в карусели'); loadHero(); }
+  catch (err) { toast(err.message, true); }
+};
+$('hrCustomForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const file = $('hrImage').files[0];
+  let id;
+  try {
+    ({ slide: { id } } = await api('POST', '/api/admin/hero', { kind: 'custom', title: $('hrTitle').value, kicker: $('hrKicker').value,
+      text: $('hrText').value, link: $('hrLink').value, button: $('hrButton').value }));
+    await heroImage(id, file);
+    e.target.reset(); toast('Слайд добавлен'); loadHero();
+  } catch (err) {
+    // Картинка не подошла: слайд уже создан, но без картинки на главной не показывается — её можно заменить в списке.
+    toast(err.message, true); if (id) loadHero();
+  }
+};
+$('hrList').onclick = async (e) => {
+  const b = e.target.closest('button[data-a]');
+  const card = e.target.closest('.hr-slide');
+  if (!b || !card) return;
+  const id = Number(card.dataset.id);
+  try {
+    if (b.dataset.a === 'up' || b.dataset.a === 'down') {
+      const ids = hrSlides.map((x) => x.id);
+      const i = ids.indexOf(id), j = i + (b.dataset.a === 'up' ? -1 : 1);
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      await api('POST', '/api/admin/hero/order', { ids });
+    }
+    if (b.dataset.a === 'del') await api('DELETE', `/api/admin/hero/${id}`);
+    if (b.dataset.a === 'save') {
+      const body = Object.fromEntries([...card.querySelectorAll('[data-f]')].map((f) => [f.dataset.f, f.value]));
+      await api('PUT', `/api/admin/hero/${id}`, body); toast('Сохранено');
+    }
+    loadHero();
+  } catch (err) { toast(err.message, true); }
+};
+$('hrList').onchange = async (e) => {
+  const card = e.target.closest('.hr-slide');
+  if (!card) return;
+  const id = Number(card.dataset.id);
+  try {
+    if (e.target.dataset.a === 'active') await api('PUT', `/api/admin/hero/${id}`, { active: e.target.checked });
+    else if (e.target.dataset.img !== undefined && e.target.files[0]) { await heroImage(id, e.target.files[0]); toast('Картинка заменена'); }
+    else return;
+    loadHero();
+  } catch (err) { toast(err.message, true); loadHero(); }
 };
 
 // ---------- платежи ----------
@@ -677,9 +848,9 @@ async function loadShopStats() {
   shData = await api('GET', '/api/admin/shop');
   const t = shData.totals;
   $('shKpis').innerHTML = [
-    kpi('Покупок за 30 дней', fmt(t.month.n), `${fmt(t.month.coins)} монеток · ${fmt(t.month.buyers)} покупателей`),
+    kpi('Покупок за 30 дней', fmt(t.month.n), `${fmt(t.month.coins)} монеток, ${fmt(t.month.buyers)} покупателей`),
     kpi('За 7 дней', fmt(t.week.n), `${fmt(t.week.coins)} монеток`),
-    kpi('За всё время', fmt(t.all.n), `${fmt(t.all.coins)} монеток · ${fmt(t.all.buyers)} покупателей`),
+    kpi('За всё время', fmt(t.all.n), `${fmt(t.all.coins)} монеток, ${fmt(t.all.buyers)} покупателей`),
     kpi('Предметов в витрине', fmt(shData.items.length), `${fmt(shData.items.filter((i) => i.anim).length)} анимированных`),
   ].join('');
   renderShopStats();
@@ -693,7 +864,7 @@ function renderShopStats() {
   const list = shData.items.filter((i) => shSlot === 'all' || i.slot === shSlot)
     .sort((a, b) => b.sold - a.sold || b.owners - a.owners || (b.price || 0) - (a.price || 0));
   $('shTable').innerHTML = `<thead><tr><th>Предмет</th><th class="n">Цена</th><th class="n">Продано</th><th class="n">Монеток</th><th class="n">Есть у</th><th class="n">Носят</th><th>Последняя покупка</th></tr></thead><tbody>${list.map((i) =>
-    `<tr><td><div class="u-cell">${itemArt(i)}<div><b>${esc(i.title)}</b><div class="mut">${SLOT_ONE[i.slot]} · ${tierWord(i)}${i.anim ? ' · анимация' : ''}</div></div></div></td>
+    `<tr><td><div class="u-cell">${itemArt(i)}<div><b>${esc(i.title)}</b><div class="mut">${SLOT_ONE[i.slot]}, ${tierWord(i)}${i.anim ? ', анимация' : ''}</div></div></div></td>
       <td class="n">${i.invite ? `${i.invite} друзей` : fmt(i.price)}</td><td class="n">${fmt(i.sold)}</td><td class="n">${fmt(i.coins)}</td>
       <td class="n">${fmt(i.owners)}</td><td class="n">${fmt(i.wearing)}</td><td>${i.last_at ? when(i.last_at) : '<span class="mut">—</span>'}</td></tr>`).join('')}</tbody>`;
 }
@@ -710,9 +881,9 @@ async function loadInviteStats() {
   const conv = t.invited ? Math.round((t.rewarded / t.invited) * 100) : 0;
   $('invKpis').innerHTML = [
     kpi('Пришли по ссылкам', fmt(t.invited), `за 7 дней — ${fmt(invData.week.invited)}`),
-    kpi('Засчитаны', fmt(t.rewarded), `конверсия ${conv}% · за 7 дней ${fmt(invData.week.rewarded)}`),
+    kpi('Засчитаны', fmt(t.rewarded), `конверсия ${conv}%, за 7 дней ${fmt(invData.week.rewarded)}`),
     kpi('Ждут двух игр', fmt(t.pending), t.refused ? `без награды: ${fmt(t.refused)}` : ''),
-    kpi('Зовут друзей', fmt(t.inviters), `ссылку брали ${fmt(invData.links)} игроков · выдано ${fmt(invData.coins)} монеток`),
+    kpi('Зовут друзей', fmt(t.inviters), `ссылку брали ${fmt(invData.links)} игроков, выдано ${fmt(invData.coins)} монеток`),
   ].join('');
   renderInviteTop();
   $('invRecent').innerHTML = invData.recent.length ? `<thead><tr><th>Пришёл</th><th>Позвал</th><th>Статус</th><th class="n">Игр</th><th>Когда</th></tr></thead><tbody>${invData.recent.map((r) => {
@@ -838,7 +1009,7 @@ async function loadAchievementStats() {
       const pct = d.players ? Math.round((a.earned / d.players) * 100) : 0;
       return `<tr><td><div class="u-cell">${Igr.medalHTML(a)}<div><b>${esc(a.title)}</b><div class="mut">${esc(a.cond)}</div></div></div></td>
         <td>${TIER_NAME[a.tier]}</td><td class="n">${fmt(a.coins)}</td>
-        <td class="n"><div class="pct"><span class="inv-bar"><i style="width:${pct}%"></i></span>${fmt(a.earned)} · ${pct}%</div></td>
+        <td class="n"><div class="pct"><span class="inv-bar"><i style="width:${pct}%"></i></span>${fmt(a.earned)}, ${pct}%</div></td>
         <td>${a.last_at ? when(a.last_at) : '<span class="mut">—</span>'}</td></tr>`;
     }).join('')}</tbody>`;
   }).join('');
@@ -863,7 +1034,7 @@ async function loadPartners() {
     kpi('К выплате', rub(sum('due')), `начислено ${rub(sum('earned'))}, выплачено ${rub(sum('paid'))}`),
   ].join('');
   $('ptTable').innerHTML = ptList.length ? `<thead><tr><th>Блогер</th><th>Промокод</th><th class="n">Ставка</th><th class="n">Переходы</th><th class="n">Рег.</th><th class="n">Засчитаны</th><th class="n">К выплате</th></tr></thead><tbody>${ptList.map((p) =>
-    `<tr class="click" data-pt="${p.id}"><td><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="badge rejected">выключен</span>'}<div class="mut">/p/${esc(p.code)}${p.contact ? ` · ${esc(p.contact)}` : ''}</div></td>
+    `<tr class="click" data-pt="${p.id}"><td><b>${esc(p.name)}</b>${p.active ? '' : ' <span class="badge rejected">выключен</span>'}<div class="mut">/p/${esc(p.code)}${p.contact ? `, ${esc(p.contact)}` : ''}</div></td>
       <td>${esc(p.promo)}</td><td class="n">${rub(p.rate)}</td><td class="n">${fmt(p.clicks)}</td><td class="n">${fmt(p.regs)}</td>
       <td class="n">${fmt(p.counted)}${p.pending ? ` <span class="mut">+${fmt(p.pending)}</span>` : ''}</td><td class="n">${rub(p.due)}</td></tr>`).join('')}</tbody>`
     : '<tbody><tr><td class="mut">Блогеров пока нет — добавьте первого формой ниже.</td></tr></tbody>';
@@ -879,7 +1050,7 @@ async function openPartner(id) {
   const p = d.partner, t = d.totals;
   $('ptCard').innerHTML = `<div class="panel pt-card">
     <div class="chart-head"><h3>${esc(p.name)}</h3><div class="acts"><button class="btn sm" data-pt-edit="${p.id}">Изменить</button><button class="btn sm" data-pt-close>Закрыть</button></div></div>
-    <p class="mut">Ссылка ${esc(d.link)}${p.target ? ` → «${esc(p.target.title)}»` : ''} · промокод ${esc(p.promo)} · ${rub(p.rate)} за игрока ·
+    <p class="mut">Ссылка ${esc(d.link)}${p.target ? `, ведёт в «${esc(p.target.title)}»` : ''}, промокод ${esc(p.promo)}, ${rub(p.rate)} за игрока,
       кабинет: ${p.account ? `<a href="#users" data-user="${p.account.id}">${esc(p.account.name)}</a>` : 'не привязан'}</p>
     <div class="kpis">${kpi('Переходы', fmt(t.clicks))}${kpi('Регистрации', fmt(t.regs), t.refused ? `не засчитаны: ${fmt(t.refused)}` : '')}${kpi('Засчитаны', fmt(t.counted), `ещё играют: ${fmt(t.pending)}`)}${kpi('К выплате', rub(t.due), `начислено ${rub(t.earned)}, выплачено ${rub(t.paid)}`)}</div>
     <form class="team-add" id="ptPay"><input id="ptPayAmount" type="number" step="1" placeholder="Сумма, ₽" required aria-label="Сумма выплаты">
@@ -1012,7 +1183,7 @@ Igr.me().then((user) => {
   document.querySelectorAll('.owner-only').forEach((el) => el.classList.toggle('hidden', !user.isAdmin));
   $('adm').hidden = false;
   const start = location.hash.slice(1);
-  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners', 'sources', 'tasks'].includes(start)) ? start : 'overview');
+  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners', 'sources', 'tasks', 'hero'].includes(start)) ? start : 'overview');
   if (start && start !== 'overview') api('GET', '/api/admin/overview').then((o) => {
     $('cntGames').textContent = o.queues.games || ''; $('cntDevs').textContent = o.queues.developers || ''; $('cntAvatars').textContent = o.queues.avatars || '';
   }).catch(() => {});

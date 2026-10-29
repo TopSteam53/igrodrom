@@ -65,6 +65,10 @@ window.COLLAGE_COVERS = [
   "name": "Мурмерж"
  },
  {
+  "file": "img/obby.jpg",
+  "name": "Обби: Небесные башни"
+ },
+ {
   "file": "img/schet.jpg",
   "name": "Устный счёт"
  },

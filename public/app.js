@@ -5,11 +5,10 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const fmt = (n) => Math.round(n).toLocaleString('ru-RU');
 
-  const CATEGORY_ICONS = {
-    'Аркады': '🕹️', 'Головоломки': '🧩', 'Три в ряд': '💎', 'Казуальные': '🎈', 'Настольные': '♟️', 'Карточные': '🃏',
-    'Стратегии': '🏰', 'Гонки': '🏎️', 'Симуляторы': '🛠️', 'Приключения': '🗺️', 'Спорт': '⚽', 'Викторины': '❓',
-    'Обучающие': '📚', 'Для двоих': '👥', 'Кликеры': '👆', 'Прочее': '🎮',
-  };
+  // Без картинки у игры — первая буква названия на цветном фоне (эмодзи на сайте не используем).
+  const letterOf = (g) => esc((String(g.title || '?').trim()[0] || '?').toUpperCase());
+  // Палец вверх для оценок: рисованный значок вместо эмодзи.
+  const THUMB_SVG = '<svg class="thumb" viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M2 9h3v9H2zM7 18V9.2l3.6-6.4A1.6 1.6 0 0 1 13.5 4l-.8 4h4.1a1.8 1.8 0 0 1 1.7 2.3l-2 6.4A1.8 1.8 0 0 1 14.8 18z"/></svg>';
   const COVER_BG = ['#3b2f8f', '#14532d', '#7c2d12', '#134e4a', '#1e3a8a', '#701a75', '#713f12', '#1f2937'];
   const NEW_DAYS = 14;
 
@@ -70,7 +69,7 @@
   const isNew = (g) => g.live && !g.demo && Date.now() - g.created_at < NEW_DAYS * 864e5;
 
   function coverHTML(g, i = 0) {
-    const icon = CATEGORY_ICONS[g.genre] || '🎮';
+    const icon = letterOf(g);
     const bg = COVER_BG[[...String(g.id)].reduce((n, c) => n + c.charCodeAt(0), i) % COVER_BG.length];
     return `<div class="cover" style="background:${bg}">` +
       (g.cover_url ? `<img src="${esc(g.cover_url)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
@@ -81,7 +80,7 @@
 
   // Квадратная иконка для маленьких размеров. Нет иконки — центр обложки, нет обложки — значок категории.
   function iconHTML(g, cls = 'game-icon') {
-    const icon = CATEGORY_ICONS[g.genre] || '🎮';
+    const icon = letterOf(g);
     const bg = COVER_BG[[...String(g.id)].reduce((n, c) => n + c.charCodeAt(0), 0) % COVER_BG.length];
     const src = g.icon_url || g.cover_url;
     return `<div class="${cls}" style="background:${bg}"><span aria-hidden="true">${icon}</span>` +
@@ -97,7 +96,7 @@
     const r = rating(g);
     return `<a class="card" href="${gameUrl(g)}">${coverHTML(g, i)}
       <div class="card-body"><b class="card-title">${esc(g.title)}</b>
-      <span class="card-meta">${r !== null ? `<span class="score" title="Доля положительных оценок">👍 ${r}%</span>` : ''}
+      <span class="card-meta">${r !== null ? `<span class="score" title="Доля положительных оценок">${THUMB_SVG}${r} %</span>` : ''}
       <span>${esc(g.genre)}</span></span></div></a>`;
   }
 
@@ -179,7 +178,7 @@
       for (const it of f.unlocked) show.push(() => toast('Открыто за друзей — наденьте в Витрине', { kind: 'gift', title: it.title }));
     }
     for (const a of n.achievements) {
-      show.push(() => toast(`Новое достижение · +${coinsText(a.coins)}`, { kind: 'ach', title: a.title, icon: medalHTML(a) }));
+      show.push(() => toast(`Новое достижение, +${coinsText(a.coins)}`, { kind: 'ach', title: a.title, icon: medalHTML(a) }));
     }
     show.forEach((fn, i) => setTimeout(fn, i * 650));
     if (show.length) document.dispatchEvent(new CustomEvent('igr:news', { detail: n }));
@@ -653,6 +652,6 @@
 
   window.Igr = {
     $, esc, fmt, me, goal, safeNext, slugify, gameUrl, catUrl, devUrl, homeUrl, withParam, config, fillSite, fromApi, loadCatalog, rating, isNew, cardHTML, miniHTML, coverHTML, iconHTML, initHeader,
-    toast, matches, CATEGORY_ICONS, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited, landingInvite, shareHTML, checkNews, medalHTML, loadTasks, taskHTML, taskIcon: TG_SVG,
+    toast, matches, THUMB_SVG, COIN_SVG, plural, coinsText, setCoins, dialog, avatarHTML, nameHTML, nameIconHTML, timeLeft, invited, landingInvite, shareHTML, checkNews, medalHTML, loadTasks, taskHTML, taskIcon: TG_SVG,
   };
 })();

@@ -252,8 +252,48 @@ export function createAdmin({
     });
   }
 
+  // Отзывы всех игр: выходят сразу (постмодерация), здесь их видно одним списком — новые сверху, поиск по тексту
+  // и имени, фильтр по игре. Удаление — с записью в журнал, как кнопкой на странице игры.
+  function reviews(req, res, url) {
+    requireModerator(req);
+    const game = String(url.searchParams.get('game') || '');
+    const search = String(url.searchParams.get('q') || '').trim().toLowerCase().replace(/ё/g, 'е').slice(0, 100);
+    const page = Math.max(0, Number(url.searchParams.get('page')) || 0);
+    const where = ['1'];
+    const args = [];
+    if (game) { where.push('r.game_id = ?'); args.push(game); }
+    if (search) {
+      where.push("(lower_u(r.text) LIKE ? ESCAPE '\\' OR lower_u(u.name) LIKE ? ESCAPE '\\')");
+      const like = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      args.push(like, like);
+    }
+    const sql = `FROM game_reviews r JOIN users u ON u.id = r.user_id JOIN games g ON g.id = r.game_id WHERE ${where.join(' AND ')}`;
+    const total = db.prepare(`SELECT COUNT(*) AS n ${sql}`).get(...args).n;
+    const rows = db.prepare(`SELECT r.game_id, r.user_id, r.text, r.created_at, r.updated_at, u.name, u.avatar, u.blocked_at,
+                               g.title AS game_title, g.slug ${sql} ORDER BY r.updated_at DESC LIMIT ${PAGE} OFFSET ${page * PAGE}`).all(...args);
+    const games = db.prepare(`SELECT g.id, g.title, COUNT(*) AS n FROM game_reviews r JOIN games g ON g.id = r.game_id
+                               GROUP BY g.id ORDER BY n DESC, g.title`).all();
+    const day = one('SELECT COUNT(*) AS n FROM game_reviews WHERE updated_at >= ?', now() - DAY).n;
+    send(res, 200, {
+      reviews: rows.map((x) => ({ ...x, avatar: avatarUrl(x.avatar), blocked: !!x.blocked_at, blocked_at: undefined })),
+      total, page, pages: Math.ceil(total / PAGE), games, day,
+    });
+  }
+
+  function deleteReview(req, res, gameId, userId) {
+    const mod = requireModerator(req);
+    const row = one(`SELECT r.text, u.name, g.title FROM game_reviews r JOIN users u ON u.id = r.user_id JOIN games g ON g.id = r.game_id
+                     WHERE r.game_id = ? AND r.user_id = ?`, gameId, userId);
+    if (!row) throw new HttpError(404, 'Отзыв не найден');
+    db.prepare('DELETE FROM game_reviews WHERE game_id = ? AND user_id = ?').run(gameId, userId);
+    logAction(mod, 'review.delete', gameId, `${row.title}: отзыв ${row.name}`, row.text.slice(0, 300));
+    send(res, 200, { ok: true });
+  }
+
   function route(p, m) {
     let mm;
+    if (p === '/api/admin/reviews' && m === 'GET') return reviews;
+    if ((mm = p.match(/^\/api\/admin\/reviews\/([0-9a-f]{16})\/(\d+)$/)) && m === 'DELETE') return (req, res) => deleteReview(req, res, mm[1], Number(mm[2]));
     if (p === '/api/admin/overview' && m === 'GET') return overview;
     if (p === '/api/admin/shop' && m === 'GET') return shopStats;
     if (p === '/api/admin/invites' && m === 'GET') return inviteStats;

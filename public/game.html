@@ -45,8 +45,8 @@
 
     <div class="toolbar">
       <span id="votes" class="hidden">
-        <button class="btn sm" id="like" aria-pressed="false" title="Нравится">👍 <span id="likes">0</span></button>
-        <button class="btn sm" id="dislike" aria-pressed="false" title="Не нравится">👎 <span id="dislikes">0</span></button>
+        <button class="btn sm" id="like" aria-pressed="false" title="Нравится"><svg class="thumb" viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M2 9h3v9H2zM7 18V9.2l3.6-6.4A1.6 1.6 0 0 1 13.5 4l-.8 4h4.1a1.8 1.8 0 0 1 1.7 2.3l-2 6.4A1.8 1.8 0 0 1 14.8 18z"/></svg><span id="likes">0</span></button>
+        <button class="btn sm" id="dislike" aria-pressed="false" title="Не нравится"><svg class="thumb down" viewBox="0 0 20 20" aria-hidden="true"><path fill="currentColor" d="M2 9h3v9H2zM7 18V9.2l3.6-6.4A1.6 1.6 0 0 1 13.5 4l-.8 4h4.1a1.8 1.8 0 0 1 1.7 2.3l-2 6.4A1.8 1.8 0 0 1 14.8 18z"/></svg><span id="dislikes">0</span></button>
       </span>
       <button class="btn sm hidden" id="thank" title="Отдать автору свои монетки — он увидит это в статистике">Поблагодарить автора</button>
       <span class="spacer"></span>
@@ -141,7 +141,7 @@ function render(all) {
   $('splashIcon').innerHTML = iconHTML(game, 'game-icon big');
   $('splashTitle').textContent = game.title;
   const r0 = rating(game);
-  $('splashMeta').innerHTML = `<span>${esc(game.genre)}</span><span class="age">${esc(game.age || '0+')}</span>${r0 !== null ? `<span>👍 ${r0}%</span>` : ''}`;
+  $('splashMeta').innerHTML = `<span>${esc(game.genre)}</span><span class="age">${esc(game.age || '0+')}</span>${r0 !== null ? `<span>Нравится ${r0} %</span>` : ''}`;
   $('desc').textContent = game.description || 'Описание пока не добавлено.';
   $('howto').textContent = game.how_to_play || 'Правила пока не добавлены.';
   renderExtras();
@@ -231,12 +231,12 @@ function renderExtras() {
   $('tags').innerHTML = tags.map((t) => `<a class="chip" href="index.html?q=${encodeURIComponent(t)}">#${esc(t)}</a>`).join('');
   $('news').classList.toggle('hidden', !game.changelog);
   $('changelog').textContent = game.changelog || '';
-  $('newsVer').textContent = game.version ? ` · версия ${game.version}` : '';
+  $('newsVer').textContent = game.version ? `, версия ${game.version}` : '';
 }
 
 function renderScore() {
   const r = rating(game);
-  $('score').textContent = r !== null ? `👍 ${r}% из ${fmt(game.likes + game.dislikes)} оценок` : '';
+  $('score').textContent = r !== null ? `Нравится ${r} % из ${fmt(game.likes + game.dislikes)} оценок` : '';
   $('likes').textContent = fmt(game.likes || 0);
   $('dislikes').textContent = fmt(game.dislikes || 0);
   $('like').classList.toggle('on', game.my_vote === 1);

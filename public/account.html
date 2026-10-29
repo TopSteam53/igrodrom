@@ -20,7 +20,7 @@
 
 <main class="w" id="page">
   <section class="me-card">
-    <button class="me-ava" id="avaBtn" type="button" aria-label="Сменить аватарку"><span id="ava"></span><span class="me-ava-edit" aria-hidden="true">✎</span></button>
+    <button class="me-ava" id="avaBtn" type="button" aria-label="Сменить аватарку"><span id="ava"></span><span class="me-ava-edit" aria-hidden="true"><svg viewBox="0 0 20 20" width="16" height="16"><path fill="currentColor" d="M13.6 2.6a2 2 0 0 1 2.8 0l1 1a2 2 0 0 1 0 2.8L7.2 16.6 3 17l.4-4.2z"/></svg></span></button>
     <div class="me-info">
       <h1 id="name" class="profile-name">Профиль</h1>
       <p class="mut" id="email"></p>
@@ -230,7 +230,6 @@ me().then(async (u) => {
 });
 
 // ---------- монетки ----------
-const KIND = { purchase: '🛒', welcome: '🎁', daily: '📅', grant: '⭐', spend: '🎮', play: '⏱️' };
 const dateTime = (t) => new Date(t).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 let shop = null;
 
@@ -252,7 +251,7 @@ async function loadCoins() {
       'Оплата картой, через СБП или SberPay на странице ЮKassa. Нажимая на набор, вы соглашаетесь с ' +
       '<a href="terms.html#coins">условиями покупки монеток</a>.';
   $('history').innerHTML = c.history.length ? `<table class="tbl"><tbody>${c.history.map((h) => `
-    <tr><td><span aria-hidden="true">${KIND[h.kind] || '•'}</span> ${h.game_id
+    <tr><td>${h.game_id
       ? `<a href="game.html?id=${esc(h.game_id)}">${esc(h.title)}</a>` : esc(h.title)}</td>
     <td class="mut">${dateTime(h.created_at)}</td>
     <td class="n ${h.delta > 0 ? 'plus' : ''}">${h.delta > 0 ? '+' : '−'}${fmt(Math.abs(h.delta))}</td></tr>`).join('')}</tbody></table>`
@@ -346,7 +345,7 @@ function renderInvite(inv) {
   invite = inv;
   $('inviteText').innerHTML = `Отправьте другу ссылку. Когда он зарегистрируется и сыграет в ${inv.play_games} разные игры, вы получите <b>${esc(coinsText(inv.reward))}</b>, а друг — <b>${esc(coinsText(inv.friend_reward))}</b> сверх подарка новичку.`;
   $('inviteUrl').value = inv.url;
-  $('inviteShare').innerHTML = Igr.shareHTML({ url: inv.url, text: `Играю в бесплатные игры на Gamely — заходи, по моей ссылке дадут ${coinsText(inv.friend_reward)} 🎮` });
+  $('inviteShare').innerHTML = Igr.shareHTML({ url: inv.url, text: `Играю в бесплатные игры на Gamely — заходи, по моей ссылке дадут ${coinsText(inv.friend_reward)}` });
   $('invInvited').textContent = fmt(inv.invited);
   $('invConfirmed').textContent = fmt(inv.confirmed);
   $('invCoins').textContent = fmt(inv.coins);
@@ -360,7 +359,7 @@ function renderInvite(inv) {
       : `<img src="${esc(it.image)}" width="64" height="64" alt="">`;
     const pct = Math.min(100, Math.round((inv.confirmed / it.friends) * 100));
     return `<div class="inv-item${done ? ' done' : ''}"><span class="inv-art">${art}</span>
-      <span class="inv-t"><b>${esc(it.title)}</b><span class="mut">${it.slot === 'frame' ? 'рамка' : it.slot === 'icon' ? 'значок' : 'аватарка'} · за ${it.friends} друзей</span>
+      <span class="inv-t"><b>${esc(it.title)}</b><span class="mut">${it.slot === 'frame' ? 'рамка' : it.slot === 'icon' ? 'значок' : 'аватарка'}, за ${it.friends} друзей</span>
       ${done ? `<a class="inv-ok" href="#shop">${BADGE_SVG}Открыто — надеть</a>`
         : `<span class="inv-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${it.friends}" aria-valuenow="${Math.min(inv.confirmed, it.friends)}"
             aria-label="${esc(it.title)}: друзей ${inv.confirmed} из ${it.friends}"><i style="width:${pct}%"></i></span><span class="mut">${fmt(Math.min(inv.confirmed, it.friends))} из ${it.friends}</span>`}</span></div>`;
@@ -409,7 +408,7 @@ function renderInviteBoard() {
     : `<li class="ib-empty mut">${ibMode === 'week' ? 'На этой неделе пока никого — приведите друга первым и заберите приз.' : 'Пока никто не привёл друзей. Будьте первым!'}</li>`;
   const last = ibData.last;
   $('ibLast').classList.toggle('hidden', !(ibMode === 'week' && last?.winners.length));
-  if (last?.winners.length) $('ibLast').innerHTML = `Прошлая неделя: ${last.winners.map((w) => `${w.place}. ${esc(w.name)} (${fmt(w.friends)})`).join(' · ')}`;
+  if (last?.winners.length) $('ibLast').innerHTML = `Прошлая неделя: ${last.winners.map((w) => `${w.place}. ${esc(w.name)} (${fmt(w.friends)})`).join(', ')}`;
   for (const b of document.querySelectorAll('[data-ib]')) {
     b.classList.toggle('on', b.dataset.ib === ibMode);
     b.setAttribute('aria-selected', b.dataset.ib === ibMode);
