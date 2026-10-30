@@ -6,7 +6,7 @@
  *   const save = (await sdk.data.get()) || { level: 1 };
  *   sdk.game.ready();                                  // игра загрузилась
  *   await sdk.data.set({ level: 2, coins: 150 });
- *   const { rewarded } = await sdk.ads.rewarded();     // награда за рекламу
+ *   const { rewarded, shown } = await sdk.ads.rewarded(); // награда за рекламу; shown — показала ли её сеть (не заставка сайта)
  *   await sdk.leaderboard.setScore(1200);              // таблица рекордов (только вошедшие игроки)
  *   const { ok } = await sdk.coins.spend(30, 'Щит');   // монетки площадки, игрок подтверждает трату
  *
@@ -131,8 +131,8 @@
           function () { return { shown: false }; });
       },
       rewarded: function () {
-        return request('adv.rewarded', null, AD_MS).then(function (r) { return { rewarded: !!(r && r.rewarded) }; },
-          function () { return { rewarded: false }; });
+        return request('adv.rewarded', null, AD_MS).then(function (r) { return { rewarded: !!(r && r.rewarded), shown: !!(r && r.shown) }; },
+          function () { return { rewarded: false, shown: false }; });
       },
     };
   }
@@ -321,7 +321,7 @@
       },
       ads: {
         fullscreen: function () { return Promise.resolve({ shown: false }); },
-        rewarded: function () { return Promise.resolve({ rewarded: true }); },
+        rewarded: function () { return Promise.resolve({ rewarded: true, shown: false }); },
       },
       game: { ready: noop, start: noop, stop: noop },
       leaderboard: localLeaderboard(readBoards, writeBoards),

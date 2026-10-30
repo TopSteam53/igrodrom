@@ -20,16 +20,21 @@ test('js/items.js собран из scripts/perekup/items.json, у каждой 
   for (let t = 1; t <= 6; t++) assert.ok(ITEMS.some((i) => i.tier === t), `пустой уровень ${t}`);
 });
 
-test('кейсы: шансы в сумме 100 %, цена — 85 % от средней выпавшей, каждый следующий дороже в 5–40 раз', () => {
+test('кейсы: шансы в сумме 100 %, цена — 81–94 % от средней выпавшей, каждый следующий дороже в 2–5 раз', () => {
   let prev = 0;
   for (const c of E.CASES) {
-    const sum = Object.values(c.odds).reduce((a, b) => a + b, 0);
-    assert.ok(Math.abs(sum - 100) < 1e-9, `${c.title}: шансы ${sum}`);
-    assert.ok(c.ev / c.price > 1.12 && c.ev / c.price < 1.23, `${c.title}: ${c.ev / c.price}`);
-    if (prev) assert.ok(c.price / prev >= 5 && c.price / prev <= 40, `${c.title}: шаг ×${(c.price / prev).toFixed(1)}`);
+    const sum = c.pool.reduce((a, [, p]) => a + p, 0);
+    assert.ok(Math.abs(sum - 1) < 1e-9, `${c.title}: шансы ${sum}`);
+    // В среднем каждое открытие в плюс: дешёвые кейсы на 18 %, дорогие на 7–10 % (economy.js, edgeOf).
+    assert.ok(c.ev / c.price > 1.06 && c.ev / c.price < 1.23, `${c.title}: ${c.ev / c.price}`);
+    // Решение пользователя 30.10.2026: шаги по 12–29 раз («33 тысячи не накопить») заменены промежуточными кейсами.
+    if (prev) assert.ok(c.price / prev >= 2 && c.price / prev <= 5, `${c.title}: шаг ×${(c.price / prev).toFixed(1)}`);
     prev = c.price;
   }
   assert.ok(E.CASES[0].price <= E.START_MONEY, 'на старте хватает на первый кейс');
+  // Полка коллекции на каждый уровень вещей — по своему основному кейсу; старые id кейсов в сохранениях остались.
+  for (let t = 1; t <= 6; t++) assert.ok(E.caseOfTier(t), `нет основного кейса уровня ${t}`);
+  for (const id of ['junk', 'home', 'tech', 'antique', 'lux', 'legend']) assert.ok(E.CASES.some((c) => c.id === id), id);
 });
 
 // Простой игрок: открывает самый дорогой кейс, на который хватает (с запасом на следующий), продаёт всё с торгом
@@ -57,9 +62,7 @@ function simulate(seed, upgrades = false) {
     const n = Math.min(E.slotsOf(up), Math.floor(money / c.price));
     for (let k = 0; k < n; k++) {
       money -= c.price;
-      const tier = Number(pickW(Object.entries(c.odds)));
-      const pool = ITEMS.filter((i) => i.tier === tier);
-      const it = pickW(pool.map((i) => [i, E.weightOf(i)]));
+      const it = pickW(c.pool);
       const cond = pickW(E.CONDITIONS.map((x) => [x, x.w]));
       money += it.price * cond.k * 1.12 * E.offerOf(up);
       sold += 1;
@@ -99,12 +102,15 @@ test('покупатели: женщины и мужчины пишут о се�
   vm.runInContext(fs.readFileSync(path.join(GAME, 'js/talk.js'), 'utf8').replace('window.TALK', 'globalThis.TALK'), t);
   const T = t.TALK;
   assert.ok(T.men.length >= 10 && T.women.length >= 10);
-  const phrases = Object.values(T.types).flatMap((x) => Object.values(x).flat()).filter((x) => typeof x === 'string');
+  // Реплики покупателей: характеры, вопросы и реакции на ответы. Ответы игрока (answers, me) — от лица игрока, их не проверяем.
+  const phrases = [...Object.values(T.types), ...Object.values(T.questions).map((q) => q.ask), T.react]
+    .flatMap((x) => (Array.isArray(x) ? x : Object.values(x)).flat()).filter((x) => typeof x === 'string');
+  for (const k of ['reseller', 'collector', 'regular', 'scammer']) assert.ok(T.types[k], `нет реплик для ${k}`);
   for (const s of phrases) {
     assert.ok(!/\[[^|\]]*\]/.test(s), `нет пары «муж.|жен.»: ${s}`);
     // Глагол прошедшего времени или краткое прилагательное вне [..|..] — значит, род забыт.
     const bare = s.replace(/\[[^\]]*\]/g, '');
-    const left = (bare.match(/[а-яё]+(?:ил|ел|ял|ал|ул|ыл|лся|ов|ен)(?![а-яё])/gi) || []).filter((w) => !['уместен', 'дефектов'].includes(w));
+    const left = (bare.match(/[а-яё]+(?:ил|ел|ял|ал|ул|ыл|лся|ов|ен)(?![а-яё])/gi) || []).filter((w) => !['уместен', 'дефектов', 'предел'].includes(w));
     assert.deepEqual(left, [], s);
   }
 });
@@ -115,9 +121,16 @@ test('ремонт в плюс, но немного; подарки растут
     const fix = E.repairOf(thing);
     const gain = fix.value - thing.value;
     assert.ok(fix.cost < gain, 'ремонт окупается');
-    assert.ok(gain - fix.cost <= thing.value * 0.15, `прибыль ремонта ${gain - fix.cost} — не больше 15 % цены`);
+    // Из «сломано» цена растёт в 2,5 раза, поэтому и прибыль больше; потолок для неё — 25 %.
+    const cap = c.id === 'broken' ? 0.25 : 0.15;
+    assert.ok(gain - fix.cost <= thing.value * cap, `${c.id}: прибыль ремонта ${gain - fix.cost} — не больше ${cap * 100} % цены`);
+    // Без навыка ремонт с риском поломки в среднем не выгоден, с навыком — выгоден: навык что-то значит.
+    const ev = (s) => { const f = E.repairOf(thing, s); return (1 - f.chance) * (f.value - thing.value) + f.chance * (f.fail.value - thing.value) - f.cost; };
+    if (c.id !== 'broken') assert.ok(ev(4) > 0 && ev(4) > ev(0), `${c.id}: навык «Починка» не окупает ремонт`);
   }
   assert.equal(E.repairOf({ cond: 'mint', value: 100 }), null, '«как новое» не чинится');
+  assert.equal(E.repairOf({ cond: 'worn', value: 100, fake: true }), null, 'подделку не чинят');
+  assert.ok(E.CONDITIONS.every((c) => c.id !== 'broken' || c.w === 0), '«сломано» из кейса не выпадает');
   for (const best of [1000, 1e5, 1e8]) {
     const days = [1, 2, 3, 4, 5, 6, 7].map((d) => E.dailyGift(d, best));
     for (let i = 1; i < 7; i++) assert.ok(days[i] >= days[i - 1], 'подарок не уменьшается к концу серии');

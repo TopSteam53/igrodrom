@@ -172,7 +172,8 @@
         return { shown: !!result.shown };
       }
       if (result.shown && result.rewarded) onAd('rewarded');
-      return { rewarded: !!result.rewarded };
+      // shown — рекламу показала сеть, а не заставка сайта «Gamely советует»: игры могут засчитывать только такие показы.
+      return { rewarded: !!result.rewarded, shown: !!(result.shown && result.rewarded) };
     }
 
     async function handle(m) {

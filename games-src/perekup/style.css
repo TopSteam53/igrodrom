@@ -67,11 +67,12 @@ svg{fill:currentColor}
 .tag.t1{background:var(--t1);color:var(--t1-ink)}.tag.t2{background:var(--t2);color:var(--t2-ink)}.tag.t3{background:var(--t3);color:var(--t3-ink)}
 .tag.t4{background:var(--t4);color:var(--t4-ink)}.tag.t5{background:var(--t5);color:var(--t5-ink)}.tag.t6{background:var(--t6);color:var(--t6-ink)}
 .tag.c{background:#F1F2F4;color:var(--card-2)}
+.tag.bad{background:#FFE1E4;color:#B4142A}
 
 /* Кейсы */
 /* Края рулетки уходят в фон маской, а не серой плёнкой поверх белых карточек. */
 .reel-wrap{position:relative;margin:6px auto 0;width:150px;border-radius:18px;
-  height:clamp(150px,calc(100vh - 430px),380px); /* на невысоком экране (игра в окне на компьютере) кнопка «Открыть» остаётся видна */;background:var(--panel);overflow:hidden;
+  height:clamp(130px,calc(100vh - 500px),380px); /* на невысоком экране (игра в окне на компьютере) кнопка «Открыть» остаётся видна */;background:var(--panel);overflow:hidden;
   -webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
 .reel{position:absolute;left:0;right:0;top:0;will-change:transform}
 .reel .it{height:124px;margin:6px 8px;border-radius:12px;background:var(--card);display:grid;place-items:center}
@@ -79,10 +80,12 @@ svg{fill:currentColor}
 .reel .it.full img{width:100%;height:100%;object-fit:cover;border-radius:12px}
 .reel-line{position:absolute;left:0;right:0;top:50%;height:3px;margin-top:-1px;background:var(--deal);box-shadow:0 0 10px var(--deal);z-index:2}
 .case-list{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
-.case{background:var(--panel);border-radius:12px;padding:10px 6px;text-align:center;font-size:13px;color:var(--text-2)}
+.case{background:var(--panel);border-radius:12px;padding:7px 6px;line-height:1.25;text-align:center;font-size:13px;color:var(--text-2)}
 .case b{display:block;font-size:15px;color:var(--text);font-variant-numeric:tabular-nums}
 .case.sel{outline:2px solid var(--me);color:var(--text)}
 .case:disabled{opacity:.4}
+.case.far{opacity:.6}.case.far.sel{opacity:1}
+.case.more{display:grid;place-items:center;font-size:12px;opacity:.7}
 .odds{display:flex;gap:4px;justify-content:center;margin:10px 0 0;flex-wrap:wrap}
 .case-actions{margin-top:12px}
 
@@ -141,6 +144,15 @@ svg{fill:currentColor}
 .m.sys{align-self:center;background:none;color:var(--text-2);font-size:13px;text-align:center}
 .typing{align-self:flex-start;color:var(--text-2);font-size:13px;padding:4px 6px}
 .replies{display:grid;gap:8px;padding-top:6px}
+.replies .haggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.replies .haggle .btn{padding:11px 8px;font-size:14px}
+.replies .btn.small{padding:9px;font-size:14px;font-weight:600}
+.thread .who b em{font-style:normal;font-weight:500;font-size:12px;color:var(--text-2);margin-left:8px}
+.thread .who b em.bad,.chat-head .who span.bad{color:var(--warn)}
+.chat-info{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;font-size:12px;color:var(--text-2);padding:8px 0;border-bottom:1px solid var(--line)}
+.chat-info .est{color:var(--gold)}
+.mood{width:54px;height:6px;border-radius:3px;background:var(--panel-2);overflow:hidden;display:inline-block}
+.mood i{display:block;height:100%;width:var(--m);background:linear-gradient(90deg,var(--warn),var(--gold) 50%,var(--deal))}
 @keyframes pop{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
 
 /* Работа */
@@ -161,8 +173,14 @@ svg{fill:currentColor}
 .energy .bar-wait i{transition:width .3s}
 .energy .hint{margin:6px 0 0;min-height:20px}
 
-.toast{position:absolute;left:14px;right:14px;top:58px;z-index:10;background:#fff;color:var(--card-ink);border-radius:14px;padding:12px 14px;
-  font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:pop .2s ease-out}
+/* Уведомление ложится на строку заголовка (там нет важного), а не на шапку переписки или кнопки ответа.
+   Если его можно нажать, справа подпись «открыть». */
+.toast{position:absolute;left:10px;right:10px;top:max(6px,env(safe-area-inset-top));z-index:20;background:#fff;color:var(--card-ink);border-radius:14px;
+  padding:11px 14px;font-size:14px;line-height:1.3;box-shadow:0 8px 24px rgba(0,0,0,.45);animation:drop .22s ease-out;cursor:default}
+/* Без проявления из прозрачности: иначе первые доли секунды сквозь уведомление читается шапка. */
+@keyframes drop{from{transform:translateY(-14px)}to{transform:none}}
+.toast.tap{cursor:pointer;padding-right:78px}
+.toast.tap::after{content:"открыть";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-weight:700;font-size:13px;color:var(--me)}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* Кнопки сверху: подарок, коллекция, рейтинг */
@@ -260,7 +278,9 @@ svg{fill:currentColor}
   .chat{max-width:680px;margin:0 auto}
   .days{grid-template-columns:repeat(7,1fr)}.day.big{grid-column:auto}
   .shelf-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
-  .ups{grid-template-columns:repeat(3,1fr)}
+  .ups{grid-template-columns:repeat(2,1fr)}
+  .lots{grid-template-columns:1fr 1fr}
+  .quests{grid-template-columns:repeat(3,1fr)}
   .replies{grid-template-columns:1fr 1fr}
   .work{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto 1fr;column-gap:28px;text-align:left;align-items:center;min-height:100%}
   .work>.hint{grid-column:1/3}
@@ -268,3 +288,50 @@ svg{fill:currentColor}
   .work-side .btn{margin:8px 0 0}
   .work-side .energy{margin:0 0 10px}
 }
+
+/* Прокачка: навыки */
+.h3{font-size:15px;margin:18px 2px 8px}
+.pts{background:var(--panel);border-radius:14px;padding:14px}
+.pts>div{font-size:15px}.pts>div b{font-size:22px;color:var(--gold);margin-right:4px}
+.pts .hint{margin:6px 0 10px}
+
+/* Задания дня */
+.quests{display:grid;gap:8px}
+.quest{display:flex;gap:12px;align-items:center;background:var(--panel);border-radius:12px;padding:10px 12px}
+.quest>span{flex:1;min-width:0}
+.quest b{display:block;font-size:14px;font-weight:600}
+.quest small{display:block;font-size:12px;color:var(--text-2);margin-top:3px}
+.quest .btn{width:auto;flex:none;padding:9px 12px;font-size:13px}
+.quest em{font-style:normal;font-size:12px;color:var(--deal)}
+.quest.got{opacity:.6}
+
+/* Рынок */
+.seg button.locked{opacity:.5}
+.lots{display:grid;gap:8px}
+.lot,.auction{display:flex;gap:12px;align-items:center;background:var(--panel);border-radius:14px;padding:10px}
+.lot.ready{outline:2px solid var(--deal)}
+.lot .ph,.auction .ph{width:72px;height:72px;flex:none;border-radius:10px;background:#fff;display:grid;place-items:center;overflow:hidden}
+.lot .ph img,.auction .ph img{width:100%;height:100%;object-fit:contain}.lot .ph.full img,.auction .ph.full img{object-fit:cover}
+.lot .info,.auction .info{flex:1;min-width:0}
+.lot .info>b,.auction .info>b{display:block;font-size:14px;line-height:1.25}
+.lot .info>span,.auction .info>span{display:block;font-size:12px;color:var(--text-2);margin-top:3px}
+.lot .price{color:var(--text)}
+.lot .est,.auction .est,.est{color:var(--gold)}
+.lot .acts{display:flex;flex-direction:column;gap:6px;width:96px;flex:none}
+.lot .acts .btn{padding:8px 6px;font-size:13px}
+.lot .mut{font-size:12px;color:var(--text-2);text-align:center}
+.lots+.btn,.lots+.hint+.btn{margin-top:10px}
+.auction{margin-bottom:10px}
+.auction .ph{width:96px;height:96px}
+.bid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.bid>div{background:var(--panel);border-radius:12px;padding:10px 12px}
+.bid span{display:block;font-size:12px;color:var(--text-2)}
+.bid b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.bid b.hot{color:var(--warn)}
+.bid small{display:block;font-size:12px;color:var(--text-2)}
+.result{background:var(--panel);border-radius:12px;padding:12px 14px;margin:0}
+.shop{background:var(--panel);border-radius:14px;padding:14px}
+.shop>b{font-size:16px}
+.cash{display:flex;justify-content:space-between;align-items:baseline;background:var(--panel-2);border-radius:12px;padding:12px 14px;margin:6px 0 10px}
+.cash span{font-size:13px;color:var(--text-2)}.cash b{font-size:22px;color:var(--gold);font-variant-numeric:tabular-nums}
+#mkt{margin-top:6px}
