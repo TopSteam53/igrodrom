@@ -100,7 +100,7 @@
     <li><code>sdk.environment.host</code> — <code>"gamely"</code> на площадке, <code>"standalone"</code> вне её.</li>
     <li><code>sdk.player</code> — <code>{ anonymous, name, id }</code>: вошёл ли игрок, его имя и постоянный id для вашей игры.</li>
     <li><code>sdk.game.ready()</code>, <code>sdk.game.start()</code>, <code>sdk.game.stop()</code> — игра загрузилась, игровой процесс начался и остановился.</li>
-    <li><code>sdk.ads.fullscreen()</code> возвращает <code>{ shown }</code> и <code>sdk.ads.rewarded()</code> возвращает <code>{ rewarded, shown }</code> (<code>shown</code> — рекламу показала сеть, а не заставка сайта) — реклама,
+    <li><code>sdk.ads.fullscreen()</code> возвращает <code>{ shown }</code> и <code>sdk.ads.rewarded()</code> возвращает <code>{ rewarded, shown }</code> (<code>shown</code> — рекламу действительно показала сеть; если рекламы нет, <code>rewarded</code> будет <code>false</code>) — реклама,
       подробнее ниже.</li>
     <li><code>sdk.on('pause', fn)</code> и <code>sdk.on('resume', fn)</code> — площадка начала и закончила показ рекламы:
       выключите звук и остановите игру, потом продолжите.</li>

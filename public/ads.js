@@ -74,67 +74,9 @@
     });
   }
 
-  // ---------- своя заставка ----------
-  // Реклама за награду, а у сети рекламы нет (решение пользователя 27.10.2026): 5 секунд показываем другую игру
-  // каталога, потом награда. Игрок не получает награду «просто так», а каталог рекламирует сам себя.
-  // Каталог не загрузился — награда сразу, как раньше.
+  // ---------- свои вставки ----------
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  // Вошедшему с невыполненным заданием «подпишитесь на канал» каждый второй раз показываем задание (server/tgtasks.js).
   let catalog = null;
-  let tasks = null;
-  // watch — для VK: если реклама сети всё-таки появилась поверх нашей заставки (ответ пришёл поздно),
-  // заставка прячется, ждёт закрытия рекламы и даёт награду: игрок уже посмотрел рекламу.
-  // Ответ — { watched, network }: network — это был показ сети, а не наша заставка (игры засчитывают только такие;
-  // на телефоне реклама VK часто приходит позже 8 секунд, и без этого очко за неё не давалось).
-  async function houseAd(watch) {
-    catalog ??= fetch('/api/games').then((r) => r.json()).then((d) => d.games || []).catch(() => []);
-    tasks ??= fetch('/api/tasks').then((r) => r.json()).then((d) => (d.enabled ? d.tasks.filter((t) => !t.status) : [])).catch(() => []);
-    const open = window.Igr && (await window.Igr.me().catch(() => null)) ? await tasks : [];
-    const here = decodeURIComponent(location.pathname.split('/game/')[1] || '');
-    const pool = (await catalog).filter((g) => g.cover && g.slug && g.slug !== here);
-    const task = open.length && (!pool.length || Math.random() < 0.5) ? open[Math.floor(Math.random() * open.length)] : null;
-    if (!task && !pool.length) return { watched: true, network: false };
-    const g = pool[Math.floor(Math.random() * pool.length)];
-    return new Promise((resolve) => {
-      const SEC = 5;
-      const el = document.createElement('div');
-      el.className = 'ad-test ad-house';
-      el.setAttribute('role', 'dialog');
-      el.setAttribute('aria-label', task ? 'Задание Gamely' : 'Игра из каталога Gamely');
-      el.innerHTML = task ? `<div class="ad-test-card"><span class="ad-test-label">${task.advertiser ? `Реклама. ${esc(task.advertiser)}${task.erid ? `. erid: ${esc(task.erid)}` : ''}` : 'Задание Gamely'}</span>
-        <span class="ad-house-tg">${window.Igr.taskIcon}</span>
-        <p class="ad-test-title">${esc(task.title)}</p>
-        <p class="ad-test-sub">Подпишитесь на канал в Telegram и получите +${task.reward} монеток. Подтвердить подписку — в профиле, раздел «Задания».</p>
-        <div class="ad-house-acts"><a class="btn" href="${esc(task.link)}" target="_blank" rel="noopener">Подписаться</a>
-          <button class="btn primary" type="button" disabled>Награда через ${SEC}</button></div></div>`
-      : `<div class="ad-test-card"><span class="ad-test-label">Gamely советует</span>
-        <a class="ad-house-cover" href="/game/${encodeURIComponent(g.slug)}" target="_blank" rel="noopener">
-          <img src="/play/${encodeURIComponent(g.id)}/${encodeURIComponent(g.cover)}" alt=""></a>
-        <p class="ad-test-title">${esc(g.title)}</p>
-        ${g.short_description ? `<p class="ad-test-sub">${esc(g.short_description)}</p>` : ''}
-        <div class="ad-house-acts"><a class="btn" href="/game/${encodeURIComponent(g.slug)}" target="_blank" rel="noopener">Открыть игру</a>
-          <button class="btn primary" type="button" disabled>Награда через ${SEC}</button></div></div>`;
-      document.body.append(el);
-      const btn = el.querySelector('button');
-      let left = SEC;
-      const tick = setInterval(() => {
-        left -= 1;
-        if (left > 0) { btn.textContent = `Награда через ${left}`; return; }
-        clearInterval(tick);
-        btn.disabled = false; btn.textContent = 'Получить награду';
-        btn.focus();
-      }, 1000);
-      let seen = false;
-      const spy = watch ? setInterval(() => {
-        const ad = watch();
-        if (ad) { seen = true; el.style.display = 'none'; } else if (seen) close(true);
-      }, 400) : 0;
-      const close = (watched) => { clearInterval(tick); clearInterval(spy); el.remove(); removeEventListener('keydown', onKey); resolve({ watched, network: seen }); };
-      const onKey = (e) => { if (e.key === 'Escape' && !seen) close(left <= 0); };
-      addEventListener('keydown', onKey);
-      btn.onclick = () => close(true);
-    });
-  }
 
   // Свой баннер под игрой, когда у сети нет рекламы: другая игра каталога, а не пустая полоса.
   async function houseBanner(el) {
@@ -193,14 +135,16 @@
   // Полноэкранный блок на сайте — тот же тег mrg-tag; событий «показан/закрыт» у него нет,
   // поэтому следим за рекламными фреймами: появился — показ идёт, все пропали — закрыли.
   // Если за VK_WAIT_MS ничего не появилось — рекламы нет.
-  const VK_WAIT_MS = 8000, VK_MAX_MS = 45000;
-  // Показ VK — новая рамка или новый слой поверх страницы, появившиеся после запроса, видимые и на заметную
-  // часть экрана (от 10 %). Не считаются: рамки баннера под игрой (.ad-banner) — он догружается когда угодно,
-  // служебные рамки 1×1 тега VK и наши заставки (.ad-test). Раньше ловили только рамку на 35 % экрана: окно VK
-  // на компьютере бывало меньше, сайт решал, что рекламы нет, и поверх выводил «Gamely советует».
+  // За награду ждём дольше: своей заставки на этот случай больше нет (решение пользователя 31.10.2026),
+  // а на телефоне ответ VK бывает и через 10 с.
+  const VK_WAIT_MS = 8000, VK_REWARD_WAIT_MS = 15000, VK_MAX_MS = 45000;
+  // Показ VK — рамка или слой поверх страницы, которые стали видны после запроса и закрывают заметную часть
+  // экрана (от 10 %). Смотрим не «новый элемент», а «стал видимым»: VK со второго показа переиспользует уже
+  // вставленную рамку, и проверка «рамка новая» такой показ не замечала — игра не получала shown и не давала очко.
+  // Не считаются: баннер под игрой (.ad-banner), наши окна (.ad-test) и всё, что было видно до запроса.
   function vkWatcher() {
-    const frames = new Set(document.querySelectorAll('iframe'));
-    const layers = new Set(document.body.children);
+    const candidates = () => [...document.querySelectorAll('iframe, ins.mrg-tag, ins.mrg-tag > *'), ...document.body.children]
+      .filter((e) => e.tagName !== 'SCRIPT' && e.tagName !== 'STYLE');
     const big = (e) => {
       if (!e.isConnected || e.closest('.ad-banner, .ad-test')) return false;
       const r = e.getBoundingClientRect();
@@ -212,12 +156,12 @@
       }
       return true;
     };
-    return () => [...document.querySelectorAll('iframe')].find((f) => !frames.has(f) && big(f))
-      || [...document.body.children].find((e) => !layers.has(e) && e.tagName !== 'INS' && e.tagName !== 'SCRIPT'
-        && ['fixed', 'absolute'].includes(getComputedStyle(e).position) && big(e))
-      || null;
+    const before = new Set(candidates().filter(big));
+    // Слой страницы засчитываем, только если он лежит поверх (fixed/absolute) — иначе это обычная вёрстка.
+    const overlay = (e) => e.tagName === 'IFRAME' || e.closest('ins.mrg-tag') || ['fixed', 'absolute'].includes(getComputedStyle(e).position);
+    return () => candidates().find((e) => !before.has(e) && big(e) && overlay(e)) || null;
   }
-  function vkFullscreen(slot, watch) {
+  function vkFullscreen(slot, watch, waitMs = VK_WAIT_MS) {
     if (!slot) return Promise.resolve(null);
     return loadScript('https://ad.mail.ru/static/ads-async.js').then(() => settle((finish) => {
       const ins = document.createElement('ins');
@@ -234,7 +178,7 @@
       const poll = setInterval(() => {
         if (watch()) { if (!shown) shownAt = Date.now(); shown = true; }
         else if (shown) done('closed');
-        else if (Date.now() - started > VK_WAIT_MS) done('none');
+        else if (Date.now() - started > waitMs) done('none');
         // Закрытие так и не заметили, а показ шёл: через VK_MAX_MS считаем рекламу досмотренной, не держим игру.
         if (shown && Date.now() - shownAt > VK_MAX_MS) done('closed');
       }, 400);
@@ -250,16 +194,39 @@
     if (el && el !== document.documentElement && document.exitFullscreen) await document.exitFullscreen().catch(() => {});
   }
 
-  let vkLate = null; // наблюдатель последнего запроса за награду, на случай позднего показа
+  // Пока VK думает — небольшое окно «Загружаем рекламу», чтобы игрок не смотрел на замершую игру. Пришла реклама —
+  // окно прячется под ней; рекламы нет — пишет об этом и закрывается само. Это не реклама и не замена ей.
+  function waitNote() {
+    const el = document.createElement('div');
+    el.className = 'ad-test ad-wait';
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<div class="ad-test-card"><p class="ad-test-title">Загружаем рекламу</p><p class="ad-test-sub">Обычно это несколько секунд.</p></div>';
+    document.body.append(el);
+    return {
+      hide() { el.style.display = 'none'; },
+      remove() { el.remove(); },
+      nothing() {
+        el.style.display = '';
+        el.querySelector('.ad-test-title').textContent = 'Сейчас рекламы нет';
+        el.querySelector('.ad-test-sub').textContent = 'Награду за неё дать не можем. Попробуйте чуть позже.';
+        return new Promise((r) => setTimeout(() => { el.remove(); r(); }, 2200));
+      },
+    };
+  }
   const vk = {
     async fullscreen() {
       return (await vkFullscreen((config.vk || {}).fullscreenSlot, vkWatcher())) === 'closed';
     },
+    // true — реклама VK показана и закрыта, false — рекламы нет, null — блок за награду не настроен.
     async rewarded() {
-      vkLate = vkWatcher();
-      const r = await vkFullscreen((config.vk || {}).rewardedSlot, vkLate);
-      // Блок не настроен или рекламы сейчас нет — своя заставка (она уступит место поздней рекламе VK).
-      return r === 'closed' ? true : null;
+      const slot = (config.vk || {}).rewardedSlot;
+      if (!slot) return null;
+      const note = waitNote();
+      const watch = vkWatcher();
+      const r = await vkFullscreen(slot, () => { const ad = watch(); if (ad) note.hide(); return ad; }, VK_REWARD_WAIT_MS);
+      if (r === 'closed') { note.remove(); return true; }
+      await note.nothing();
+      return false;
     },
     banner(el) {
       const { bannerClient, bannerSlot } = config.vk || {};
@@ -367,29 +334,21 @@
 
     /**
      * Реклама за награду — только по нажатию игрока. Возвращает { rewarded, shown }.
-     * Сеть без такого формата (или без рекламы вообще): своя заставка с игрой каталога, потом награда.
-     * Если реклама есть, но не догрузилась или игрок закрыл раньше — награды нет.
+     * Своей заставки «Gamely советует» больше нет (решение пользователя 31.10.2026: она путала игроков и мешала
+     * засчитывать показы VK). Рекламы у сети сейчас нет — награды нет. Реклама на сайте не подключена вовсе
+     * (провайдер none или блок за награду не настроен) — награда сразу, иначе кнопки в играх не работали бы.
      */
     async rewarded(hooks = {}) {
       await ready;
       await leaveFrameFullscreen();
       const p = PROVIDERS[config.provider];
       if (busy) return { rewarded: false, shown: false };
-      if (!p || !p.rewarded) {
-        busy = true;
-        hooks.open?.();
-        try { return { rewarded: (await houseAd()).watched, shown: false }; } finally { busy = false; }
-      }
+      if (!p || !p.rewarded) return { rewarded: true, shown: false };
       busy = true;
       hooks.open?.();
       try {
         const result = await p.rewarded().catch(() => false);
-        if (result === null) {
-          // Сеть не успела за VK_WAIT_MS — наша заставка; если реклама VK всё-таки пришла поверх неё, это показ сети.
-          const h = await houseAd(p === vk ? vkLate : null);
-          if (h.network) lastFullscreen = Date.now();
-          return { rewarded: h.watched, shown: h.network };
-        }
+        if (result === null) return { rewarded: true, shown: false };
         // Досмотренная реклама за награду тоже сдвигает паузу перед следующей полноэкранной.
         if (result) lastFullscreen = Date.now();
         return { rewarded: !!result, shown: !!result };
