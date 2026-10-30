@@ -240,6 +240,14 @@
     })).catch(() => 'none');
   }
 
+  // Игра сама развернула свою рамку во весь экран (screen.fullscreen в Яндекс-SDK, кнопка Unity): тогда браузер
+  // показывает только её, а реклама сетей и наши заставки — в body и не видны. Перед показом выходим из такого режима.
+  // Если развёрнута вся страница (кнопка «Во весь экран» на сайте), реклама и так видна — режим не трогаем.
+  async function leaveFrameFullscreen() {
+    const el = document.fullscreenElement;
+    if (el && el !== document.documentElement && document.exitFullscreen) await document.exitFullscreen().catch(() => {});
+  }
+
   let vkLate = null; // наблюдатель последнего запроса за награду, на случай позднего показа
   const vk = {
     async fullscreen() {
@@ -347,6 +355,7 @@
       if (lastFullscreen && now - lastFullscreen < config.fullscreenInterval * 1000) return { shown: false };
       busy = true;
       hooks.open?.();
+      await leaveFrameFullscreen();
       try {
         const shown = await p.fullscreen().catch(() => false);
         if (shown) lastFullscreen = Date.now();
@@ -361,6 +370,7 @@
      */
     async rewarded(hooks = {}) {
       await ready;
+      await leaveFrameFullscreen();
       const p = PROVIDERS[config.provider];
       if (busy) return { rewarded: false, shown: false };
       if (!p || !p.rewarded) {

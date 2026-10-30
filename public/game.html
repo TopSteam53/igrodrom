@@ -32,6 +32,7 @@
     </div>
 
     <div class="player" id="player">
+      <button class="fs-exit" id="fsExit" type="button" aria-label="Свернуть игру">Свернуть</button>
       <div class="splash" id="splash">
         <div class="splash-bg" id="splashBg"></div>
         <div class="splash-in">
@@ -519,12 +520,30 @@ document.addEventListener('visibilitychange', () => {
 });
 addEventListener('pagehide', endSession);
 
+// Во весь экран разворачиваем всю страницу, а игру растягиваем поверх неё классом game-fs.
+// Если развернуть только окно игры, браузер показывает лишь его: реклама VK, Яндекса и наши заставки
+// добавляются в body рядом и в полноэкранном режиме не видны. Где полноэкранного режима нет (iPhone) —
+// игра просто растягивается на всё окно.
+function setGameFs(on) {
+  document.documentElement.classList.toggle('game-fs', on);
+  // Своя кнопка «Свернуть» нужна, только когда браузер не дал настоящий полноэкранный режим: там выходят жестом «назад».
+  document.documentElement.classList.toggle('fs-native', on && document.fullscreenElement === document.documentElement);
+  $('full').textContent = on ? 'Свернуть' : 'Во весь экран';
+}
 $('full').onclick = () => {
-  const el = $('player');
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (el.requestFullscreen) el.requestFullscreen().catch(() => toast('Браузер не разрешил полноэкранный режим'));
-  else toast('Полноэкранный режим не поддерживается');
+  const root = document.documentElement;
+  if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  if (root.classList.contains('game-fs')) { setGameFs(false); return; }
+  setGameFs(true);
+  if (root.requestFullscreen) root.requestFullscreen().catch(() => {});
 };
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement === document.documentElement) setGameFs(true);
+  // Вышли кнопкой «назад» или Esc — игра возвращается на место.
+  else if (!document.fullscreenElement) setGameFs(false);
+});
+$('fsExit').onclick = () => setGameFs(false);
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && !document.fullscreenElement) setGameFs(false); });
 
 $('share').onclick = async () => {
   const url = location.href;

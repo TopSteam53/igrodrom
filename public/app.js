@@ -511,7 +511,7 @@
         else { el.type = 'button'; el.onclick = () => done(b.value); }
         card.querySelector('.modal-acts').append(el);
       }
-      (document.fullscreenElement || document.body).append(wrap);
+      (document.fullscreenElement && document.fullscreenElement !== document.documentElement ? document.fullscreenElement : document.body).append(wrap);
       (card.querySelector('textarea') || card.querySelector('.modal-acts .primary') || card.querySelector('.modal-acts > *:last-child'))?.focus();
     });
   }
@@ -623,7 +623,7 @@
     const o = opts === true ? { kind: 'err' } : typeof opts === 'string' ? { kind: opts } : opts || {};
     const kind = NOTE_ICONS[o.kind] ? o.kind : 'info';
     // В полноэкранном режиме видно только развёрнутый элемент — стопка переезжает в него.
-    const host = document.fullscreenElement || document.body;
+    const host = (document.fullscreenElement && document.fullscreenElement !== document.documentElement ? document.fullscreenElement : document.body);
     let box = $('notes');
     if (!box) {
       box = document.createElement('div');
