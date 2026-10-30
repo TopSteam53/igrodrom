@@ -198,6 +198,7 @@ export function createRewards({
                          WHERE s.week = ? AND s.place IS NOT NULL ORDER BY s.place`),
     game: db.prepare("SELECT id, slug, title, genre, cover, icon, status FROM games WHERE id = ?"),
     games: db.prepare("SELECT id, title FROM games WHERE status = 'approved' ORDER BY title COLLATE NOCASE"),
+    gameBoards: db.prepare('SELECT board, COUNT(*) AS players FROM leaderboard_scores WHERE game_id = ? GROUP BY board ORDER BY players DESC'),
     boards: db.prepare(`SELECT s.game_id, s.board, COUNT(*) AS players FROM leaderboard_scores s JOIN games g ON g.id = s.game_id
                         WHERE g.status = 'approved' GROUP BY s.game_id, s.board ORDER BY players DESC`),
     // приглашения
@@ -435,6 +436,11 @@ export function createRewards({
     if (!game || game.status !== 'approved') throw new HttpError(404, 'Игра не найдена');
     const board = String(rawBoard ?? 'main').trim() || 'main';
     if (!BOARD_RE.test(board)) throw new HttpError(400, 'Имя таблицы: латиница, цифры, «_», «-», «.», до 40 символов');
+    // У игры уже есть таблицы, а выбрана другая — турнир остался бы пустым (так было с «Перекупом»: main вместо rich).
+    const have = q.gameBoards.all(game.id);
+    if (have.length && !have.some((b) => b.board === board)) {
+      throw new HttpError(400, `У игры нет таблицы «${board}». Есть: ${have.map((b) => b.board).join(', ')}`);
+    }
     const old = q.tournament.get(week);
     tx(() => {
       // Сменили игру или таблицу — прежние результаты недели не в счёт.

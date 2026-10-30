@@ -783,15 +783,20 @@ async function loadTournament() {
   const d = await api('GET', '/api/admin/tournaments');
   tGames = d.games;
   $('tPrizes').textContent = d.prizes.join(', ');
-  const plan = (label, p) => {
+  const plan = (label, p, when) => {
     const t = p.tournament;
+    // Игра пишет рекорды в другие таблицы, а турнир смотрит в пустую — предупреждаем и предлагаем перевести.
+    const boards = t ? (d.games.find((g) => g.id === t.game.id)?.boards || []) : [];
+    const wrong = t && boards.length && !boards.some((b) => b.board === t.board);
     return `<div class="row"><div class="t"><b>${label}: с ${weekLabel(p.week)}</b>
       <span class="facts-line">${t ? `<span>${esc(t.game.title)}, таблица ${esc(t.board)}</span><span>участников: ${fmt(t.total)}</span>
         ${t.top.length ? `<span>сейчас: ${t.top.map((e) => `${e.rank}. ${esc(e.name)}, ${fmt(e.score)}`).join('; ')}</span>` : ''}`
-        : '<span>турнира нет</span>'}</span></div>
-      ${t ? `<div class="acts"><button class="btn bad sm" data-tclear="${p.week}">Отменить</button></div>` : ''}</div>`;
+        : '<span>турнира нет</span>'}</span>
+      ${wrong ? `<span class="err-text">В таблицу ${esc(t.board)} игра ничего не пишет, поэтому турнир пустой. Таблицы игры: ${boards.map((b) => esc(b.board)).join(', ')}.</span>` : ''}</div>
+      ${t ? `<div class="acts">${wrong ? boards.map((b) => `<button class="btn sm" data-tfix="${when}" data-game="${t.game.id}" data-board="${esc(b.board)}">Перевести на ${esc(b.board)}</button>`).join('') : ''}
+        <button class="btn bad sm" data-tclear="${p.week}">Отменить</button></div>` : ''}</div>`;
   };
-  $('tPlan').innerHTML = plan('Текущая неделя', d.current) + plan('Следующая неделя', d.next);
+  $('tPlan').innerHTML = plan('Текущая неделя', d.current, 'current') + plan('Следующая неделя', d.next, 'next');
   const sel = $('tGame').value;
   $('tGame').innerHTML = d.games.map((g) => `<option value="${g.id}">${esc(g.title)}</option>`).join('');
   if (sel && d.games.some((g) => g.id === sel)) $('tGame').value = sel;
@@ -822,6 +827,14 @@ $('tForm').onsubmit = async (e) => {
   } catch (err) { $('tErr').textContent = err.message; }
 };
 $('tPlan').onclick = async (e) => {
+  const fix = e.target.dataset.tfix;
+  if (fix) {
+    try {
+      await api('POST', '/api/admin/tournaments', { when: fix, game_id: e.target.dataset.game, board: e.target.dataset.board });
+      toast(`Турнир переведён на таблицу ${e.target.dataset.board}`); loadTournament();
+    } catch (err) { toast(err.message, true); }
+    return;
+  }
   const week = e.target.dataset.tclear;
   if (!week || !confirm('Отменить турнир этой недели? Результаты турнира пропадут, рекорды в игре останутся.')) return;
   try { await api('DELETE', `/api/admin/tournaments/${week}`); toast('Турнир отменён'); loadTournament(); }

@@ -197,6 +197,16 @@ test('турнир недели: зачёт только по выбранной
   assert.equal(t.total, 5);
   assert.equal((await browser()('GET', '/api/tournament')).data.tournament.me, null, 'гостю — без своего места');
 
+  // Таблицы, в которую игра не пишет, не выбрать: турнир остался бы пустым (так было с «Перекупом»: main вместо rich).
+  const wrong = await owner('POST', '/api/admin/tournaments', { when: 'current', game_id: gameId, board: 'rich' });
+  assert.equal(wrong.status, 400);
+  assert.match(wrong.data.error, /main/);
+  // Перевели на другую таблицу — рекорды недели из неё подтянулись; вернули — снова прежние.
+  await owner('POST', '/api/admin/tournaments', { when: 'current', game_id: gameId, board: 'hard' });
+  assert.deepEqual((await a('GET', '/api/tournament')).data.tournament.top.map((e) => [e.name, e.score]), [['Игрок D', 500]]);
+  await owner('POST', '/api/admin/tournaments', { when: 'current', game_id: gameId, board: 'main' });
+  assert.equal((await a('GET', '/api/tournament')).data.tournament.total, 5);
+
   // Владелец видит план; прошедшую неделю отменить нельзя, следующую — можно.
   assert.equal((await owner('POST', '/api/admin/tournaments', { when: 'next', game_id: otherId })).status, 200);
   let adm = (await owner('GET', '/api/admin/tournaments')).data;
