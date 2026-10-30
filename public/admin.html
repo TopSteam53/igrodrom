@@ -1044,6 +1044,16 @@ async function loadPartners() {
   }
   if (ptOpen) openPartner(ptOpen);
 }
+// Откуда пришли игроки блогера: метки, которые он завёл в кабинете, и строка «без метки».
+function ptSources(d) {
+  if (!d.sources.length) return '';
+  const row = (title, sub, s) => `<tr><td><b>${title}</b><div class="mut">${sub}</div></td><td class="n">${fmt(s.clicks)}</td>
+    <td class="n">${fmt(s.regs_link)}</td><td class="n">${fmt(s.regs_promo)}</td><td class="n">${fmt(s.counted)}</td><td class="n">${rub(s.earned)}</td></tr>`;
+  return `<h3 style="margin-top:18px">Откуда пришли</h3><table class="tbl"><thead><tr><th>Метка</th><th class="n">Переходы</th><th class="n">Рег. по ссылке</th>
+    <th class="n">По промокоду</th><th class="n">Засчитаны</th><th class="n">Начислено</th></tr></thead><tbody>${d.sources.map((s) =>
+    row(esc(s.title), `/p/${esc(d.partner.code)}/${esc(s.slug)}${s.promo ? `, промокод ${esc(s.promo)}` : ''}`, s)).join('')}
+    ${row('Без метки', `основная ссылка и промокод ${esc(d.partner.promo)}`, d.noSource)}</tbody></table>`;
+}
 async function openPartner(id) {
   ptOpen = id;
   const d = await api('GET', `/api/admin/partners/${id}`);
@@ -1056,10 +1066,11 @@ async function openPartner(id) {
     <form class="team-add" id="ptPay"><input id="ptPayAmount" type="number" step="1" placeholder="Сумма, ₽" required aria-label="Сумма выплаты">
       <input id="ptPayNote" maxlength="200" placeholder="Комментарий: способ, дата, чек" aria-label="Комментарий"><button class="btn primary">Отметить выплату</button></form>
     ${d.payouts.length ? `<table class="tbl pt-pays"><tbody>${d.payouts.map((x) => `<tr><td>${when(x.created_at)}</td><td>${esc(x.note) || '<span class="mut">—</span>'}</td><td class="n">${rub(x.amount)}</td></tr>`).join('')}</tbody></table>` : ''}
+    ${ptSources(d)}
     <h3 style="margin-top:18px">Игроки</h3>
     ${d.players.length ? `<table class="tbl"><thead><tr><th>Игрок</th><th>Откуда</th><th class="n">Игры</th><th class="n">Дни</th><th>Статус</th><th>Когда</th></tr></thead><tbody>${d.players.map((r) => {
       const [label, cls] = PT_STATUS[r.status];
-      return `<tr><td><a href="#users" data-user="${r.user_id}">${esc(r.name)}</a></td><td>${r.via === 'promo' ? 'промокод' : 'ссылка'}</td>
+      return `<tr><td><a href="#users" data-user="${r.user_id}">${esc(r.name)}</a></td><td>${r.source ? `${esc(r.source)}, ` : ''}${r.via === 'promo' ? 'промокод' : 'ссылка'}</td>
         <td class="n">${fmt(r.games)}</td><td class="n">${fmt(r.days)}</td><td><span class="badge ${cls}">${label}</span>${r.status === 'counted' ? ` <span class="mut">${rub(r.rate)}</span>` : ''}</td><td>${when(r.created_at)}</td></tr>`;
     }).join('')}</tbody></table>` : '<p class="mut">По ссылке и промокоду пока никто не зарегистрировался.</p>'}
   </div>`;

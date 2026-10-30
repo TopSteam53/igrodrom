@@ -161,6 +161,50 @@ test('засчёт: две разные игры и два разных дня; 
   assert.equal((await register(late, 'late@test.ru', { promo: 'obbi' })).status, 400);
 });
 
+test('метки: блогер сам заводит ссылку и промокод для площадки, статистика по каждой отдельно', async () => {
+  const id = (await owner('GET', '/api/admin/partners')).data.partners[0].id;
+  await owner('PUT', `/api/admin/partners/${id}`, { active: true });
+  const blogger = browser('10.9.9.9');
+  await blogger('POST', '/api/login', { email: 'blogger@test.ru', password: 'secret123' });
+  let r = await blogger('POST', '/api/partner/sources', { title: 'YouTube, обзор', slug: 'YouTube', promo: 'obbi-yt' });
+  assert.equal(r.status, 201, r.data?.error);
+  assert.equal(r.data.sources[0].link, 'https://igry.test/p/obbi/youtube');
+  assert.equal(r.data.sources[0].promo, 'OBBI-YT');
+  assert.equal((await blogger('POST', '/api/partner/sources', { title: 'Ещё', slug: 'youtube' })).status, 409, 'метка уже есть');
+  assert.equal((await blogger('POST', '/api/partner/sources', { title: 'Ещё', slug: 'tw', promo: 'ОББИ' })).status, 409, 'промокод занят основным');
+  assert.equal((await blogger('POST', '/api/partner/sources', { title: 'Ещё', slug: 'плохо' })).status, 400);
+  assert.equal((await browser('10.4.0.9')('POST', '/api/partner/sources', { title: 'x', slug: 'xx' })).status, 401);
+  assert.equal((await owner('POST', '/api/admin/partners', { name: 'Чужой', code: 'other', promo: 'obbi-yt', rate: 1 })).status, 409,
+    'промокод метки не отдать другому блогеру');
+
+  // По ссылке с меткой: переход и регистрация — метке. По промокоду метки — тоже ей, с подарком.
+  const v = browser('10.4.0.1');
+  await v('GET', '/p/obbi/youtube', undefined, { raw: true });
+  assert.equal(v.jar.pref, 'obbi.youtube');
+  assert.equal((await register(v, 'yt-link@test.ru')).status, 201);
+  const w = browser('10.4.0.2');
+  assert.equal((await register(w, 'yt-promo@test.ru', { promo: 'Obbi-YT' })).status, 201);
+  assert.equal(await coins(w), 50 + PARTNER_BONUS);
+  // Незнакомая метка — переход партнёру, без источника.
+  const u = browser('10.4.0.3');
+  await u('GET', '/p/obbi/nope', undefined, { raw: true });
+  assert.equal(u.jar.pref, 'obbi');
+
+  const d = (await blogger('GET', '/api/partner/me')).data;
+  const yt = d.sources[0];
+  assert.deepEqual([yt.clicks, yt.regs_link, yt.regs_promo], [1, 1, 1]);
+  assert.equal(d.noSource.clicks, d.totals.clicks - 1);
+  assert.equal(d.players.filter((p) => p.source === 'YouTube, обзор').length, 2);
+
+  // Метку, по которой приходили, не удалить; пустую — можно.
+  assert.equal((await blogger('DELETE', `/api/partner/sources/${yt.id}`)).status, 409);
+  r = await blogger('POST', '/api/partner/sources', { title: 'Twitch', slug: 'twitch' });
+  const tw = r.data.sources.find((s) => s.slug === 'twitch');
+  assert.equal(tw.promo, null);
+  assert.equal((await blogger('DELETE', `/api/partner/sources/${tw.id}`)).status, 200);
+  assert.equal((await owner('GET', `/api/admin/partners/${id}`)).data.sources.length, 1, 'админка видит метки');
+});
+
 test('кабинет блогера и плашка для стрима закрыты от поисковиков', async () => {
   const robots = await (await fetch(`${base}/robots.txt`)).text();
   assert.match(robots, /Disallow: \/p\//);

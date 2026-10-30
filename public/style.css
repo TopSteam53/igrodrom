@@ -1033,3 +1033,14 @@ svg.fxl.over{z-index:2}
 .pt-more summary{cursor:pointer;font-weight:600;color:var(--ink-2)}
 .pt-url{display:flex;align-items:center;border:1px solid var(--field);border-radius:12px;overflow:hidden}
 .pt-url span{padding:0 4px 0 14px;color:var(--ink-2);white-space:nowrap}.pt-url input{border:0;padding-left:0}
+/* Кабинет блогера: метки площадок (ссылка и промокод на каждую), выбор промокода для баннеров */
+.pt-sources .tbl-wrap{overflow-x:auto;margin:0 -4px}
+.pt-sources .tbl td:first-child{min-width:260px}
+.pt-sources .tbl td code{background:var(--paper);border-radius:8px;padding:2px 8px;font:600 13px var(--text);white-space:nowrap}
+.pt-sources .src-link{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 2px}
+.pt-sources .tbl td .btn.sm{margin-left:6px;padding:4px 10px}
+.pt-src-form{display:grid;grid-template-columns:2fr 1.3fr 1.3fr auto;gap:8px;margin-top:12px}
+.pt-src-form input{min-width:0}
+@media(max-width:760px){.pt-src-form{grid-template-columns:1fr}}
+.pt-pick{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px;font-weight:600}
+.pt-pick select{width:auto;max-width:100%}

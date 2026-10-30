@@ -44,8 +44,35 @@ function copyBox(label, value, hint) {
     ${hint ? `<p class="mut">${hint}</p>` : ''}</div>`;
 }
 
+// Метки: блогер сам заводит ссылку и промокод под площадку или видео и видит, откуда пришли люди.
+let kitPromo = null;
+const overlayFor = (d, promo) => (promo && promo !== d.partner.promo ? d.sources.find((s) => s.promo === promo)?.overlay : null) || d.overlay;
+function sourcesHTML(d) {
+  const row = (title, sub, s, del) => `<tr><td><b>${title}</b><div class="mut">${sub}</div></td><td class="n">${fmt(s.clicks)}</td>
+    <td class="n">${fmt(s.regs_link)}</td><td class="n">${fmt(s.regs_promo)}</td><td class="n">${fmt(s.counted)}</td><td class="n">${rub(s.earned)}</td><td>${del || ''}</td></tr>`;
+  return `<div class="panel table-panel pt-sources" style="margin-top:16px"><h3>Откуда пришли люди</h3>
+    <p class="mut" style="max-width:68ch">Заведите метку на каждую площадку или видео: у метки своя ссылка, а по желанию и свой промокод.
+      Так видно, сколько людей пришло с YouTube, со стрима или из Telegram. Основная ссылка и промокод тоже работают — они в строке «Без метки».</p>
+    ${d.sources.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Метка</th><th class="n">Переходы</th><th class="n">Рег. по ссылке</th><th class="n">По промокоду</th>
+      <th class="n">Засчитаны</th><th class="n">Начислено</th><th></th></tr></thead><tbody>${d.sources.map((s) => row(esc(s.title),
+        `<span class="src-link"><code>${esc(s.link)}</code><button class="btn sm" type="button" data-copy="${esc(s.link)}">Скопировать</button></span>${s.promo ? `промокод <code>${esc(s.promo)}</code>` : ''}`,
+        s, s.clicks || s.regs_link || s.regs_promo ? '' : `<button class="btn sm" type="button" data-src-del="${s.id}">Удалить</button>`)).join('')}
+      ${row('Без метки', `основная ссылка и промокод ${esc(d.partner.promo)}`, d.noSource)}</tbody></table></div>` : ''}
+    ${d.sources.length < d.maxSources ? `<form class="pt-src-form" id="srcForm">
+      <input id="srcTitle" maxlength="60" required placeholder="Название: YouTube, обзор Обби" aria-label="Название метки">
+      <input id="srcSlug" maxlength="24" required placeholder="метка в ссылке: youtube" aria-label="Метка в ссылке" pattern="[A-Za-z0-9_\\-]{2,24}">
+      <input id="srcPromo" maxlength="24" placeholder="свой промокод, необязательно" aria-label="Промокод метки">
+      <button class="btn primary">Добавить метку</button></form>
+      <p class="mut" id="srcHint">Ссылка будет такой: ${esc(d.link)}/метка</p>` : ''}
+  </div>`;
+}
+const promosOf = (d) => [{ promo: d.partner.promo, title: 'основной' }, ...d.sources.filter((s) => s.promo).map((s) => ({ promo: s.promo, title: s.title }))];
+let promos = [];
+
 function render(d) {
   const t = d.totals, p = d.partner;
+  promos = promosOf(d);
+  if (!promos.some((x) => x.promo === kitPromo)) kitPromo = p.promo;
   const active = d.days.filter((x) => x.clicks || x.regs || x.counted).reverse();
   $('root').innerHTML = `
     <p class="mut" style="margin:0 0 18px;max-width:64ch">${esc(p.name)}, ставка ${rub(p.rate)} за засчитанного игрока.
@@ -64,12 +91,14 @@ function render(d) {
       <div class="kpi"><span>К выплате</span><b>${rub(t.due)}</b><small class="mut">начислено ${rub(t.earned)}, выплачено ${rub(t.paid)}</small></div>
     </div>
 
+    ${sourcesHTML(d)}
+
     <div class="pt-cols">
       <div class="panel table-panel"><h3>По дням</h3>${active.length ? `<table class="tbl"><thead><tr><th>День</th><th class="n">Переходы</th><th class="n">Регистрации</th><th class="n">Засчитаны</th></tr></thead>
         <tbody>${active.map((x) => `<tr><td>${new Date(`${x.day}T12:00:00Z`).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', timeZone: 'UTC' })}</td><td class="n">${fmt(x.clicks)}</td><td class="n">${fmt(x.regs)}</td><td class="n">${fmt(x.counted)}</td></tr>`).join('')}</tbody></table>`
         : '<p class="mut">За 30 дней по ссылке ещё никто не приходил.</p>'}</div>
       <div class="panel table-panel"><h3>Последние игроки</h3>${d.players.length ? `<table class="tbl"><thead><tr><th>Игрок</th><th class="n">Игры</th><th class="n">Дни</th><th>Статус</th></tr></thead>
-        <tbody>${d.players.map((r) => { const [label, cls] = STATUS[r.status]; return `<tr><td>${esc(r.name)} <span class="mut">${r.via === 'promo' ? 'промокод' : 'ссылка'}, ${date(r.created_at)}</span></td>
+        <tbody>${d.players.map((r) => { const [label, cls] = STATUS[r.status]; return `<tr><td>${esc(r.name)} <span class="mut">${r.source ? `${esc(r.source)}, ` : ''}${r.via === 'promo' ? 'промокод' : 'ссылка'}, ${date(r.created_at)}</span></td>
           <td class="n">${Math.min(r.games, 99)}/${d.rules.games}</td><td class="n">${Math.min(r.days, 99)}/${d.rules.days}</td><td><span class="badge ${cls}">${label}</span></td></tr>`; }).join('')}</tbody></table>`
         : '<p class="mut">Пока никого.</p>'}</div>
     </div>
@@ -81,14 +110,42 @@ function render(d) {
       <div class="sec-head"><h2>Баннеры для видео</h2></div>
       <p class="mut" style="margin:0 0 14px;max-width:64ch">С вашим промокодом — скачайте и вставьте в видео. Интеграция — это реклама: перед публикацией
         возьмите у нас erid и поставьте пометку «Реклама» с названием рекламодателя — без этого по закону нельзя.</p>
+      ${promos.length > 1 ? `<label class="pt-pick">Промокод на баннерах и плашке <select id="kitPromo">${promos.map((x) =>
+        `<option value="${esc(x.promo)}"${x.promo === kitPromo ? ' selected' : ''}>${esc(x.promo)}, ${esc(x.title)}</option>`).join('')}</select></label>` : ''}
       <div class="pt-kit" id="kit"></div>
       <div class="panel pt-obs">
         <h3>Плашка для стрима</h3>
         <p class="mut">В OBS: «Источники», затем «+», затем «Браузер», вставьте ссылку, ширина 1920, высота 1080. Плашка сама выезжает и показывает промокод.</p>
-        ${copyBox('Ссылка для OBS', d.overlay)}
+        <div id="obsBox">${copyBox('Ссылка для OBS', overlayFor(d, kitPromo))}</div>
       </div>
     </section>`;
   drawKit(d);
+  const form = $('srcForm');
+  if (form) {
+    $('srcSlug').oninput = () => { $('srcHint').textContent = `Ссылка будет такой: ${d.link}/${$('srcSlug').value.trim().toLowerCase() || 'метка'}`; };
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const r = await fetch('/api/partner/sources', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: $('srcTitle').value, slug: $('srcSlug').value, promo: $('srcPromo').value }) });
+      const x = await r.json();
+      if (!r.ok) return Igr.toast(x.error, 'err');
+      Igr.toast('Метка добавлена', 'ok');
+      render(x);
+    };
+  }
+  if ($('kitPromo')) $('kitPromo').onchange = () => {
+    kitPromo = $('kitPromo').value;
+    $('obsBox').innerHTML = copyBox('Ссылка для OBS', overlayFor(d, kitPromo));
+    drawKit(d);
+  };
+  $('root').onclick = async (e) => {
+    const id = e.target.dataset?.srcDel;
+    if (!id) return;
+    const r = await fetch(`/api/partner/sources/${id}`, { method: 'DELETE' });
+    const x = await r.json();
+    if (!r.ok) return Igr.toast(x.error, 'err');
+    render(x);
+  };
 }
 
 // Обложки для баннеров: игра из ссылки — первой, потом популярные с картинкой (не SVG-заглушки).
@@ -100,7 +157,9 @@ async function coverUrls(d) {
 }
 
 async function drawKit(d) {
-  const data = { promo: d.partner.promo, bonus: d.bonus, covers: await PartnerKit.covers(await coverUrls(d).catch(() => [])) };
+  const promo = kitPromo || d.partner.promo;
+  const data = { promo, bonus: d.bonus, covers: await PartnerKit.covers(await coverUrls(d).catch(() => [])) };
+  if (promo !== (kitPromo || d.partner.promo)) return; // пока грузились обложки, выбрали другой промокод
   $('kit').innerHTML = Object.entries(PartnerKit.KINDS).map(([k, v]) => `<div class="panel pt-item">
     <div class="pt-prev ${k === 'overlay' || k === 'plate' ? 'checker' : ''}" id="prev-${k}"></div>
     <b>${v.title}</b><span class="mut">${v.sub}</span>
@@ -115,7 +174,7 @@ async function drawKit(d) {
     $(`prev-${k}`).querySelector('canvas').toBlob((blob) => {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `gamely-${k}-${d.partner.promo.toLowerCase()}.png`;
+      a.download = `gamely-${k}-${promo.toLowerCase()}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     }, 'image/png');

@@ -1,6 +1,7 @@
 data/
 data-preview/
 data-partners/
+data-ptsrc/
 node_modules/
 .env
 *.log
