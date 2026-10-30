@@ -34,28 +34,35 @@ test('кейсы: шансы в сумме 100 %, цена — 85 % от сре�
 
 // Простой игрок: открывает самый дорогой кейс, на который хватает (с запасом на следующий), продаёт всё с торгом
 // в среднем по цене рынка ×1.12, между кейсами подрабатывает кликами и прокачивает работу, когда это окупается быстро.
-function simulate(seed) {
+// С upgrades ещё и покупает улучшения продавца (места, щедрость), как только они дешевле 10 % денег и открыты уровнем.
+function simulate(seed, upgrades = false) {
   let s = seed;
   const rand = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648);
   const pickW = (entries) => { let r = rand() * entries.reduce((n, [, w]) => n + w, 0); for (const [v, w] of entries) if ((r -= w) <= 0) return v; return entries.at(-1)[0]; };
-  let money = E.START_MONEY, level = 1, t = 0;
+  let money = E.START_MONEY, level = 1, t = 0, sold = 0;
+  const up = {};
   const reached = {};
   while (t < 10 * 3600 && !reached.legend) {
     const can = E.CASES.filter((c) => c.price <= money);
     for (const c of can) reached[c.id] ??= t;
     if (level < E.WORK.maxLevel && E.workCost(level) < money * 0.1) { money -= E.workCost(level); level += 1; continue; }
+    if (upgrades) {
+      const id = ['slots', 'offer', 'speed'].find((k) => { const l = up[k] || 0, cost = E.UPGRADES[k].cost[l]; return cost != null && E.rankOf(sold) > l && cost < money * 0.1; });
+      if (id) { money -= E.UPGRADES[id].cost[up[id] || 0]; up[id] = (up[id] || 0) + 1; continue; }
+    }
     const c = can.at(-1);
     const perSec = 1000 / E.WORK.regenMs / E.workClickCost(level); // силы: в долгую — кликов в секунду
     if (!c) { money += E.workIncome(level) * perSec * 10; t += 10; continue; }
     // Цикл ~25 с: открыть кейсы и выставить вещи на все места для объявлений, дождаться покупателей, поторговаться.
-    const n = Math.min(E.MAX_LISTINGS, Math.floor(money / c.price));
+    const n = Math.min(E.slotsOf(up), Math.floor(money / c.price));
     for (let k = 0; k < n; k++) {
       money -= c.price;
       const tier = Number(pickW(Object.entries(c.odds)));
       const pool = ITEMS.filter((i) => i.tier === tier);
       const it = pickW(pool.map((i) => [i, E.weightOf(i)]));
       const cond = pickW(E.CONDITIONS.map((x) => [x, x.w]));
-      money += it.price * cond.k * 1.12;
+      money += it.price * cond.k * 1.12 * E.offerOf(up);
+      sold += 1;
     }
     t += 25;
     money += E.workIncome(level) * perSec * 15;  // пока ждёт покупателей, подрабатывает
@@ -63,8 +70,8 @@ function simulate(seed) {
   return reached;
 }
 
-test('темп: до «Техники» — минуты, до «Клада» — несколько часов, а не дни', () => {
-  const runs = Array.from({ length: 40 }, (_, i) => simulate(i * 7919 + 1));
+for (const upgrades of [false, true]) test(`темп${upgrades ? ' с прокачкой продавца' : ''}: до «Техники» — минуты, до «Клада» — больше часа, а не дни`, () => {
+  const runs = Array.from({ length: 40 }, (_, i) => simulate(i * 7919 + 1, upgrades));
   const median = (id) => {
     const v = runs.map((r) => r[id] ?? Infinity).sort((a, b) => a - b);
     return v[Math.floor(v.length / 2)];
@@ -100,4 +107,25 @@ test('покупатели: женщины и мужчины пишут о се�
     const left = (bare.match(/[а-яё]+(?:ил|ел|ял|ал|ул|ыл|лся|ов|ен)(?![а-яё])/gi) || []).filter((w) => !['уместен', 'дефектов'].includes(w));
     assert.deepEqual(left, [], s);
   }
+});
+
+test('ремонт в плюс, но немного; подарки растут к 7-му дню; у достижений есть проверка', () => {
+  for (const c of E.CONDITIONS.slice(0, -1)) {
+    const thing = { cond: c.id, value: 10000 };
+    const fix = E.repairOf(thing);
+    const gain = fix.value - thing.value;
+    assert.ok(fix.cost < gain, 'ремонт окупается');
+    assert.ok(gain - fix.cost <= thing.value * 0.15, `прибыль ремонта ${gain - fix.cost} — не больше 15 % цены`);
+  }
+  assert.equal(E.repairOf({ cond: 'mint', value: 100 }), null, '«как новое» не чинится');
+  for (const best of [1000, 1e5, 1e8]) {
+    const days = [1, 2, 3, 4, 5, 6, 7].map((d) => E.dailyGift(d, best));
+    for (let i = 1; i < 7; i++) assert.ok(days[i] >= days[i - 1], 'подарок не уменьшается к концу серии');
+  }
+  const ids = new Set();
+  for (const a of E.ACHIEVEMENTS) {
+    assert.ok(!ids.has(a.id), `повтор ${a.id}`); ids.add(a.id);
+    assert.equal(typeof a.of({ stats: { sold: 0, opened: 0, best: 0 }, found: {}, shelves: {} }), 'number', a.id);
+  }
+  for (const u of Object.values(E.UPGRADES)) for (let i = 1; i < u.cost.length; i++) assert.ok(u.cost[i] > u.cost[i - 1] * 5, 'улучшение дорожает');
 });

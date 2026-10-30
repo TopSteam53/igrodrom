@@ -165,6 +165,71 @@ svg{fill:currentColor}
   font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:pop .2s ease-out}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
+/* Кнопки сверху: подарок, коллекция, рейтинг */
+.ico{position:relative;width:34px;height:34px;flex:none;display:grid;place-items:center;border-radius:10px;color:var(--text-2)}
+.ico svg{width:22px;height:22px}
+.ico.on{color:var(--me);background:var(--panel-2)}
+.bar.sub .ico{display:none}
+.bar{gap:6px}
+.ico .dot{top:-3px;right:-4px;min-width:10px;height:10px;padding:0;border-radius:5px}
+
+/* Продавец */
+.seller-bar{display:flex;gap:12px;align-items:center;width:100%;background:var(--panel);border-radius:14px;padding:12px 14px;margin-top:4px;text-align:left}
+.seller-bar:disabled{opacity:1;cursor:default}
+.seller-bar>span:nth-child(2){flex:1;min-width:0}
+.seller-bar b{display:block;font-size:15px}.seller-bar span span{font-size:13px;color:var(--text-2)}
+.seller-bar .more{font-size:13px;font-weight:700;color:var(--me)}
+.seller-bar:disabled .more{display:none}
+.stars{display:flex;gap:3px}
+.stars i{width:12px;height:12px;border-radius:3px;background:var(--panel-2);transform:rotate(45deg)}
+.stars i.on{background:var(--gold)}
+.ups{display:grid;gap:10px;margin-top:6px}
+.up{background:var(--panel);border-radius:14px;padding:14px}
+.up-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.up .hint{margin:4px 0 10px}
+.pips{display:flex;gap:4px}.pips i{width:16px;height:6px;border-radius:3px;background:var(--panel-2)}.pips i.on{background:var(--deal)}
+
+/* Подарок дня */
+.days{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 14px}
+.day{background:var(--panel);border-radius:12px;padding:10px 6px;text-align:center;font-size:12px;color:var(--text-2)}
+.day b{display:block;font-size:14px;color:var(--text);margin-top:4px;font-variant-numeric:tabular-nums}
+.day.got{opacity:.45}
+.day.now{outline:2px solid var(--deal);color:var(--text)}
+.day.big{grid-column:span 2;background:var(--panel-2)}
+
+/* Коллекция */
+.shelf{background:var(--panel);border-radius:14px;padding:12px;margin-bottom:10px}
+.shelf-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.shelf-top b{font-size:15px}.shelf-top>span:not(.tag){font-size:13px;color:var(--text-2);margin-right:auto}
+.shelf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px}
+.slot{background:#fff;border-radius:10px;overflow:hidden;color:var(--card-ink)}
+.slot img{display:block;width:100%;aspect-ratio:1;object-fit:contain}
+.slot.full img{object-fit:cover}
+.slot span{display:block;font-size:10px;line-height:1.2;padding:2px 4px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Ещё не найдено: силуэт на сером */
+.slot.no{background:var(--panel-2);color:var(--text-2)}
+.slot.no img{filter:brightness(0);opacity:.35}
+.slot.no span{text-align:center}
+
+/* Рейтинг */
+.seg{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-top:4px}
+.seg button{flex:none;background:var(--panel);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600;color:var(--text-2)}
+.seg button.on{background:var(--me);color:#fff}
+.lb ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lb li{display:flex;gap:10px;align-items:center;background:var(--panel);border-radius:12px;padding:10px 12px;font-size:14px}
+.lb li.me{outline:2px solid var(--me)}
+.lb .r{width:24px;font-weight:700;color:var(--text-2);font-variant-numeric:tabular-nums}
+.lb .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb .s{font-weight:700;font-variant-numeric:tabular-nums}
+.achs{display:grid;gap:8px}
+.ach{display:flex;gap:12px;align-items:center;background:var(--panel);border-radius:12px;padding:10px 12px}
+.ach>span{flex:1;min-width:0}
+.ach b{display:block;font-size:14px}.ach span span{display:block;font-size:12px;color:var(--text-2)}
+.ach .bar-wait{margin-top:6px}
+.medal{width:30px;height:30px;flex:none;border-radius:50%;background:var(--panel-2);box-shadow:inset 0 0 0 3px var(--line)}
+.ach.ok .medal{background:radial-gradient(circle at 35% 30%,#FFE38A,var(--gold) 60%,#B07A00);box-shadow:none}
+.ach:not(.ok){opacity:.75}
+
 /* Горизонтальный экран (окно игры на компьютере, 16:9 и ниже 600 px): меню слева, экраны в две колонки.
    На телефоне вертикально этих правил нет. */
 @media (min-width:640px) and (min-aspect-ratio:5/4){
@@ -193,6 +258,9 @@ svg{fill:currentColor}
   .listings .listing{margin:0}
   .cards{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
   .chat{max-width:680px;margin:0 auto}
+  .days{grid-template-columns:repeat(7,1fr)}.day.big{grid-column:auto}
+  .shelf-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+  .ups{grid-template-columns:repeat(3,1fr)}
   .replies{grid-template-columns:1fr 1fr}
   .work{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto 1fr;column-gap:28px;text-align:left;align-items:center;min-height:100%}
   .work>.hint{grid-column:1/3}

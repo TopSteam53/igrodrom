@@ -10,7 +10,8 @@
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const now = () => Date.now();
 
-  const { WORK, workEnergyMax, workClickCost, CASES, weightOf, TIER_NAMES, CONDITIONS, BUYERS, QUICK, MAX_LISTINGS, START_MONEY, AVA, workIncome, workCost, waitFor, nice } = window.PEREKUP_ECON;
+  const { WORK, workEnergyMax, workClickCost, CASES, weightOf, TIER_NAMES, CONDITIONS, BUYERS, QUICK, START_MONEY, AVA, workIncome, workCost, waitFor, nice,
+    RANKS, rankOf, UPGRADES, slotsOf, speedOf, offerOf, repairOf, dailyGift, shelfReward, achReward, ACHIEVEMENTS } = window.PEREKUP_ECON;
 
   function weighted(entries) {
     const total = entries.reduce((n, [, w]) => n + w, 0);
@@ -43,8 +44,12 @@
   let state = fresh();
   function fresh() {
     return { v: 1, money: START_MONEY, inv: [], listings: [], chats: [], work: { level: 1 }, seq: 1, kase: 'junk',
-      stats: { opened: 0, sold: 0, earned: 0, best: 0 } };
+      stats: { opened: 0, sold: 0, earned: 0, best: START_MONEY, sales: 0, haggle: 0, blocked: 0, repaired: 0 },
+      // found — найденные вещи (коллекция), shelves — полки с полученной наградой, ach — полученные достижения,
+      // up — уровни улучшений продавца, daily — серия подарков: последний день (ключ даты) и номер дня в серии.
+      found: {}, shelves: {}, ach: {}, up: {}, daily: { last: null, day: 0, best: 0 } };
   }
+  const slots = () => slotsOf(state.up);
   let saveTimer = 0;
   function save() {
     clearTimeout(saveTimer);
@@ -72,7 +77,7 @@
     const chat = {
       id: state.seq++, listing: listing.item.uid, name: pick(f ? T.women : T.men), f, type, color: pick(AVA), msgs: [], state: 'open',
       unread: true, at: now(), patience: b.patience || 0,
-      maxPay: type === 'troll' ? 0 : nice(market * rnd(b.max[0], b.max[1])),
+      maxPay: type === 'troll' ? 0 : nice(market * rnd(b.max[0], b.max[1]) * offerOf(state.up)),
     };
     chat.offer = type === 'troll' ? nice(market * rnd(0.05, 0.2)) : Math.min(listing.ask, nice(chat.maxPay * rnd(b.first[0], b.first[1])));
     const v = { item: item.title, offer: chat.offer, ask: listing.ask, f };
@@ -91,8 +96,13 @@
 
   function sell(listing, price, chat) {
     state.listings = state.listings.filter((l) => l !== listing);
+    const rank = rankOf(state.stats.sold);
     state.stats.sold += 1;
+    state.stats.sales += price;
+    if (price >= listing.item.value * 1.5) state.stats.haggle += 1;
     addMoney(price);
+    if (rankOf(state.stats.sold) > rank) toast(`Уровень продавца ${rankOf(state.stats.sold)}: открыты новые улучшения`);
+    progress();
     if (chat) {
       chat.state = 'done';
       chat.msgs.push({ who: 'sys', text: `Продано за ${money(price)}` });
@@ -102,7 +112,7 @@
   function buyerGone(chat, soon) {
     chat.state = 'gone';
     const l = listingOf(chat);
-    if (l) { l.chat = null; l.buyerAt = now() + (soon ? 3000 : waitFor(l.ask / l.item.value)); }
+    if (l) { l.chat = null; l.buyerAt = now() + (soon ? 3000 : waitFor(l.ask / l.item.value) * speedOf(state.up)); }
   }
 
   // Ответ игрока и реакция покупателя (с задержкой «печатает…»).
@@ -126,6 +136,8 @@
     }
     if (action === 'block') {
       chat.msgs.push({ who: 'sys', text: t.blocked });
+      state.stats.blocked += 1;
+      progress();
       buyerGone(chat, true);
       return afterChat(chat);
     }
@@ -160,6 +172,58 @@
   }
   function afterChat(chat) { chat.at = now(); save(); rerenderChat(chat); updateDot(); }
 
+  // ---------- прогресс: коллекция, достижения, подарки, таблицы лидеров ----------
+  // Новая вещь попадает в коллекцию; собранная полка (все вещи уровня) один раз даёт награду.
+  function discover(id) {
+    if (state.found[id]) return;
+    state.found[id] = true;
+    const tier = BY_ID[id].tier;
+    if (!state.shelves[tier] && ITEMS.filter((i) => i.tier === tier).every((i) => state.found[i.id])) {
+      state.shelves[tier] = true;
+      const r = shelfReward(tier);
+      addMoney(r);
+      toast(`Полка «${CASES[tier - 1].title}» собрана: +${money(r)}`);
+    }
+    progress();
+  }
+  // Проверка целей после каждого заметного события. Награда — сразу деньгами.
+  function progress() {
+    for (const a of ACHIEVEMENTS) {
+      if (state.ach[a.id] || a.of(state) < a.n) continue;
+      const r = achReward(state.stats.best);
+      state.ach[a.id] = now();
+      addMoney(r);
+      toast(`Достижение «${a.title}»: +${money(r)}`);
+    }
+    updateDot();
+    pushBoards();
+  }
+  // Таблицы лидеров сайта: лучший результат игрока. Гостю площадка откажет — это нормально, молча пропускаем.
+  const BOARDS = [
+    { id: 'rich', title: 'Богачи', of: () => Math.floor(state.stats.best), fmt: (n) => money(n) },
+    { id: 'collect', title: 'Коллекционеры', of: () => Object.keys(state.found).length, fmt: (n) => `${n} из ${ITEMS.length}` },
+    { id: 'sales', title: 'Продавцы', of: () => Math.floor(state.stats.sales), fmt: (n) => money(n) },
+  ];
+  let boardTimer = 0, sentBoards = {};
+  function pushBoards() {
+    if (!sdk || !sdk.leaderboard || boardTimer) return;
+    boardTimer = setTimeout(() => {
+      boardTimer = 0;
+      for (const b of BOARDS) {
+        const v = b.of();
+        if (v > 0 && v !== sentBoards[b.id]) { sentBoards[b.id] = v; sdk.leaderboard.setScore(v, { board: b.id }).catch(() => {}); }
+      }
+    }, 30000);
+  }
+  // Подарок дня: серия из 7 дней, пропуск дня начинает её заново. День — по часам устройства.
+  const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  function giftState() {
+    const d = state.daily, today = dayKey(now());
+    if (d.last === today) return { ready: false, day: d.day };
+    const streak = d.last === dayKey(now() - 864e5) ? d.day % 7 + 1 : 1;
+    return { ready: true, day: streak };
+  }
+
   // ---------- интерфейс ----------
   const ui = { tab: 'cases', item: null, chat: null, drop: null, spinning: false };
   const view = $('view');
@@ -174,15 +238,24 @@
   function setTitle(text, back) {
     $('title').textContent = text;
     $('back').classList.toggle('hidden', !back);
+    // На внутренних экранах (есть «Назад») значки сверху прячутся: иначе заголовок не помещается на телефоне.
+    document.querySelector('.bar').classList.toggle('sub', !!back);
   }
+  // Вкладки снизу — основные экраны; подарок, коллекция, рейтинг и прокачка открываются кнопками сверху
+  // поверх текущей вкладки, «Назад» возвращает к ней.
+  const EXTRA = ['gift', 'album', 'top', 'seller'];
   function go(tab) {
+    if (EXTRA.includes(tab)) { if (!EXTRA.includes(ui.tab)) ui.prev = ui.tab; } else ui.prev = null;
     ui.tab = tab; ui.item = null; ui.chat = null;
     for (const b of document.querySelectorAll('#nav [data-tab]')) b.classList.toggle('on', b.dataset.tab === tab);
+    for (const b of document.querySelectorAll('.bar [data-go]')) b.classList.toggle('on', b.dataset.go === tab);
     render();
   }
   function render() {
     view.scrollTop = 0;
-    ({ cases: renderCases, inv: renderInv, sales: renderSales, chats: renderChats, work: renderWork })[ui.tab]();
+    view.onclick = null;
+    ({ cases: renderCases, inv: renderInv, sales: renderSales, chats: renderChats, work: renderWork,
+      gift: renderGift, album: renderAlbum, top: renderTop, seller: renderSeller })[ui.tab]();
   }
 
   // Вещь для ленты барабана: редкие попадаются чаще, чем выпадают на деле (корень из шанса), но не через одну.
@@ -238,6 +311,9 @@
     setTimeout(() => {
       ui.spinning = false;
       ui.drop = won;
+      if (!state.found[won.id]) { ui.drop.isNew = true; }
+      discover(won.id);
+      progress();
       save();
       if (ui.tab === 'cases') renderDrop();
     }, 3600);
@@ -246,7 +322,7 @@
     const d = ui.drop;
     const it = BY_ID[d.id];
     const quick = nice(d.value * QUICK);
-    view.innerHTML = `<div class="drop"><h2>Выпало</h2>${cardHTML(d)}
+    view.innerHTML = `<div class="drop"><h2>${d.isNew ? 'Новая вещь в коллекции' : 'Выпало'}</h2>${cardHTML(d)}
       <div class="drop-side"><div class="row2" style="margin-top:14px"><button class="btn deal" id="take" type="button">Забрать</button>
       <button class="btn ghost" id="quick" type="button">Продать сразу<span class="sub">${money(quick)}</span></button></div>
       <p class="hint">Цена рынка ${money(d.value)}. Выставите вещь на продажу, и покупатели предложат больше, чем при продаже сразу.</p></div></div>`;
@@ -255,7 +331,7 @@
       // Полноэкранная реклама — изредка, в паузе между кейсами; частоту дополнительно держит площадка.
       if (sdk && state.stats.opened % 5 === 0) sdk.ads.fullscreen().catch(() => {});
     };
-    $('take').onclick = () => { state.inv.unshift(d); toast(`«${it.title}» в инвентаре`); done(); };
+    $('take').onclick = () => { delete d.isNew; state.inv.unshift(d); toast(`«${it.title}» в инвентаре`); done(); };
     $('quick').onclick = () => { addMoney(quick); done(); };
   }
 
@@ -281,7 +357,8 @@
     const it = BY_ID[thing.id];
     setTitle(it.title, true);
     let ratio = ui.ratio || 1.1;
-    const full = state.listings.length >= MAX_LISTINGS;
+    const fix = repairOf(thing);
+    const full = state.listings.length >= slots();
     view.innerHTML = `<div class="item">
       <div class="item-head">${ph(thing.id)}<div><b>${it.title}</b><span>${condOf(thing).label}, цена рынка ${money(thing.value)}</span>
         <div class="tags"><span class="tag t${it.tier}">${TIER_NAMES[it.tier]}</span></div></div></div>
@@ -292,8 +369,9 @@
         <div class="range" id="range" style="--g:33.3%;--y:53.3%"><div class="track"></div><div class="knob" id="knob"></div></div>
         <div class="scale"><span>купят быстро</span><span>долго ждать</span></div>
         <button class="btn deal" id="list" type="button" style="margin-top:14px" ${full ? 'disabled' : ''}>Выставить на продажу</button>
-        ${full ? `<p class="hint">Все ${MAX_LISTINGS} места для объявлений заняты. Продайте что-нибудь или снимите объявление.</p>` : ''}
+        ${full ? `<p class="hint">Все ${slots()} ${forms(slots(), ['место', 'места', 'мест'])} для объявлений заняты. Продайте что-нибудь или снимите объявление.</p>` : ''}
       </div>
+      ${fix ? `<button class="btn ghost" id="repair" type="button" style="margin-top:10px" ${state.money < fix.cost ? 'disabled' : ''}>Починить до «${fix.label}» за ${money(fix.cost)}<span class="sub">цена рынка станет ${money(fix.value)}</span></button>` : ''}
       <button class="btn ghost" id="quick" type="button" style="margin-top:10px">Продать сразу за ${money(nice(thing.value * QUICK))}</button></div></div>`;
     const MIN = 0.5, MAX = 2.0;
     const ask = () => nice(thing.value * ratio);
@@ -321,7 +399,7 @@
     paint();
     $('list').onclick = () => {
       state.inv = state.inv.filter((t) => t !== thing);
-      state.listings.push({ item: thing, ask: ask(), at: now(), buyerAt: now() + waitFor(ratio), chat: null });
+      state.listings.push({ item: thing, ask: ask(), at: now(), buyerAt: now() + waitFor(ratio) * speedOf(state.up), chat: null });
       ui.item = null; ui.ratio = null; save();
       toast(`Объявление «${it.title}»: ${money(ask())}`);
       go('sales');
@@ -330,18 +408,26 @@
       state.inv = state.inv.filter((t) => t !== thing);
       ui.item = null; addMoney(nice(thing.value * QUICK)); renderInv();
     };
+    if ($('repair')) $('repair').onclick = () => {
+      if (state.money < fix.cost) return;
+      addMoney(-fix.cost);
+      thing.cond = fix.cond; thing.value = fix.value;
+      state.stats.repaired += 1;
+      toast(`«${it.title}» теперь ${fix.label}`);
+      progress(); save(); renderItem();
+    };
   }
 
   // Мои продажи
   function renderSales() {
     setTitle('Мои продажи');
     if (!state.listings.length) {
-      view.innerHTML = `<div class="empty">Объявлений пока нет. Выберите вещь в инвентаре и назначьте цену.
+      view.innerHTML = sellerBanner() + `<div class="empty">Объявлений пока нет. Выберите вещь в инвентаре и назначьте цену.
         <button class="btn me" type="button" id="toInv">В инвентарь</button></div>`;
       $('toInv').onclick = () => go('inv');
       return;
     }
-    view.innerHTML = `<p class="sec">Объявлений ${state.listings.length} из ${MAX_LISTINGS}</p><div class="listings">` + state.listings.map((l) => {
+    view.innerHTML = sellerBanner() + `<p class="sec">Объявлений ${state.listings.length} из ${slots()}</p><div class="listings">` + state.listings.map((l) => {
       const it = BY_ID[l.item.id];
       return `<div class="listing" data-uid="${l.item.uid}">${ph(l.item.id)}
         <div class="info"><b>${it.title}</b><span>Цена ${money(l.ask)}</span><span>рынок ${money(l.item.value)}</span>
@@ -506,6 +592,120 @@
     };
   }
 
+  // Продавец: уровень от сделок и улучшения за деньги. Плашка — над объявлениями.
+  function sellerBanner() {
+    const rank = rankOf(state.stats.sold);
+    const next = RANKS[rank];
+    return `<button class="seller-bar" type="button" data-to="seller"><span class="stars">${'<i class="on"></i>'.repeat(rank)}${'<i></i>'.repeat(RANKS.length - rank)}</span>
+      <span><b>Продавец, уровень ${rank}</b><span>${next != null ? `До следующего ${next - state.stats.sold} ${forms(next - state.stats.sold, ['сделка', 'сделки', 'сделок'])}` : 'Высший уровень'}</span></span>
+      <span class="more">Прокачка</span></button>`;
+  }
+  function renderSeller() {
+    setTitle('Прокачка', true);
+    const rank = rankOf(state.stats.sold);
+    view.innerHTML = sellerBanner().replace('data-to="seller"', 'disabled') + `<p class="hint">Уровень продавца растёт от сделок и открывает следующую ступень улучшений.</p>
+      <div class="ups">${Object.entries(UPGRADES).map(([id, u]) => {
+        const lvl = state.up[id] || 0, max = u.cost.length;
+        const cost = u.cost[lvl];
+        const locked = lvl < max && rank <= lvl;
+        return `<div class="up"><div class="up-top"><b>${u.title}</b><span class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < lvl ? 'on' : ''}"></i>`).join('')}</span></div>
+          <p class="hint">${u.text}</p>
+          ${lvl >= max ? '<p class="hint" style="color:var(--deal)">Прокачано до предела</p>'
+            : locked ? `<button class="btn ghost" type="button" disabled>Нужен уровень продавца ${lvl + 1}</button>`
+            : `<button class="btn deal" type="button" data-up="${id}" ${state.money < cost ? 'disabled' : ''}>Улучшить за ${money(cost)}</button>`}</div>`;
+      }).join('')}</div>`;
+    view.onclick = (e) => {
+      const b = e.target.closest('[data-up]');
+      if (!b) return;
+      const id = b.dataset.up, lvl = state.up[id] || 0, cost = UPGRADES[id].cost[lvl];
+      if (cost == null || state.money < cost || rankOf(state.stats.sold) <= lvl) return;
+      addMoney(-cost);
+      state.up[id] = lvl + 1;
+      toast(`${UPGRADES[id].title}: уровень ${lvl + 1}`);
+      save(); renderSeller();
+    };
+  }
+
+  // Подарок дня
+  function renderGift() {
+    setTitle('Подарок дня', true);
+    const g = giftState();
+    const best = state.stats.best;
+    view.innerHTML = `<p class="hint">Заходите каждый день: подарок растёт, на седьмой день самый большой. Пропустите день — серия начнётся заново.</p>
+      <div class="days">${Array.from({ length: 7 }, (_, i) => {
+        const day = i + 1;
+        const cls = g.ready ? (day < g.day ? 'got' : day === g.day ? 'now' : '') : (day <= g.day ? 'got' : '');
+        return `<div class="day ${cls}${day === 7 ? ' big' : ''}"><span>День ${day}</span><b>${money(dailyGift(day, best))}</b></div>`;
+      }).join('')}</div>
+      ${g.ready ? `<button class="btn deal" id="take" type="button">Забрать ${money(dailyGift(g.day, best))}</button>
+        <button class="btn ghost" id="double" type="button" style="margin-top:10px">Забрать вдвое: ${money(dailyGift(g.day, best) * 2)}<span class="sub">за рекламу</span></button>`
+        : '<p class="hint" style="text-align:center;margin-top:16px">Сегодняшний подарок уже у вас. Следующий завтра.</p>'}`;
+    if (!g.ready) return;
+    const claim = (k) => {
+      const v = dailyGift(g.day, best) * k;
+      state.daily = { last: dayKey(now()), day: g.day, best: Math.max(state.daily.best || 0, g.day) };
+      addMoney(v);
+      toast(`Подарок дня: +${money(v)}`);
+      progress(); save(); renderGift();
+    };
+    $('take').onclick = () => claim(1);
+    $('double').onclick = async () => {
+      $('double').disabled = true;
+      const r = sdk ? await sdk.ads.rewarded() : { rewarded: true };
+      if (giftState().ready) claim(r.rewarded ? 2 : 1);
+    };
+  }
+
+  // Коллекция: полки по кейсам, найденное — цветом, остальное — силуэтом.
+  function renderAlbum() {
+    const n = Object.keys(state.found).length;
+    setTitle('Коллекция', true);
+    view.innerHTML = `<p class="sec">Найдено ${n} из ${ITEMS.length}. Соберите все вещи кейса, чтобы получить награду за полку.</p>` + CASES.map((c, k) => {
+      const tier = k + 1;
+      const pool = ITEMS.filter((i) => i.tier === tier);
+      const got = pool.filter((i) => state.found[i.id]).length;
+      return `<section class="shelf"><div class="shelf-top"><b>${c.title}</b><span>${got} из ${pool.length}</span>
+        <span class="tag ${state.shelves[tier] ? 't3' : 'c'}">${state.shelves[tier] ? 'награда получена' : `за полку ${money(shelfReward(tier))}`}</span></div>
+        <div class="shelf-grid">${pool.map((i) => `<div class="slot${state.found[i.id] ? '' : ' no'}${i.full ? ' full' : ''}" title="${state.found[i.id] ? i.title : 'Ещё не найдено'}">
+          <img src="img/${i.id}.webp" alt="" draggable="false" loading="lazy"><span>${state.found[i.id] ? i.title : '?'}</span></div>`).join('')}</div></section>`;
+    }).join('');
+  }
+
+  // Рейтинг: три таблицы сайта и достижения.
+  async function renderTop() {
+    setTitle('Рейтинг', true);
+    ui.board ||= 'rich';
+    const seg = `<div class="seg">${BOARDS.map((b) => `<button type="button" data-b="${b.id}" class="${ui.board === b.id ? 'on' : ''}">${b.title}</button>`).join('')}
+      <button type="button" data-b="ach" class="${ui.board === 'ach' ? 'on' : ''}">Достижения</button></div>`;
+    view.onclick = (e) => { const b = e.target.closest('[data-b]'); if (b) { ui.board = b.dataset.b; renderTop(); } };
+    if (ui.board === 'ach') {
+      const done = ACHIEVEMENTS.filter((a) => state.ach[a.id]).length;
+      view.innerHTML = seg + `<p class="sec">Получено ${done} из ${ACHIEVEMENTS.length}. Награда за каждое — половина цены кейса, до которого вы доросли.</p>
+        <div class="achs">${ACHIEVEMENTS.map((a) => {
+          const have = Math.min(a.of(state), a.n), ok = !!state.ach[a.id];
+          return `<div class="ach${ok ? ' ok' : ''}"><i class="medal"></i><span><b>${a.title}</b><span>${a.text}</span>
+            ${ok ? '' : a.n > 1 && a.n <= 1000 ? `<span class="bar-wait"><i style="width:${(have / a.n) * 100}%"></i></span>` : ''}</span></div>`;
+        }).join('')}</div>`;
+      return;
+    }
+    const b = BOARDS.find((x) => x.id === ui.board);
+    view.innerHTML = seg + `<p class="sec">Ваш результат: ${b.fmt(b.of())}</p><div class="lb" id="lb"><p class="hint">Загружаем таблицу…</p></div>`;
+    const box = $('lb');
+    if (!sdk || !sdk.leaderboard) { box.innerHTML = '<p class="hint">Таблицы лидеров работают на сайте Gamely.</p>'; return; }
+    if (sdk.player && sdk.player.anonymous) box.insertAdjacentHTML('beforebegin', '<p class="hint">Войдите в аккаунт Gamely, чтобы попасть в таблицу.</p>');
+    // Свежий результат — сразу, не дожидаясь отложенной отправки.
+    const v = b.of();
+    if (v > 0 && !(sdk.player && sdk.player.anonymous)) { sentBoards[b.id] = v; await sdk.leaderboard.setScore(v, { board: b.id }).catch(() => {}); }
+    let r = null;
+    try { r = await sdk.leaderboard.getEntries({ board: b.id, top: 10, around: 1 }); } catch (e) { r = null; }
+    if (ui.tab !== 'top' || ui.board !== b.id) return;
+    const rows = r && r.entries ? r.entries : [];
+    box.innerHTML = rows.length ? `<ol>${rows.map((e) => `<li class="${e.me ? 'me' : ''}"><span class="r">${e.rank}</span><span class="n">${esc(e.name)}</span><span class="s">${b.fmt(e.score)}</span></li>`).join('')}</ol>`
+      + (r.me && !rows.some((e) => e.me) ? `<p class="sec">Вы на ${r.me.rank} месте</p>` : '')
+      : '<p class="hint">В таблице пока никого. Ваш результат будет первым.</p>';
+  }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
   // Общие мелочи
   let toastTimer = 0;
   function toast(text) {
@@ -520,10 +720,17 @@
     const d = $('chatDot');
     d.textContent = n;
     d.classList.toggle('hidden', !n);
+    $('giftDot').classList.toggle('hidden', !giftState().ready);
   }
   function markNav(tab) { for (const b of document.querySelectorAll('#nav [data-tab]')) b.classList.toggle('on', b.dataset.tab === tab); }
   $('nav').onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b && !ui.spinning) go(b.dataset.tab); };
-  $('back').onclick = () => { ui.item = null; ui.chat = null; ui.ratio = null; render(); };
+  $('back').onclick = () => {
+    if (EXTRA.includes(ui.tab) && !ui.item && !ui.chat) return go(ui.prev || 'cases');
+    ui.item = null; ui.chat = null; ui.ratio = null; render();
+  };
+  // Кнопки сверху (подарок, коллекция, рейтинг) и ссылки на экраны внутри вида: data-go / data-to.
+  document.querySelector('.bar').addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b && !ui.spinning) go(ui.tab === b.dataset.go ? ui.prev || 'cases' : b.dataset.go); });
+  view.addEventListener('click', (e) => { const b = e.target.closest('[data-to]'); if (b && !b.disabled) go(b.dataset.to); });
 
   // Покупатели приходят по таймеру — и пока игрок в другой вкладке игры, и после возвращения в игру.
   setInterval(() => {
@@ -539,13 +746,25 @@
     try { sdk = await window.Gamely.init(); } catch (e) { sdk = null; }
     try {
       const saved = sdk && await sdk.data.get();
-      if (saved && saved.v === 1) state = { ...fresh(), ...saved };
+      if (saved && saved.v === 1) {
+        const f0 = fresh();
+        state = { ...f0, ...saved, stats: { ...f0.stats, ...saved.stats }, daily: { ...f0.daily, ...saved.daily } };
+      }
     } catch (e) { /* без сохранения — новая игра */ }
+    // Сохранения до коллекции: найденным считаем то, что лежит в инвентаре и в объявлениях.
+    for (const t of [...state.inv, ...state.listings.map((l) => l.item)]) if (BY_ID[t.id]) state.found[t.id] = true;
+    // Вещи, которых больше нет в игре (на случай правок списка), из инвентаря убираем.
+    state.inv = state.inv.filter((t) => BY_ID[t.id]);
+    state.listings = state.listings.filter((l) => BY_ID[l.item.id]);
     // Переписки, которые оборвались на «печатает…», при загрузке просто ждут ответа игрока.
     for (const c of state.chats) { c.typing = false; c.waiting = false; }
+    // Рекорд денег не меньше того, что на руках (в старых сохранениях стартовая тысяча в него не попадала).
+    state.stats.best = Math.max(state.stats.best || 0, state.money);
     $('money').textContent = money(state.money);
     updateDot();
     go('cases');
+    progress();
+    if (giftState().ready) toast('Подарок дня ждёт: кнопка с подарком сверху');
     sdk && sdk.game.ready();
   }
   start();
