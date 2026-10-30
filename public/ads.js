@@ -84,6 +84,8 @@
   let tasks = null;
   // watch — для VK: если реклама сети всё-таки появилась поверх нашей заставки (ответ пришёл поздно),
   // заставка прячется, ждёт закрытия рекламы и даёт награду: игрок уже посмотрел рекламу.
+  // Ответ — { watched, network }: network — это был показ сети, а не наша заставка (игры засчитывают только такие;
+  // на телефоне реклама VK часто приходит позже 8 секунд, и без этого очко за неё не давалось).
   async function houseAd(watch) {
     catalog ??= fetch('/api/games').then((r) => r.json()).then((d) => d.games || []).catch(() => []);
     tasks ??= fetch('/api/tasks').then((r) => r.json()).then((d) => (d.enabled ? d.tasks.filter((t) => !t.status) : [])).catch(() => []);
@@ -91,7 +93,7 @@
     const here = decodeURIComponent(location.pathname.split('/game/')[1] || '');
     const pool = (await catalog).filter((g) => g.cover && g.slug && g.slug !== here);
     const task = open.length && (!pool.length || Math.random() < 0.5) ? open[Math.floor(Math.random() * open.length)] : null;
-    if (!task && !pool.length) return true;
+    if (!task && !pool.length) return { watched: true, network: false };
     const g = pool[Math.floor(Math.random() * pool.length)];
     return new Promise((resolve) => {
       const SEC = 5;
@@ -127,7 +129,7 @@
         const ad = watch();
         if (ad) { seen = true; el.style.display = 'none'; } else if (seen) close(true);
       }, 400) : 0;
-      const close = (watched) => { clearInterval(tick); clearInterval(spy); el.remove(); removeEventListener('keydown', onKey); resolve(watched); };
+      const close = (watched) => { clearInterval(tick); clearInterval(spy); el.remove(); removeEventListener('keydown', onKey); resolve({ watched, network: seen }); };
       const onKey = (e) => { if (e.key === 'Escape' && !seen) close(left <= 0); };
       addEventListener('keydown', onKey);
       btn.onclick = () => close(true);
@@ -376,13 +378,18 @@
       if (!p || !p.rewarded) {
         busy = true;
         hooks.open?.();
-        try { return { rewarded: await houseAd(), shown: false }; } finally { busy = false; }
+        try { return { rewarded: (await houseAd()).watched, shown: false }; } finally { busy = false; }
       }
       busy = true;
       hooks.open?.();
       try {
         const result = await p.rewarded().catch(() => false);
-        if (result === null) return { rewarded: await houseAd(p === vk ? vkLate : null), shown: false };
+        if (result === null) {
+          // Сеть не успела за VK_WAIT_MS — наша заставка; если реклама VK всё-таки пришла поверх неё, это показ сети.
+          const h = await houseAd(p === vk ? vkLate : null);
+          if (h.network) lastFullscreen = Date.now();
+          return { rewarded: h.watched, shown: h.network };
+        }
         // Досмотренная реклама за награду тоже сдвигает паузу перед следующей полноэкранной.
         if (result) lastFullscreen = Date.now();
         return { rewarded: !!result, shown: !!result };
