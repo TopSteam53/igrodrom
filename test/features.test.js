@@ -131,6 +131,26 @@ test('ссылка сброса живёт час', async () => {
   }
 });
 
+test('одновременный сброс одной ссылкой: только один пароль принимается', async () => {
+  await player('race-reset@test.ru');
+  await browser()('POST', '/api/password/forgot', { email: 'race-reset@test.ru' });
+  const token = lastLink('race-reset@test.ru', 'reset');
+  const results = await Promise.all(['new-password-a', 'new-password-b'].map((password) => browser()('POST', '/api/password/reset', {token,password})));
+  assert.deepEqual(results.map((r) => r.status).sort(), [200,400]);
+});
+
+test('восстановление без почты не сообщает об отправленном письме', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-nomail-'));
+  const app = createApp({dataDir:dir,publicDir,mailer:{enabled:false,send:async()=>{}}});
+  await new Promise((r) => app.listen(0,'127.0.0.1',r));
+  const url = `http://127.0.0.1:${app.address().port}`;
+  try {
+    assert.deepEqual(await (await fetch(url+'/api/password/status')).json(), {enabled:false});
+    const r = await fetch(url+'/api/password/forgot',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:'nobody@test.ru'})});
+    assert.equal(r.status,503); assert.match((await r.json()).error,/не подключена/);
+  } finally { await new Promise((r)=>app.close(r)); fs.rmSync(dir,{recursive:true,force:true}); }
+});
+
 test('письмо: заголовки в UTF-8 и тело в base64', () => {
   const msg = buildMessage({ from: 'Игры онлайн <hello@igry.test>', to: 'a@b.ru', subject: 'Сброс пароля', text: 'Привет\nмир' });
   assert.match(msg, /^From: =\?UTF-8\?B\?[^?]+\?= <hello@igry\.test>\r\n/);

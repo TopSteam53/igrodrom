@@ -4,17 +4,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { demoGames } from '../server/demo-games.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'games');
 const COVERS = ['cover.png', 'cover.jpg', 'cover.jpeg', 'cover.webp', 'cover.svg'];
 const ICONS = ['icon.png', 'icon.jpg', 'icon.jpeg', 'icon.webp', 'icon.svg'];
 
 export function buildCatalog() {
-  const games = fs.readdirSync(root)
-    .filter((slug) => fs.existsSync(path.join(root, slug, 'meta.json')) && fs.existsSync(path.join(root, slug, 'index.html')))
-    .sort()
-    .map((slug) => {
-      const meta = JSON.parse(fs.readFileSync(path.join(root, slug, 'meta.json'), 'utf8'));
+  const games = demoGames(root)
+    .map(({ slug, meta }) => {
       return {
         id: slug,
         title: meta.title,

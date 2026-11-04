@@ -32,6 +32,7 @@
     </div>
 
     <div class="player" id="player">
+      <span class="player-caption" id="playerCaption"></span>
       <button class="fs-exit" id="fsExit" type="button" aria-label="Свернуть игру">Свернуть</button>
       <div class="splash" id="splash">
         <div class="splash-bg" id="splashBg"></div>
@@ -250,6 +251,8 @@ function renderScore() {
 let session = null, waitInput = false;
 $('play').onclick = () => startGame();
 function startGame({ countOnTouch = false } = {}) {
+  if (matchMedia('(max-width:760px)').matches) document.documentElement.classList.add('game-playing');
+  $('playerCaption').textContent = game.title;
   const frame = document.createElement('iframe');
   // SDK-хост слушает до загрузки игры, чтобы не пропустить её первое сообщение.
   IgrodromHost.attach(frame, {
@@ -542,8 +545,10 @@ document.addEventListener('fullscreenchange', () => {
   // Вышли кнопкой «назад» или Esc — игра возвращается на место.
   else if (!document.fullscreenElement) setGameFs(false);
 });
-$('fsExit').onclick = () => setGameFs(false);
-addEventListener('keydown', (e) => { if (e.key === 'Escape' && !document.fullscreenElement) setGameFs(false); });
+$('fsExit').onclick = () => { setGameFs(false); document.documentElement.classList.remove('game-playing'); };
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.fullscreenElement) { setGameFs(false); document.documentElement.classList.remove('game-playing'); }
+});
 
 $('share').onclick = async () => {
   const url = location.href;

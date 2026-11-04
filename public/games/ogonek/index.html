@@ -34,6 +34,14 @@ html,body{margin:0;height:100%;overflow:hidden;background:#05040a;color:#f5ead6;
 .scr{position:fixed;inset:0;background:rgba(5,4,10,.78);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5}
 #menu{background:rgba(5,4,10,.35)}
 .card{background:#15111f;border:1px solid rgba(255,181,71,.18);border-radius:18px;padding:22px;width:min(460px,100%);max-height:94vh;overflow:auto;text-align:center}
+@media(max-width:480px),(max-height:650px){
+  .scr{padding:10px}.card{padding:14px;max-height:calc(100dvh - 20px)}
+  #menu h1{font-size:32px}#menu .sub{font-size:13px;line-height:1.35;margin-bottom:10px}
+  #menu .btn{padding:11px;margin:7px 0;font-size:16px}
+  #menu .hero canvas{width:36px;height:42px}#menu .hero{padding:6px 3px}
+  #menu #heroText{font-size:12px;min-height:0;margin:4px 0}
+  #menu .note{font-size:12px;margin:6px 0 0}
+}
 h1{font-size:44px;margin:0 0 4px;color:#ffb547;letter-spacing:-.01em}
 h2{font-size:26px;margin:0 0 8px}
 .sub{color:#bcae96;margin:0 0 16px;font-size:15px;line-height:1.4}

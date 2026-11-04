@@ -16,6 +16,7 @@ before(async () => {
   fs.writeFileSync(path.join(publicDir, 'index.html'), page('Главная', '<meta name="description" content="Все игры">').replace('<body>', '<body><div id="grid"><!--grid--><i>силуэт</i><!--/grid--></div>'));
   fs.writeFileSync(path.join(publicDir, 'game.html'), page('Игра').replace('<body>', '<body><div class="empty" id="loading"></div><article id="game" class="hidden"><h1 id="title"></h1><p id="desc"></p><p id="howto"></p></article>'));
   fs.writeFileSync(path.join(publicDir, '404.html'), page('Страница не найдена'));
+  fs.writeFileSync(path.join(publicDir, 'developers.html'), page('Разработчикам').replace('<body>', '<body><a href="#sdk">SDK</a><section id="sdk"></section>'));
   const games = {
     raster: { title: 'Ракета', description: 'Летите <выше> всех & не падайте. '.repeat(10), extra: { 'og.jpg': 'jpg' } },
     vector: { title: 'Квадрат', description: '', extra: {} },
@@ -90,6 +91,8 @@ test('страница игры: свой заголовок, описание �
 
 test('поисковикам без скриптов: карточки каталога, текст игры и разметка schema.org', async () => {
   const home = (await text('/')).body;
+  assert.match(home, /<base href="\/">/, 'ссылки главной остаются от корня после клиентского перехода в категорию');
+  assert.ok(!(await text('/developers')).body.includes('<base '), 'ссылки на разделы обычных страниц остаются внутри страницы');
   assert.ok(!home.includes('силуэт'));
   assert.ok(home.includes('href="/game/raster"') && home.includes('<b class="card-title">Ракета</b>'));
   assert.ok(home.includes('"@type":"WebSite"'));

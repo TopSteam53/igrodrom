@@ -4,6 +4,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { openDb } from './db.js';
+import { demoGames } from './demo-games.js';
 import { extractZip, isZip, ZipError } from './zip.js';
 import { createStats } from './stats.js';
 import { adsFromEnv, siteFromEnv, publicConfig } from './config.js';
@@ -135,6 +136,8 @@ export function createApp({
   const loginLimiter = createLimiter({ max: 10, windowMs: 15 * 60 * 1000 });
   const saveLimiter = createLimiter({ max: SAVE_WRITES_PER_MINUTE, windowMs: 60 * 1000 });
   const mailLimiter = createLimiter({ max: 5, windowMs: 3600 * 1000 });
+  const mailTestLimiter = createLimiter({ max: 2, windowMs: 10 * 60 * 1000 });
+  const mailState = { since: now(), pending: 0, accepted: 0, failed: 0, lastAcceptedAt: null, lastFailedAt: null };
   const scoreLimiter = createLimiter({ max: 30, windowMs: 60 * 1000 });
   const spendLimiter = createLimiter({ max: 20, windowMs: 60 * 1000 });
   const reviewLimiter = createLimiter({ max: 10, windowMs: 3600 * 1000 });
@@ -332,12 +335,7 @@ export function createApp({
     }
     // Площадку переименовали: в уже заведённой базе автор демо-игр получает новое имя.
     if (studio.name !== STUDIO_NAME) db.prepare('UPDATE users SET name = ? WHERE id = ?').run(STUDIO_NAME, studio.id);
-    const slugs = fs.readdirSync(root).filter((d) => fs.existsSync(path.join(root, d, 'meta.json'))).sort();
-    for (const slug of slugs) {
-      const src = path.join(root, slug);
-      let meta;
-      try { meta = JSON.parse(fs.readFileSync(path.join(src, 'meta.json'), 'utf8')); } catch { continue; }
-      if (!fs.existsSync(path.join(src, 'index.html'))) continue;
+    for (const { slug, src, meta } of demoGames(root)) {
       const id = sha256(`demo:${slug}`).slice(0, 16);
       fs.cpSync(src, gameDir(id), { recursive: true, force: true });
       const genre = CATEGORIES.includes(meta.category) ? meta.category : 'Прочее';
@@ -637,9 +635,48 @@ export function createApp({
   }
 
   function sendMail(to, subject, text) {
-    Promise.resolve()
+    if (mailer.enabled) mailState.pending++;
+    return Promise.resolve()
       .then(() => mailer.send({ to, subject, text }))
-      .catch((err) => console.error(`Письмо «${subject}» не отправлено:`, err.message));
+      .then(() => {
+        if (mailer.enabled) { mailState.accepted++; mailState.lastAcceptedAt = now(); }
+        return true;
+      })
+      .catch((err) => {
+        if (mailer.enabled) { mailState.failed++; mailState.lastFailedAt = now(); }
+        console.error(`Письмо «${subject}» не отправлено:`, err.message);
+        return false;
+      })
+      .finally(() => { if (mailer.enabled) mailState.pending--; });
+  }
+
+  function adminSystem(req, res) {
+    requireOwner(req);
+    db.prepare('SELECT 1').get();
+    send(res, 200, {
+      checkedAt: now(), siteUrl,
+      database: { connected: true },
+      mail: { configured: !!mailer.enabled, sender: mailer.enabled ? mailer.sender || null : null, ...mailState },
+      payments: { configured: !!yookassa.enabled, test: !!yookassa.test },
+      ads: { provider: ads.provider, banner: ads.banner },
+      contacts: { email: !!site.email, owner: !!site.owner },
+    });
+  }
+
+  async function adminMailTest(req, res) {
+    const user = requireOwner(req);
+    if (!mailer.enabled) throw new HttpError(503, 'Почта не подключена. Сначала настройте SMTP на сервере.');
+    const key = `mail-test|${user.id}`;
+    if (mailTestLimiter.blocked(key)) throw new HttpError(429, 'Две проверки уже выполнены. Повторите через 10 минут.');
+    mailTestLimiter.fail(key);
+    const ok = await sendMail(user.email, 'Gamely: проверка отправки писем', [
+      `Здравствуйте, ${user.name}!`, '',
+      'Вы запросили проверку почты в админке Gamely. Если вы читаете это письмо, оно дошло до вашего ящика.',
+      'Отдельно проверьте восстановление пароля на тестовом аккаунте.', '', siteUrl,
+    ].join('\n'));
+    if (!ok) throw new HttpError(503, 'Почтовый сервер не принял письмо. Проверьте SMTP и журнал приложения.');
+    logAction(user, 'mail.test', user.id, 'Проверка отправки писем');
+    send(res, 200, { ok: true, recipient: user.email });
   }
 
   function sendVerification(user) {
@@ -654,13 +691,14 @@ export function createApp({
   async function forgotPassword(req, res) {
     const email = String((await readJson(req)).email || '').trim().toLowerCase();
     if (!EMAIL_RE.test(email)) throw new HttpError(400, 'Некорректный email');
+    if (!mailer.enabled) throw new HttpError(503, 'Восстановление пароля временно недоступно: отправка писем ещё не подключена. Попробуйте позже.');
     const key = `reset|${clientIp(req)}|${email}`;
     if (mailLimiter.blocked(key)) throw new HttpError(429, 'Слишком много запросов, попробуйте через час');
     mailLimiter.fail(key);
     const user = q.userByEmail.get(email);
     if (user && email !== STUDIO_EMAIL) {
       const token = issueToken(user.id, 'reset', RESET_TTL_MS);
-      sendMail(user.email, 'Сброс пароля на Gamely', [
+      await sendMail(user.email, 'Сброс пароля на Gamely', [
         `Здравствуйте, ${user.name}!`, '',
         'Кто-то, возможно вы, попросил сбросить пароль. Задать новый пароль можно по ссылке:',
         `${siteUrl}/reset.html?token=${token}`, '',
@@ -676,10 +714,16 @@ export function createApp({
     if (typeof password !== 'string' || password.length < 8 || password.length > 200) {
       throw new HttpError(400, 'Пароль: от 8 до 200 символов');
     }
+    if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) throw new HttpError(400, 'Ссылка устарела или уже использована. Запросите новую');
+    const valid = q.token.get(sha256(token));
+    if (!valid || valid.kind !== 'reset' || valid.expires_at <= Date.now()) throw new HttpError(400, 'Ссылка устарела или уже использована. Запросите новую');
+    const passwordHash = await hashPassword(password);
+    // Забираем ссылку после хэширования: параллельный запрос мог использовать её первым.
     const row = takeToken(token, 'reset');
     if (!row) throw new HttpError(400, 'Ссылка устарела или уже использована. Запросите новую');
-    q.setPassword.run(await hashPassword(password), row.user_id);
+    q.setPassword.run(passwordHash, row.user_id);
     q.deleteUserSessions.run(row.user_id); // выходим на всех устройствах
+    q.deleteTokens.run(row.user_id, 'verify');
     q.verifyEmail.run(Date.now(), row.user_id); // письмо дошло — значит, почта настоящая
     rewards.onVerified(row.user_id);
     const user = q.userById.get(row.user_id);
@@ -1224,7 +1268,10 @@ export function createApp({
         : out.replace('</title>', `</title>\n<meta name="description" content="${e(meta.description)}">`);
     }
     // На вложенном адресе ссылки страницы (style.css, app.js, login.html) должны считаться от корня сайта.
-    if (ctx.nested) out = out.replace('<head>', '<head>\n<base href="/">');
+    // Главная тоже может стать вложенным адресом через history API при выборе категории.
+    // Остальным страницам base не нужен: он изменил бы смысл ссылок вида #shop и #sdk.
+    // Статическая версия проходит мимо withMeta и сохраняет свои относительные пути.
+    if (ctx.nested || rel === '/index.html') out = out.replace('<head>', '<head>\n<base href="/">');
     out = out.replace('</head>', `${tags}\n${jsonLd(rel, meta, game, ctx.cat)}</head>`);
     if (games) out = catalogHtml(out, games, ctx.cat);
     if (game) out = gameHtml(out, game);
@@ -1497,6 +1544,9 @@ export function createApp({
     if (p === '/api/login' && m === 'POST') return login(req, res);
     if (p === '/api/logout' && m === 'POST') return logout(req, res);
     if (p === '/api/password/forgot' && m === 'POST') return forgotPassword(req, res);
+    if (p === '/api/password/status' && m === 'GET') return send(res, 200, { enabled: !!mailer.enabled });
+    if (p === '/api/admin/system' && m === 'GET') return adminSystem(req, res);
+    if (p === '/api/admin/system/mail-test' && m === 'POST') return adminMailTest(req, res);
     if (p === '/api/password/reset' && m === 'POST') return resetPassword(req, res);
     if (p === '/api/email/verify' && m === 'POST') return confirmEmail(req, res);
     if (p === '/api/email/resend' && m === 'POST') return resendVerification(req, res);

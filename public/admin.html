@@ -38,9 +38,28 @@
     <button data-pane="tasks" class="owner-only">Задания</button>
     <button data-pane="log">Журнал</button>
     <button data-pane="team" class="owner-only">Команда</button>
+    <button data-pane="system" class="owner-only">Состояние сайта</button>
   </nav>
 
   <main class="adm-main">
+    <div class="adm-controlbar">
+      <label class="adm-mobile-select" for="paneSelect">Раздел<select id="paneSelect"></select></label>
+      <span id="paneStatus" class="mut" role="status" aria-live="polite">Загружаем данные</span>
+      <button class="btn sm" id="paneRefresh" type="button">Обновить</button>
+    </div>
+    <div id="paneError" class="notice hidden" role="alert"></div>
+    <section class="pane hidden" id="pane-system">
+      <h1 class="adm-title">Состояние сайта</h1>
+      <p class="mut">Настройки и результаты работы текущего процесса. Секретные ключи здесь не показываются.</p>
+      <div id="systemCards" class="system-grid"></div>
+      <div class="panel">
+        <h3>Проверка почты</h3>
+        <p id="mailTestHint"></p>
+        <button class="btn" type="button" id="mailTest">Отправить проверочное письмо себе</button>
+        <p id="mailTestResult" class="mut" role="status" aria-live="polite"></p>
+      </div>
+      <div class="panel system-note"><h3>Резервные копии</h3><p>Наличие свежего бэкапа на VPS проверяется отдельно перед обновлением. Эта страница не подтверждает выполнение резервного копирования.</p></div>
+    </section>
     <section class="pane" id="pane-overview">
       <h1 class="adm-title">Обзор</h1>
       <div class="kpis" id="kpis"></div>
@@ -324,14 +343,60 @@ async function ask(title, text, placeholder = 'Причина') {
 }
 
 // ---------- разделы ----------
-const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, reviews: loadReviews, hero: loadHero, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, sources: loadSources, tasks: loadTasks, log: loadLog, team: loadTeam };
-function openPane(name) {
+const loaders = { overview: loadOverview, users: loadUsers, games: loadQueue, devs: loadDevQueue, avatars: loadAvatars, reviews: loadReviews, hero: loadHero, payments: loadPayments, tournament: loadTournament, shop: loadShopStats, invites: loadInviteStats, achievements: loadAchievementStats, partners: loadPartners, sources: loadSources, tasks: loadTasks, log: loadLog, team: loadTeam, system: loadSystem };
+const ownerPanes = new Set(['payments', 'tournament', 'team', 'partners', 'sources', 'tasks', 'hero', 'system']);
+let currentPane = 'overview', paneLoad = 0;
+async function openPane(name, writeHistory = true) {
+  if (!loaders[name] || (!me?.isAdmin && ownerPanes.has(name))) name = 'overview';
+  currentPane = name;
+  const attempt = ++paneLoad;
   document.querySelectorAll('#nav button').forEach((b) => b.classList.toggle('on', b.dataset.pane === name));
   document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('hidden', p.id !== `pane-${name}`));
-  history.replaceState(null, '', `#${name}`);
-  loaders[name]?.();
+  $('paneSelect').value = name;
+  const paneUrl = `${location.pathname}${location.search}#${name}`;
+  if (writeHistory && location.hash !== `#${name}`) history.pushState(null, '', paneUrl);
+  else if (!writeHistory && location.hash !== `#${name}`) history.replaceState(null, '', paneUrl);
+  $('paneError').classList.add('hidden'); $('paneStatus').textContent = 'Загружаем данные'; $('paneRefresh').disabled = true;
+  const pane = $(`pane-${name}`); pane.setAttribute('aria-busy', 'true');
+  try {
+    await loaders[name]();
+    if (attempt === paneLoad) $('paneStatus').textContent = `Обновлено в ${new Date().toLocaleTimeString('ru-RU', {hour:'2-digit',minute:'2-digit'})}`;
+  } catch (err) {
+    if (attempt === paneLoad) {
+      $('paneStatus').textContent = 'Данные не обновлены';
+      $('paneError').textContent = `Не удалось загрузить раздел. ${err.message || 'Проверьте соединение.'} Нажмите «Обновить», чтобы повторить. Ранее показанные данные могли устареть.`;
+      $('paneError').classList.remove('hidden');
+    }
+  } finally {
+    if (attempt === paneLoad) { pane.setAttribute('aria-busy', 'false'); $('paneRefresh').disabled = false; }
+  }
 }
 $('nav').onclick = (e) => { const b = e.target.closest('button'); if (b) openPane(b.dataset.pane); };
+$('paneSelect').onchange = () => openPane($('paneSelect').value);
+$('paneRefresh').onclick = () => openPane(currentPane, false);
+addEventListener('hashchange', () => { if (me) openPane(location.hash.slice(1), false); });
+
+async function loadSystem() {
+  const s = await api('GET', '/api/admin/system');
+  const adName = (provider) => ({none: 'Выключена', test: 'Тестовая', yandex: 'Яндекс', vk: 'VK', google: 'Google'}[provider] || provider || 'Выключена');
+  const row = (label, value) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`;
+  const card = (title, rows, note = '') => `<section class="panel"><h3>${esc(title)}</h3><dl class="system-facts">${rows}</dl>${note ? `<p class="mut">${esc(note)}</p>` : ''}</section>`;
+  $('systemCards').innerHTML =
+    card('Приложение', row('База данных', s.database.connected ? 'Отвечает' : 'Нет ответа') + row('Адрес сайта', s.siteUrl) + row('Проверено', when(s.checkedAt))) +
+    card('Письма', row('Отправка', s.mail.configured ? 'Настроена' : 'Не подключена') + row('Отправитель', s.mail.sender || 'Не задан') + row('В обработке', fmt(s.mail.pending)) + row('Принято SMTP', fmt(s.mail.accepted)) + row('Ошибок отправки', fmt(s.mail.failed)) + row('Последнее принято', when(s.mail.lastAcceptedAt)) + row('Последняя ошибка', when(s.mail.lastFailedAt)), 'Счётчики с запуска приложения. Принятие SMTP-сервером ещё не подтверждает доставку во входящие.') +
+    card('Платежи и реклама', row('Ключи ЮKassa', s.payments.configured ? (s.payments.test ? 'Тестовые' : 'Заданы') : 'Не заданы') + row('Реклама', adName(s.ads.provider)) + row('Баннер', adName(s.ads.banner)), 'Наличие настроек не заменяет проверку настоящего платежа и рекламного показа.') +
+    card('Контакты', row('Email сайта', s.contacts.email ? 'Указан' : 'Не указан') + row('Владелец', s.contacts.owner ? 'Указан' : 'Не указан'));
+  $('mailTest').disabled = !s.mail.configured;
+  $('mailTestHint').textContent = s.mail.configured ? `Письмо уйдёт только на адрес вашего аккаунта: ${me.email}. Затем проверьте входящие и «Спам».` : 'Сначала подключите ящик и SMTP на сервере. Создания ящика в Яндексе для этого недостаточно.';
+}
+$('mailTest').onclick = async () => {
+  $('mailTest').disabled = true; $('mailTestResult').textContent = 'Отправляем проверочное письмо';
+  try {
+    const r = await api('POST', '/api/admin/system/mail-test');
+    $('mailTestResult').textContent = `Сервер принял письмо для ${r.recipient}. Проверьте, пришло ли оно во входящие или «Спам».`;
+  } catch (err) { $('mailTestResult').textContent = err.message; }
+  finally { $('mailTest').disabled = false; loadSystem().catch(() => {}); }
+};
 
 // ---------- обзор ----------
 // Карточки с цифрой и спарклайном за 14 дней; график активности за 30 дней — заходили, запуски, регистрации.
@@ -1159,6 +1224,7 @@ const ACTIONS = {
   'user.block': 'блокировка', 'user.unblock': 'разблокировка', 'coins.grant': 'начисление монеток', 'coins.take': 'списание монеток',
   'tournament.set': 'турнир недели', 'tournament.clear': 'отмена турнира недели',
   'partner.create': 'новый блогер', 'partner.edit': 'изменение блогера', 'partner.payout': 'выплата блогеру',
+  'mail.test': 'проверка отправки писем',
 };
 async function loadLog() {
   const { entries } = await api('GET', '/api/admin/log?limit=200');
@@ -1205,9 +1271,11 @@ Igr.me().then((user) => {
   $('roleBadge').textContent = user.isAdmin ? 'владелец' : 'модератор';
   $('roleBadge').classList.toggle('owner', user.isAdmin);
   document.querySelectorAll('.owner-only').forEach((el) => el.classList.toggle('hidden', !user.isAdmin));
+  $('paneSelect').innerHTML = [...document.querySelectorAll('#nav button')].filter((b) => user.isAdmin || !ownerPanes.has(b.dataset.pane))
+    .map((b) => `<option value="${b.dataset.pane}">${esc(b.textContent.trim())}</option>`).join('');
   $('adm').hidden = false;
   const start = location.hash.slice(1);
-  openPane(loaders[start] && (user.isAdmin || !['payments', 'tournament', 'team', 'partners', 'sources', 'tasks', 'hero'].includes(start)) ? start : 'overview');
+  openPane(start || 'overview', false);
   if (start && start !== 'overview') api('GET', '/api/admin/overview').then((o) => {
     $('cntGames').textContent = o.queues.games || ''; $('cntDevs').textContent = o.queues.developers || ''; $('cntAvatars').textContent = o.queues.avatars || '';
   }).catch(() => {});
