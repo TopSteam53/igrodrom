@@ -190,7 +190,7 @@ export function createApp({
     deleteSession: db.prepare('DELETE FROM sessions WHERE token_hash = ?'),
     purgeSessions: db.prepare('DELETE FROM sessions WHERE expires_at <= ?'),
     publicGames: db.prepare(`SELECT g.id, g.slug, g.title, g.genre, g.age, g.cover, g.icon, g.description, g.short_description, g.tags,
-                               g.featured, g.author_id, ${AUTHOR_SQL}, g.created_at, ${RATING_SQL},
+                               g.featured, g.author_id, ${AUTHOR_SQL}, g.created_at, g.updated_at, ${RATING_SQL},
                                u.email = '${STUDIO_EMAIL}' AS demo
                              FROM games g JOIN users u ON u.id = g.author_id
                              WHERE g.status = 'approved' ORDER BY g.created_at DESC LIMIT 500`),
@@ -344,14 +344,22 @@ export function createApp({
       const icon = ICON_FILES.find((f) => fs.existsSync(path.join(src, f))) || null;
       const files = fs.readdirSync(src, { recursive: true }).filter((f) => fs.statSync(path.join(src, f)).isFile());
       const size = files.reduce((n, f) => n + fs.statSync(path.join(src, f)).size, 0);
-      const fresh = !q.game.get(id);
+      const existing = q.game.get(id);
+      const fresh = !existing;
+      const title = String(meta.title || slug).slice(0, 60);
+      const description = String(meta.description || '').slice(0, 1500);
+      const howToPlay = String(meta.how_to_play || '').slice(0, 600);
       if (fresh) {
         const t = Date.now();
         q.insertGame.run(id, studio.id, meta.title || slug, genre, size, files.length, cover, icon, t, t);
         q.setStatus.run('approved', null, t, id);
       }
-      q.updateMeta.run(String(meta.title || slug).slice(0, 60), genre, age,
-        String(meta.description || '').slice(0, 1500), String(meta.how_to_play || '').slice(0, 600), Date.now(), id);
+      // В sitemap updated_at должен означать изменение страницы, а не очередной запуск сервера.
+      if (fresh || existing.title !== title || existing.genre !== genre || existing.age !== age ||
+          existing.description !== description || existing.how_to_play !== howToPlay ||
+          existing.cover !== cover || existing.icon !== icon) {
+        q.updateMeta.run(title, genre, age, description, howToPlay, Date.now(), id);
+      }
       db.prepare('UPDATE games SET cover = ?, icon = ?, size = ?, file_count = ? WHERE id = ?').run(cover, icon, size, files.length, id);
       // featured из meta.json — только для новой игры: дальше подборку ведёт владелец в админке, и перезапуск
       // сервера её не сбрасывает (раньше отметки «на главную» у демо-игр пропадали после каждого выката).
@@ -1203,7 +1211,7 @@ export function createApp({
     const urls = [
       { loc: `${siteUrl}/`, lastmod: newest ? day(newest) : null },
       ...cats.map((c) => ({ loc: `${siteUrl}${catPath(c)}` })),
-      ...games.map((g) => ({ loc: `${siteUrl}${gamePath(g)}`, lastmod: day(g.created_at) })),
+      ...games.map((g) => ({ loc: `${siteUrl}${gamePath(g)}`, lastmod: day(Math.max(g.created_at, g.updated_at)) })),
       ...devs.map((id) => ({ loc: `${siteUrl}${devPath(id)}` })),
       ...['developers', 'tournament', 'terms', 'privacy', 'contacts'].map((f) => ({ loc: `${siteUrl}/${f}` })),
     ];
