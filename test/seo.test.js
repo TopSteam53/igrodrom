@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../server/app.js';
 
 let server, base, dataDir, publicDir, rasterId, svgId;
@@ -66,6 +67,38 @@ test('sitemap.xml: главная и страницы всех одобренн�
   assert.ok(r.body.includes('<loc>https://igry.test/game/vector</loc>'));
   assert.ok(r.body.includes('<loc>https://igry.test/category/arkady</loc>'));
   assert.ok(r.body.includes('<loc>https://igry.test/terms</loc>') && !r.body.includes('.html'));
+});
+
+test('sitemap.xml показывает дату обновления игры, а повторный запуск её не меняет', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'igrodrom-seo-dates-'));
+  const start = async () => {
+    const app = createApp({ dataDir: dir, publicDir, seedDemoGames: true, siteUrl: 'https://igry.test/' });
+    await new Promise((resolve) => app.listen(0, '127.0.0.1', resolve));
+    return app;
+  };
+  const close = (app) => new Promise((resolve) => app.close(resolve));
+  try {
+    const first = await start();
+    await close(first);
+    const db = new DatabaseSync(path.join(dir, 'igrodrom.db'));
+    const created = Date.parse('2026-01-01T12:00:00Z');
+    const updated = Date.parse('2026-01-10T12:00:00Z');
+    db.prepare('UPDATE games SET created_at = ?, updated_at = ? WHERE title = ?').run(created, updated, 'Ракета');
+    db.close();
+
+    const second = await start();
+    try {
+      const xml = await (await fetch(`http://127.0.0.1:${second.address().port}/sitemap.xml`)).text();
+      assert.match(xml, /<loc>https:\/\/igry\.test\/game\/raster<\/loc><lastmod>2026-01-10<\/lastmod>/);
+    } finally {
+      await close(second);
+    }
+    const checked = new DatabaseSync(path.join(dir, 'igrodrom.db'));
+    assert.equal(checked.prepare('SELECT updated_at FROM games WHERE title = ?').get('Ракета').updated_at, updated);
+    checked.close();
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('страница игры: свой заголовок, описание и картинка для превью ссылки', async () => {
