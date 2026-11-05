@@ -154,6 +154,8 @@ header.top{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--p
 html.game-fs,html.game-fs body{overflow:hidden}
 html.game-fs .player{position:fixed;inset:0;z-index:30;width:100vw;height:100vh;height:100dvh;max-height:none;aspect-ratio:auto;border:0;border-radius:0}
 .fs-exit{display:none;position:absolute;top:8px;right:8px;z-index:3;padding:6px 12px;border:0;border-radius:10px;background:rgba(8,10,24,.6);color:#fff;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.fs-share{display:none;position:absolute;top:6px;right:105px;z-index:3;padding:6px 10px;border:0;border-radius:10px;
+  background:var(--paper);color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
 html.game-fs:not(.fs-native) .fs-exit{display:block}
 .player-caption{display:none}
 html.game-playing{overflow:hidden}
@@ -161,6 +163,8 @@ html.game-playing:not(.game-fs) .player{position:fixed;inset:0;z-index:30;width:
 html.game-playing:not(.game-fs) .player iframe{top:44px;height:calc(100% - 44px)}
 html.game-playing:not(.game-fs) .player-caption{display:block;position:absolute;top:0;left:14px;right:120px;line-height:44px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600}
 html.game-playing:not(.game-fs) .fs-exit{display:block;top:6px;background:var(--paper);color:var(--ink)}
+html.game-playing:not(.game-fs) .fs-share:not(.hidden){display:block}
+html.game-playing:not(.game-fs) .player-caption.score-ready{right:220px}
 .splash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:2;background:#0B0D1C}
 /* Обложка — только фон: размытая и затемнённая, чтобы иконка, название и кнопка читались на любой картинке. */
 .splash-bg{position:absolute;inset:0;overflow:hidden}
@@ -170,6 +174,9 @@ html.game-playing:not(.game-fs) .fs-exit{display:block;top:6px;background:var(--
 @media(max-width:640px){.player{aspect-ratio:3/4;max-height:78vh}.game-head h1{font-size:24px}.game-head .game-icon{width:56px;font-size:26px}.splash-title{font-size:22px}}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0 4px}
 .toolbar .spacer{flex:1}
+.score-invite{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 0;padding:12px 16px;
+  border:2px solid var(--key-line);border-radius:12px;background:var(--panel)}
+.score-invite span{flex:1;min-width:200px}
 /* minmax(0,…): иначе колонку распирает лента скриншотов (её ширина — сумма кадров), и на телефоне страница
    становилась шире экрана и «прыгала», когда скриншоты догружались. */
 .info{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;margin-top:20px}
