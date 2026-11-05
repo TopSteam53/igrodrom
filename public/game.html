@@ -34,6 +34,7 @@
     <div class="player" id="player">
       <span class="player-caption" id="playerCaption"></span>
       <button class="fs-exit" id="fsExit" type="button" aria-label="Свернуть игру">Свернуть</button>
+      <button class="fs-share hidden" id="scoreInviteMobile" type="button">Вызов другу</button>
       <div class="splash" id="splash">
         <div class="splash-bg" id="splashBg"></div>
         <div class="splash-in">
@@ -54,6 +55,11 @@
       <span class="spacer"></span>
       <button class="btn sm" id="share">Поделиться</button>
       <button class="btn sm" id="full">Во весь экран</button>
+    </div>
+
+    <div class="score-invite hidden" id="scoreInvite" role="status">
+      <span>Ваш рекорд: <b id="scoreInviteValue"></b>. Предложите другу побить его.</span>
+      <button class="btn sm" id="scoreInviteBtn" type="button">Бросить вызов другу</button>
     </div>
 
     <p class="save-hint hidden" id="saveHint"></p>
@@ -249,6 +255,14 @@ function renderScore() {
 
 // ---------- игра ----------
 let session = null, waitInput = false;
+let resultScore = null, scoreAt = 0, stoppedAt = 0;
+function showScoreInvite() {
+  if (!live || !resultScore || Math.abs(scoreAt - stoppedAt) > 5000) return;
+  $('scoreInviteValue').textContent = fmt(resultScore);
+  $('scoreInvite').classList.remove('hidden');
+  $('scoreInviteMobile').classList.remove('hidden');
+  $('playerCaption').classList.add('score-ready');
+}
 $('play').onclick = () => startGame();
 function startGame({ countOnTouch = false } = {}) {
   if (matchMedia('(max-width:760px)').matches) document.documentElement.classList.add('game-playing');
@@ -265,8 +279,25 @@ function startGame({ countOnTouch = false } = {}) {
       const user = live ? await Igr.me() : null;
       return user ? { authorized: true, name: user.name, id: await IgrodromHost.playerIdFor(user.id, game.id) } : null;
     },
-    onScore: () => { if (live) setTimeout(loadBoard, 300); },
-    onEvent: (type) => { if (type === 'game.input' && waitInput) { waitInput = false; if (live) startSession(); } },
+    onScore: (entry) => {
+      if (!live) return;
+      setTimeout(loadBoard, 300);
+      if (Number.isSafeInteger(entry?.score) && entry.score > 0) {
+        resultScore = entry.score;
+        scoreAt = Date.now();
+        showScoreInvite();
+      }
+    },
+    onEvent: (type) => {
+      if (type === 'game.start') {
+        resultScore = null; scoreAt = 0; stoppedAt = 0;
+        $('scoreInvite').classList.add('hidden');
+        $('scoreInviteMobile').classList.add('hidden');
+        $('playerCaption').classList.remove('score-ready');
+      }
+      if (type === 'game.stop') { stoppedAt = Date.now(); showScoreInvite(); }
+      if (type === 'game.input' && waitInput) { waitInput = false; if (live) startSession(); }
+    },
     ...(live && { coins: coinsBridge, feedback: feedbackBridge }),
   });
   frame.src = game.src;
@@ -384,7 +415,7 @@ $('lbBoards').onclick = (e) => { const b = e.target.closest('[data-board]'); if 
 // Ссылка на эту игру с личным приглашением и своим рекордом: друг увидит, что побить, а за друга, который
 // зарегистрируется и сыграет в две разные игры, вы получите монетки (server/rewards.js).
 let myInvite = null;
-$('vsBtn').onclick = async () => {
+async function openChallenge(score) {
   try {
     if (!myInvite) {
       const r = await fetch('/api/me/invite');
@@ -393,15 +424,18 @@ $('vsBtn').onclick = async () => {
     }
     const url = new URL(Igr.gameUrl(game), location.origin);
     url.searchParams.set('invite', myInvite.code);
-    if (myBest) url.searchParams.set('vs', myBest);
-    const text = myBest ? `Я набрал ${fmt(myBest)} в «${game.title}» на Gamely. Сможешь больше?` : `Сыграй в «${game.title}» на Gamely`;
+    if (score > 0) url.searchParams.set('vs', score);
+    const text = score > 0 ? `Я набрал ${fmt(score)} в «${game.title}» на Gamely. Сможешь больше?` : `Сыграй в «${game.title}» на Gamely`;
     await Igr.dialog({
       title: 'Бросить вызов другу',
-      html: `<p>Друг откроет игру и увидит ваш результат${myBest ? ` — <b>${fmt(myBest)}</b>` : ''}. Если он зарегистрируется и сыграет в ${myInvite.play_games} разные игры, вы получите ${esc(Igr.coinsText(myInvite.reward))}.</p>${Igr.shareHTML({ url: url.href, text })}`,
+      html: `<p>Друг откроет игру и увидит ваш результат${score > 0 ? ` — <b>${fmt(score)}</b>` : ''}. Если он зарегистрируется и сыграет в ${myInvite.play_games} разные игры, вы получите ${esc(Igr.coinsText(myInvite.reward))}.</p>${Igr.shareHTML({ url: url.href, text })}`,
       buttons: [{ text: 'Готово', value: null }],
     });
   } catch (err) { toast(err.message, 'err'); }
-};
+}
+$('vsBtn').onclick = () => openChallenge(myBest);
+$('scoreInviteBtn').onclick = () => openChallenge(resultScore);
+$('scoreInviteMobile').onclick = () => openChallenge(resultScore);
 
 // Пришли по ссылке-вызову (?invite=<код>&vs=<очки>): кто позвал и какой результат побить.
 async function showChallenge() {
